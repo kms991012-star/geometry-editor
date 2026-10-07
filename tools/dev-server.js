@@ -1,8 +1,8 @@
 /* 내 PC에서 편집기 + AI 인식 서버를 함께 띄우는 시험용 서버 (Vercel과 같은 /api/recognize)
-   사용: npm install → npm run dev → http://localhost:3000/도형편집기.html
+   사용: npm run dev → http://localhost:3000/도형편집기.html
    API 키는 저장소 맨 위 폴더의 .env.local 파일에 적어요 (GitHub에 올라가지 않아요):
-     ANTHROPIC_API_KEY=...
-     AI_ACCESS_CODE=...                                                              */
+     GEMINI_API_KEY=...
+     AI_ACCESS_CODE=...   (선택)                                                        */
 'use strict';
 const http = require('http');
 const fs = require('fs');
@@ -38,5 +38,5 @@ http.createServer((req, res) => {
   fs.createReadStream(file).pipe(res);
 }).listen(PORT, '127.0.0.1', () => {
   console.log(`도형 편집기: http://localhost:${PORT}/도형편집기.html`);
-  console.log(`AI 설정: API 키 ${process.env.ANTHROPIC_API_KEY ? '있음' : '없음'}, 접속 비밀번호 ${process.env.AI_ACCESS_CODE ? '있음' : '없음'}`);
+  console.log(`AI 설정: Gemini API 키 ${process.env.GEMINI_API_KEY ? '있음' : '없음'}, 접속 비밀번호 ${process.env.AI_ACCESS_CODE ? '있음' : '없음(누구나 사용)'}`);
 });

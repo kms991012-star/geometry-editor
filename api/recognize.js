@@ -1,138 +1,196 @@
 /* ================================================================
-   AI 도형 인식 서버 (Vercel 서버리스 함수: /api/recognize)
+   AI 도형 인식 서버 (Vercel 서버리스 함수: /api/recognize) — Google Gemini API 무료 등급 전용
 
-   도형편집기.html 이 그림을 보내면, 여기서 Claude(이미지 인식 AI)에게
-   "그림 속 도형을 JSON으로" 요청하고 결과를 돌려줍니다.
+   도형편집기.html 이 그림을 보내면, 여기서 Gemini(이미지를 읽는 AI)에게
+   "그림 속 도형을 JSON으로" 요청하고, 편집기가 쓰는 형식으로 바꿔 돌려줍니다.
 
    - API 키는 이 파일에 적지 않습니다. Vercel 설정 화면의 환경변수에서 읽어요.
-       ANTHROPIC_API_KEY : Anthropic(Claude) API 키
-       AI_ACCESS_CODE    : 편집기에서 입력하는 'AI 접속 비밀번호' (아무나 쓰지 못하게)
-       AI_MODEL          : (선택) 다른 모델로 바꿀 때만. 기본 claude-opus-5-5
-   - 다른 AI로 바꾸려면 callModel() 하나만 바꾸면 됩니다.
-     편집기는 아래 RESULT 형식(objects 배열)만 알면 돼요.
+       GEMINI_API_KEY : Google AI Studio에서 만든 Gemini API 키 (필수)
+       AI_ACCESS_CODE : (선택) 편집기에서 입력하는 'AI 접속 비밀번호' — 남이 내 무료 한도를 쓰지 못하게
+       GEMINI_MODEL   : (선택) 모델을 바꿀 때만. 아래 FREE_TIER_MODELS 안의 이름만 허용
+   - 비용: 무료 등급에서 쓸 수 있는 모델만 부르고, 한도 초과(429)면 바로 멈춰서 알려 줘요.
+     자동 재시도·다른 모델로 자동 전환·유료 기능 사용은 하지 않습니다.
+     (무료 등급인지 여부는 API 키가 속한 Google 프로젝트에 결제를 연결했는지로 정해져요.
+      결제를 연결하지 않은 프로젝트의 키를 쓰면 요금이 생기지 않아요.)
+   - 다른 AI로 바꾸려면 callModel() 하나만 바꾸면 됩니다. 편집기는 objects 배열 형식만 알면 돼요.
    ================================================================ */
 'use strict';
 const crypto = require('crypto');
-const Anthropic = require('@anthropic-ai/sdk');
 
-const MODEL = process.env.AI_MODEL || 'claude-opus-5-5';
+/* 무료 등급에서 이미지 입력을 지원하는 모델 (공식 가격 문서 https://ai.google.dev/gemini-api/docs/pricing 기준, 2026-10-07 확인)
+   정책이 바뀌면 이 목록만 고치면 됩니다. 목록에 없는 모델은 부르지 않아요. */
+const FREE_TIER_MODELS = ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'];
+const DEFAULT_MODEL = 'gemini-3.8-flash';
+const API = 'https://generativelanguage.googleapis.com/v1beta';
 const MAX_IMAGE_BASE64 = 4_000_000;   // 약 3MB 그림 (Vercel 요청 한도 4.5MB 안쪽)
-const MAX_SIDE = 2576;                // 이 모델이 그대로 읽는 최대 크기(긴 쪽 픽셀) — 좌표가 픽셀과 1:1로 맞아요
+const MAX_SIDE = 3072;
+
+function modelName() {
+  const m = (process.env.GEMINI_MODEL || '').trim();
+  return m ? (FREE_TIER_MODELS.includes(m) ? m : null) : DEFAULT_MODEL;
+}
 
 /* ---------- AI에게 주는 지시문 ---------- */
 const SYSTEM_PROMPT = `You convert images of school math figures (geometry diagrams) into structured, editable drawing data.
-Your output is used to rebuild the figure as editable vector objects drawn exactly on top of the original image, so completeness and coordinate accuracy matter more than anything else. Never describe the image in prose; only fill in the JSON schema.
+The output is used to redraw the figure as editable vector objects exactly on top of the original image, so completeness and position accuracy matter most. Never describe the image in prose; only return the JSON.
 
-Coordinates
-- Use pixel coordinates of the image exactly as given: origin (0, 0) is the top-left corner, x grows to the right, y grows downward. The image size is stated in the request.
-- Put each point exactly where it is drawn: the center of a drawn dot, or the exact pixel where lines meet or end. Do not place a point on its letter label.
-- For text, give the center of the text.
+Positions
+- Every position is "point": [y, x] normalized to 0-1000 (y: 0 = top edge, 1000 = bottom edge; x: 0 = left edge, 1000 = right edge).
+- Put each point exactly where it is drawn: the center of a drawn dot, or the exact spot where lines meet or end. Never on its letter label.
+- For text, give the center of the text. A circle "radius" uses the same 0-1000 scale as x (fraction of the image width).
 
 Points and labels
-- List every vertex, endpoint, intersection, center, and marked dot as a "point". Every object that refers to a point must refer to a listed point by its id.
-- A letter written next to a point (A, B, C, P, O, H, M, A', B1, ...) is that point's label: put it in the point's "label" and do not also output it as text.
-- If a point has no visible label, leave "label" empty and give an id such as "P1", "P2".
-- Use the label as the id when there is one.
+- List every vertex, endpoint, intersection, circle center and marked dot as type "point" with an "id". Every other object refers to points by id.
+- A letter written next to a point (A, B, C, P, O, H, M, A', B1, ...) is that point's "label" (also use it as the id). Do not output it again as text.
+- An unlabeled point gets an empty label and an id such as "P1", "P2".
 
 Lines and shapes
-- "segment": every drawn straight line piece between two points (each side of a triangle or quadrilateral too). Set "dashed" for dashed or dotted lines. Set "heads" if the segment itself ends in an arrowhead ("end" = at "to", "start" = at "from", "both"). Set "ticks" (1-3) for equal-length tick marks drawn across it, otherwise 0.
-- "polygon": list closed shapes (triangle, quadrilateral, polygon) by their vertices in order, in addition to their sides as segments. Set "fill" only if the region is shaded.
-- "line": a line extending past the figure in both directions through two points. "ray": starts at a point and extends past another.
-- "circle": center point plus a point on the circle ("through"), or a radius in pixels when no point is on it (then "through" is empty).
-- "arc": a drawn arc with center, start point and end point, going counterclockwise as seen on screen from "from" to "to".
-- Do not turn strokes of letters, digits, right-angle squares, tick marks, arrowheads, or angle arcs into segments.
+- "segment": every drawn straight piece between two points ("from", "to"), including each side of a triangle or quadrilateral. "dashed": true for dashed or dotted lines. "heads": "end" (arrowhead at "to"), "start" (at "from"), "both", or "none". "ticks": number of equal-length tick marks across it (0-3).
+- "polygon": closed shapes (triangle, quadrilateral, polygon) with "points" = vertex ids in order, in addition to their sides as segments. "fill": true only if the region is shaded.
+- "line": a line through two points ("from", "to") extending past both. "ray": starts at "from" and extends past "through".
+- "circle": a full circle, "center" id plus "through" (id of a point on it) or "radius". "arc": only part of a circle, "center", "from", "to", going counterclockwise as seen on screen from "from" to "to". Do not confuse circles and arcs.
+- Never turn strokes of letters or digits, right-angle squares, tick marks, arrowheads, angle arcs or dimension lines into segments.
 
-Marks and numbers
-- "rightAngle": a small square drawn in a corner. "points" are [one side point, vertex, other side point].
-- "angle": an angle arc or an angle value at a vertex. "value" is the written text (e.g. "60°", "x", "∠a"), empty if none.
-- "parallel": arrowheads (>, >>) drawn on two segments meaning they are parallel. "perpendicular": two segments marked as perpendicular where no vertex square fits.
-- "length": a number or expression written beside a segment ("5", "7 cm", "x"). "segment" is that segment's two endpoint ids. Do not confuse length numbers with point labels: labels are letters next to points; lengths are numbers or expressions near the middle of a segment.
-- "dimension": a separate dimension line with arrows or brackets showing a length between two points.
-- "arrow": a free arrow that is not a side of the figure (for example pointing at a part of the figure). Use point ids for ends that sit on a point, otherwise coordinates.
-- "text": any other text (a question number, "cm", a variable written inside a region). Do not repeat text already captured as a label, length, or angle value.
+Marks and text
+- "rightAngle": a small square in a corner. "points" = [side point id, vertex id, side point id].
+- "angle": an angle arc and/or a written angle value at a vertex. "points" = [side, vertex, side]. "value" = the written text such as "60°" or "x" (empty if none).
+- "parallel": arrowheads (>, >>) on two segments meaning they are parallel: "segment" and "otherSegment" (each [id, id]), "count" = number of arrowheads.
+- "perpendicular": two segments marked perpendicular where no corner square fits ("segment", "otherSegment").
+- "length": a number or expression written beside a segment ("5", "7 cm", "x"): "segment" = its two endpoint ids, "value" = the text. Lengths are numbers/expressions near the middle of a segment; labels are letters next to points - do not confuse them.
+- "dimension": a separate dimension line (arrows or brackets) showing a length between two points: "segment" = [id, id], "value".
+- "arrow": a free arrow that is not a side of the figure. Use "from"/"to" ids for ends on a point, otherwise "fromPos"/"toPos" as [y, x]. "heads": "end" or "both".
+- "text": any other text (x, y, cm, m, a question number, a variable inside a region): "text" and "point" = its center.
 
-Confidence
-- "confidence" is your estimate (0 to 1) that the object exists exactly as described. Use low values for uncertain reads (small or blurry digits, faint dashed lines).
+Honesty
+- Only report objects that are actually drawn. Never invent objects that are not in the image.
+- "confidence" (0 to 1) is how sure you are that the object exists exactly as described; use low values for uncertain reads (small or blurry digits, faint dashes).
+- Find every object in the figure; it is fine to return many objects.`;
 
-Find every object in the figure; it is fine to return many objects.`;
-
-/* ---------- 결과 형식 (구조화 출력 스키마) — 편집기 normalizeRecognitionResult()가 읽는 형식으로 바뀌어 돌아가요 ---------- */
-const str = { type: 'string' }, num = { type: 'number' }, bool = { type: 'boolean' };
-const conf = { type: 'number', description: '0..1' };
-const pair = { type: 'array', items: str, description: 'two point ids' };
-const variant = (type, props) => ({
-  type: 'object',
-  properties: { type: { type: 'string', const: type }, ...props, confidence: conf },
-  required: ['type', ...Object.keys(props), 'confidence'],
-  additionalProperties: false,
-});
-const RESULT_SCHEMA = {
-  type: 'object',
+/* ---------- 결과 형식 (Gemini 구조화 출력 스키마, OpenAPI 형식) ---------- */
+const S = (type, extra = {}) => ({ type, ...extra });
+const YX = S('ARRAY', { items: S('INTEGER'), description: '[y, x] normalized 0-1000' });
+const PAIR = S('ARRAY', { items: S('STRING'), description: 'two point ids' });
+const RESULT_SCHEMA = S('OBJECT', {
   properties: {
-    objects: {
-      type: 'array',
-      items: {
-        anyOf: [
-          variant('point', { id: str, label: str, x: num, y: num }),
-          variant('segment', { from: str, to: str, dashed: bool, heads: { type: 'string', enum: ['none', 'end', 'start', 'both'] }, ticks: { type: 'integer', enum: [0, 1, 2, 3] } }),
-          variant('polygon', { points: { type: 'array', items: str }, fill: bool }),
-          variant('line', { through: pair, dashed: bool }),
-          variant('ray', { from: str, through: str, dashed: bool }),
-          variant('circle', { center: str, through: str, radius: num, dashed: bool }),
-          variant('arc', { center: str, from: str, to: str }),
-          variant('angle', { points: { type: 'array', items: str, description: '[side point, vertex, side point]' }, value: str }),
-          variant('rightAngle', { points: { type: 'array', items: str, description: '[side point, vertex, side point]' } }),
-          variant('parallel', { segments: { type: 'array', items: pair }, count: { type: 'integer', enum: [1, 2, 3] } }),
-          variant('perpendicular', { segments: { type: 'array', items: pair } }),
-          variant('length', { segment: pair, value: str }),
-          variant('dimension', { between: pair, value: str }),
-          variant('arrow', { fromPoint: str, fromX: num, fromY: num, toPoint: str, toX: num, toY: num, heads: { type: 'string', enum: ['end', 'both'] } }),
-          variant('text', { text: str, x: num, y: num }),
-        ],
-      },
-    },
+    objects: S('ARRAY', {
+      items: S('OBJECT', {
+        properties: {
+          type: S('STRING', { enum: ['point', 'segment', 'line', 'ray', 'polygon', 'circle', 'arc', 'angle', 'rightAngle', 'parallel', 'perpendicular', 'length', 'dimension', 'arrow', 'text'] }),
+          id: S('STRING'), label: S('STRING'), point: YX,
+          from: S('STRING'), to: S('STRING'), through: S('STRING'), center: S('STRING'),
+          points: S('ARRAY', { items: S('STRING') }),
+          segment: PAIR, otherSegment: PAIR,
+          fromPos: YX, toPos: YX,
+          radius: S('NUMBER'), value: S('STRING'), text: S('STRING'),
+          dashed: S('BOOLEAN'), fill: S('BOOLEAN'),
+          heads: S('STRING', { enum: ['none', 'end', 'start', 'both'] }),
+          ticks: S('INTEGER'), count: S('INTEGER'),
+          confidence: S('NUMBER'),
+        },
+        required: ['type', 'confidence'],
+      }),
+    }),
   },
   required: ['objects'],
-  additionalProperties: false,
-};
+});
 
-/* 모델 출력 → 편집기 형식 (화살표 끝: 점 이름이 있으면 이름, 없으면 [x, y]) */
+/* 모델 출력(0~1000 [y, x]) → 편집기 형식(보낸 그림의 픽셀 좌표) */
 function toEditorFormat(out, width, height) {
-  const objects = (out && Array.isArray(out.objects) ? out.objects : []).map(o => {
-    if (o && o.type === 'arrow') {
-      return { type: 'arrow', from: o.fromPoint || [o.fromX, o.fromY], to: o.toPoint || [o.toX, o.toY], heads: o.heads, confidence: o.confidence };
+  const px = p => Array.isArray(p) && p.length >= 2 && isFinite(+p[0]) && isFinite(+p[1])
+    ? { x: Math.round(+p[1] / 1000 * width * 10) / 10, y: Math.round(+p[0] / 1000 * height * 10) / 10 } : null;
+  const objects = [];
+  for (const o of (out && Array.isArray(out.objects) ? out.objects : [])) {
+    if (!o || typeof o !== 'object') continue;
+    const c = isFinite(+o.confidence) ? Math.max(0, Math.min(1, +o.confidence)) : 0.5;
+    const base = { type: o.type, confidence: c };
+    switch (o.type) {
+      case 'point': { const p = px(o.point); if (p) objects.push({ ...base, id: String(o.id || o.label || ''), label: String(o.label || ''), ...p }); break; }
+      case 'text': { const p = px(o.point); if (p && o.text) objects.push({ ...base, text: String(o.text), ...p }); break; }
+      case 'segment': objects.push({ ...base, from: o.from, to: o.to, dashed: !!o.dashed, ...(o.heads && o.heads !== 'none' ? { heads: o.heads } : {}), ...(+o.ticks > 0 ? { ticks: +o.ticks } : {}) }); break;
+      case 'line': objects.push({ ...base, through: [o.from, o.to], dashed: !!o.dashed }); break;
+      case 'ray': objects.push({ ...base, from: o.from, through: o.through || o.to, dashed: !!o.dashed }); break;
+      case 'polygon': objects.push({ ...base, points: o.points, fill: !!o.fill }); break;
+      case 'circle': objects.push({ ...base, center: o.center, ...(o.through ? { through: o.through } : {}), ...(+o.radius > 0 ? { radius: +o.radius / 1000 * width } : {}), dashed: !!o.dashed }); break;
+      case 'arc': objects.push({ ...base, center: o.center, from: o.from, to: o.to }); break;
+      case 'angle': objects.push({ ...base, points: o.points, value: o.value || '' }); break;
+      case 'rightAngle': objects.push({ ...base, points: o.points }); break;
+      case 'parallel': objects.push({ ...base, segments: [o.segment, o.otherSegment], count: +o.count || 1 }); break;
+      case 'perpendicular': objects.push({ ...base, segments: [o.segment, o.otherSegment] }); break;
+      case 'length': objects.push({ ...base, segment: o.segment, value: o.value || o.text || '' }); break;
+      case 'dimension': objects.push({ ...base, between: o.segment, value: o.value || o.text || '' }); break;
+      case 'arrow': {
+        const end = (id, pos) => id || (px(pos) ? [px(pos).x, px(pos).y] : null);
+        const a = end(o.from, o.fromPos), b = end(o.to, o.toPos);
+        if (a && b) objects.push({ ...base, from: a, to: b, heads: o.heads === 'both' ? 'both' : 'end' });
+        break;
+      }
+      default: break;
     }
-    if (o && o.type === 'segment' && o.heads === 'none') { const { heads, ...rest } = o; return rest; }
-    if (o && o.type === 'circle' && !o.through) { const { through, ...rest } = o; return rest; }
-    return o;
-  });
+  }
   return { image: { width, height }, objects };
 }
 
-/* ---------- AI 호출 (다른 AI로 바꿀 때는 이 함수만) ---------- */
+/* ---------- Gemini 호출 (다른 AI로 바꿀 때는 이 함수만) — 한 번만 부르고, 실패해도 다시 부르지 않아요 ---------- */
+async function gemini(path, init = {}) {
+  const res = await fetch(`${API}/${path}`, { ...init, headers: { 'Content-Type': 'application/json', 'x-goog-api-key': process.env.GEMINI_API_KEY, ...(init.headers || {}) } });
+  let body = null;
+  try { body = await res.json(); } catch (_) {}
+  return { status: res.status, body };
+}
 async function callModel({ mediaType, data, width, height }) {
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, maxRetries: 1, timeout: 110_000 });
-  const response = await client.beta.messages.create({
-    model: MODEL,
-    max_tokens: 16000,
-    betas: ['server-side-fallback-2026-07-01'],
-    fallbacks: 'default',                     // 안전 판단으로 거절되면 다른 모델이 대신 처리
-    output_config: { effort: 'high', format: { type: 'json_schema', schema: RESULT_SCHEMA } },
-    system: SYSTEM_PROMPT,
-    messages: [{
-      role: 'user',
-      content: [
-        { type: 'image', source: { type: 'base64', media_type: mediaType, data } },
-        { type: 'text', text: `This image is ${width} x ${height} pixels. Extract every geometric object as JSON.` },
-      ],
-    }],
+  const model = modelName();
+  const generationConfig = {
+    responseMimeType: 'application/json',
+    responseSchema: RESULT_SCHEMA,
+    temperature: 0,
+    maxOutputTokens: 16384,
+  };
+  if (model.startsWith('gemini-3')) generationConfig.thinkingConfig = { thinkingLevel: 'medium' };   // 3.x: 'minimal'은 지원 안 됨
+  const { status, body } = await gemini(`models/${model}:generateContent`, {
+    method: 'POST',
+    signal: AbortSignal.timeout(100_000),
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      contents: [{ role: 'user', parts: [
+        { inlineData: { mimeType: mediaType, data } },
+        { text: 'Extract every geometric object in this math figure as JSON.' },
+      ] }],
+      generationConfig,
+    }),
   });
-  if (response.stop_reason === 'refusal') return { error: 'refused' };
-  if (response.stop_reason === 'max_tokens') return { error: 'too_long' };
-  const text = response.content.filter(b => b.type === 'text').map(b => b.text).join('');
+  if (status !== 200) return { error: geminiError(status, body), retryAfter: retryAfterOf(body) };
+  if (body && body.promptFeedback && body.promptFeedback.blockReason) return { error: 'refused' };
+  const cand = body && body.candidates && body.candidates[0];
+  if (!cand) return { error: 'bad_output' };
+  if (cand.finishReason === 'MAX_TOKENS') return { error: 'too_long' };
+  if (cand.finishReason && !['STOP', 'FINISH_REASON_UNSPECIFIED'].includes(cand.finishReason)) return { error: 'refused' };
+  const text = ((cand.content && cand.content.parts) || []).filter(p => typeof p.text === 'string' && !p.thought).map(p => p.text).join('');
   let parsed;
   try { parsed = JSON.parse(text); } catch (_) { return { error: 'bad_output' }; }
-  return { result: toEditorFormat(parsed, width, height), model: response.model, usage: response.usage };
+  return { result: toEditorFormat(parsed, width, height), model, usage: body.usageMetadata || null };
+}
+
+/* Gemini 오류 → 편집기가 아는 짧은 이름 */
+function geminiError(status, body) {
+  const e = (body && body.error) || {};
+  const msg = String(e.message || ''), st = String(e.status || '');
+  const details = Array.isArray(e.details) ? e.details : [];
+  const reasons = details.map(d => d && d.reason).filter(Boolean).join(' ');
+  if (status === 429 || st === 'RESOURCE_EXHAUSTED') {
+    const ids = details.flatMap(d => (d && d.violations) || []).map(v => `${v.quotaId || ''} ${v.quotaMetric || ''}`).join(' ');
+    return /PerDay|per_day|per day/i.test(ids + ' ' + msg) ? 'quota_day' : 'quota_minute';
+  }
+  if (/API_KEY_INVALID|API key not valid|API_KEY/i.test(reasons + ' ' + msg) || status === 401 || status === 403) return 'ai_auth';
+  if (st === 'FAILED_PRECONDITION') return 'free_unavailable';
+  if (status === 404) return 'ai_model';
+  if (status === 400) return 'ai_rejected';
+  if (status === 504) return 'timeout';
+  return 'ai_down';
+}
+function retryAfterOf(body) {
+  const d = ((body && body.error && body.error.details) || []).find(x => x && x.retryDelay);
+  const s = d ? parseFloat(String(d.retryDelay)) : NaN;
+  return isFinite(s) ? Math.ceil(s) : null;
 }
 
 /* ---------- 요청 처리 ---------- */
@@ -154,45 +212,41 @@ async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.statusCode = 204; return res.end(); }
   if (req.method !== 'POST') return send(res, 405, { ok: false, error: 'method' });
 
-  if (!process.env.ANTHROPIC_API_KEY || !process.env.AI_ACCESS_CODE) return send(res, 503, { ok: false, error: 'not_configured' });
+  if (!process.env.GEMINI_API_KEY) return send(res, 503, { ok: false, error: 'not_configured' });
+  const model = modelName();
+  if (!model) return send(res, 503, { ok: false, error: 'model_not_free' });   // 무료 목록에 없는 모델은 부르지 않아요
   let body = req.body;
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch (_) { body = null; } }
   if (!body || typeof body !== 'object') return send(res, 400, { ok: false, error: 'bad_request' });
-  if (!sameCode(body.code || '', process.env.AI_ACCESS_CODE)) return send(res, 401, { ok: false, error: 'bad_code' });
-  if (body.ping) {   // [연결 시험]: 그림 인식은 하지 않고 API 키만 확인해요 (요금 없음)
-    try {
-      await new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, maxRetries: 0, timeout: 15_000 }).models.retrieve(MODEL);
-      return send(res, 200, { ok: true, model: MODEL });
-    } catch (err) {
-      if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError) return send(res, 502, { ok: false, error: 'ai_auth' });
-      if (err instanceof Anthropic.NotFoundError) return send(res, 502, { ok: false, error: 'ai_model' });
-      return send(res, 502, { ok: false, error: 'ai_down' });
-    }
+  if (process.env.AI_ACCESS_CODE && !sameCode(body.code || '', process.env.AI_ACCESS_CODE)) {
+    return send(res, 401, { ok: false, error: body.code ? 'bad_code' : 'code_required' });
   }
 
-  const img = body.image || {};
-  const width = Math.round(+img.width), height = Math.round(+img.height);
-  if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(img.mediaType) || typeof img.data !== 'string'
-    || !(width > 0 && height > 0)) return send(res, 400, { ok: false, error: 'bad_request' });
-  if (img.data.length > MAX_IMAGE_BASE64 || Math.max(width, height) > MAX_SIDE) return send(res, 413, { ok: false, error: 'too_large' });
-
   try {
+    if (body.ping) {   // [연결 시험]: 그림 인식 없이 키·모델만 확인 (모델 정보 조회 — 생성 요청이 아니라 한도를 쓰지 않아요)
+      const { status, body: b } = await gemini(`models/${model}`, { signal: AbortSignal.timeout(15_000) });
+      if (status !== 200) return send(res, 502, { ok: false, error: geminiError(status, b) });
+      return send(res, 200, { ok: true, model, free: true });
+    }
+    const img = body.image || {};
+    const width = Math.round(+img.width), height = Math.round(+img.height);
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(img.mediaType) || typeof img.data !== 'string'
+      || !(width > 0 && height > 0)) return send(res, 400, { ok: false, error: 'bad_request' });
+    if (img.data.length > MAX_IMAGE_BASE64 || Math.max(width, height) > MAX_SIDE) return send(res, 413, { ok: false, error: 'too_large' });
+
     const r = await callModel({ mediaType: img.mediaType, data: img.data, width, height });
-    if (r.error) return send(res, 502, { ok: false, error: r.error });
+    if (r.error) {
+      const quota = r.error === 'quota_day' || r.error === 'quota_minute';
+      return send(res, quota ? 429 : 502, { ok: false, error: r.error, ...(r.retryAfter ? { retryAfter: r.retryAfter } : {}) });
+    }
     return send(res, 200, { ok: true, model: r.model, usage: r.usage, result: r.result });
   } catch (err) {
-    // 어려운 오류 내용은 편집기에 보내지 않고, 종류만 알려줘요 (자세한 내용은 Vercel 로그에)
-    console.error('recognize failed:', err && err.status, err && err.message);
-    if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError) return send(res, 502, { ok: false, error: 'ai_auth' });
-    if (err instanceof Anthropic.RateLimitError) return send(res, 429, { ok: false, error: 'busy' });
-    if (err instanceof Anthropic.BadRequestError) return send(res, 502, { ok: false, error: 'ai_rejected' });
-    if (err instanceof Anthropic.APIConnectionTimeoutError) return send(res, 504, { ok: false, error: 'timeout' });
-    if (err instanceof Anthropic.APIError) return send(res, 502, { ok: false, error: (err.status || 0) >= 500 ? 'ai_down' : 'ai_error' });
-    return send(res, 500, { ok: false, error: 'server' });
+    // 어려운 오류 내용은 편집기에 보내지 않고 종류만 (자세한 내용은 Vercel 로그에)
+    console.error('recognize failed:', err && err.name, err && err.message);
+    if (err && (err.name === 'TimeoutError' || err.name === 'AbortError')) return send(res, 504, { ok: false, error: 'timeout' });
+    return send(res, 502, { ok: false, error: 'ai_down' });
   }
 }
 
 module.exports = handler;
-module.exports.SYSTEM_PROMPT = SYSTEM_PROMPT;
-module.exports.RESULT_SCHEMA = RESULT_SCHEMA;
-module.exports.toEditorFormat = toEditorFormat;
+Object.assign(module.exports, { SYSTEM_PROMPT, RESULT_SCHEMA, FREE_TIER_MODELS, toEditorFormat, geminiError });
