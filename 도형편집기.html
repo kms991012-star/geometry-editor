@@ -525,7 +525,8 @@ const TOOL_GROUPS = [
    right    { p1, vertex, p2 (점 id), size, … }                                            addRight
    parallel { segs:[선분 id, 선분 id], count, … }                                          addParallel
    perp     { segs:[선분 id, 선분 id], size, … }                                           addPerp
-   arrow    { x, y (시작), dx, dy (끝까지), heads:'end'|'both', headSize, width, color, dashed } addArrow
+   arrow    { x, y (시작), dx, dy (끝까지), p1?, p2? (붙은 점 id), heads:'end'|'both', headSize, … } addArrow
+            p1/p2가 있으면 그 끝은 점을 따라가요. 없으면 x,y / x+dx,y+dy 자리에 머물러요.
    image    { asset, x, y, w, h, opacity, locked, visible, keepRatio }  ← 원본(배경) 그림
             그림 데이터는 assets[asset]에 따로 보관 (점·선과 완전히 분리)
    선택 항목: ai = { image: 그림 id, conf: 확신도 } — AI 인식으로 만든 개체의 출처 기록일 뿐,
@@ -872,11 +873,14 @@ function addParallel(s1, s2) {
   const P = CONFIG.parallel;
   return push({ id: newId(), type: 'parallel', segs: [s1, s2], count: P.count, size: P.size, t: 0.5, width: P.width, color: P.color, visible: true });
 }
-/* 화살표: 시작점 (x, y)와 끝까지의 거리 (dx, dy) — 어느 점에도 매이지 않아 문자처럼 자유롭게 옮겨요 */
-function addArrow(x1, y1, x2, y2) {
+/* 화살표: 시작점 (x, y)와 끝까지의 거리 (dx, dy). p1/p2(점 id)를 주면 그 끝이 점에 붙어 점을 따라가요 */
+function addArrow(x1, y1, x2, y2, p1 = null, p2 = null) {
   const A = CONFIG.arrow;
-  return push({ id: newId(), type: 'arrow', x: round1(x1), y: round1(y1), dx: round1(x2 - x1), dy: round1(y2 - y1),
+  const o = push({ id: newId(), type: 'arrow', x: round1(x1), y: round1(y1), dx: round1(x2 - x1), dy: round1(y2 - y1),
     heads: A.heads, headSize: A.headSize, width: A.width, color: A.color, dashed: false, visible: true });
+  if (p1) o.p1 = p1;
+  if (p2) o.p2 = p2;
+  return o;
 }
 function addPerp(s1, s2) {
   const P = CONFIG.perp;
@@ -970,7 +974,7 @@ function objLabel(o) {
     case 'right': return '직각 ∠' + pname(o.p1) + pname(o.vertex) + pname(o.p2);
     case 'parallel': return '평행 ' + segmentName(getObj(o.segs[0])) + ' ∥ ' + segmentName(getObj(o.segs[1]));
     case 'perp': return '수직 ' + segmentName(getObj(o.segs[0])) + ' ⊥ ' + segmentName(getObj(o.segs[1]));
-    case 'arrow': return '화살표 ' + (o.heads === 'both' ? '↔' : '→');
+    case 'arrow': return '화살표 ' + (o.p1 ? pname(o.p1) : '') + (o.heads === 'both' ? '↔' : '→') + (o.p2 ? pname(o.p2) : '');
     case 'image': return '그림 ' + (byType('image').indexOf(o) + 1);
     case 'line': {
       const f = o.def;
@@ -1448,10 +1452,34 @@ const DRAW = {
   },
 };
 /* 화살표 모양: 선은 화살촉 안쪽에서 끝나게 해서 뾰족한 끝이 뭉개지지 않게 */
-function arrowEnds(o) { return [{ x: o.x, y: o.y }, { x: o.x + o.dx, y: o.y + o.dy }]; }
+/* 화살표 양 끝의 지금 자리: 점에 붙은 끝은 그 점 자리, 아니면 저장된 자리 */
+function arrowEnds(o) {
+  const a = o.p1 && P(o.p1), b = o.p2 && P(o.p2);
+  return [a ? { x: a.x, y: a.y } : { x: o.x, y: o.y }, b ? { x: b.x, y: b.y } : { x: o.x + o.dx, y: o.y + o.dy }];
+}
+/* 한쪽 끝(i: 0 = 시작, 1 = 끝)을 q로 옮기기. q.pid가 있으면 그 점에 붙이고, 없으면 떼어요 */
+function setArrowEnd(o, i, q) {
+  const [A, B] = arrowEnds(o);
+  if (i === 0) { o.x = round1(q.x); o.y = round1(q.y); o.dx = round1(B.x - q.x); o.dy = round1(B.y - q.y); }
+  else { o.x = round1(A.x); o.y = round1(A.y); o.dx = round1(q.x - A.x); o.dy = round1(q.y - A.y); }
+  const key = i ? 'p2' : 'p1';
+  if (q.pid) o[key] = q.pid; else delete o[key];
+}
+/* 지금 보이는 자리를 그대로 저장하고 keys에 적은 끝을 점에서 떼기 (점이 지워질 때 등) */
+function bakeArrow(o, keys = ['p1', 'p2']) {
+  if (!keys.length) return;
+  const [A, B] = arrowEnds(o);
+  o.x = round1(A.x); o.y = round1(A.y); o.dx = round1(B.x - A.x); o.dy = round1(B.y - A.y);
+  keys.forEach(k => { delete o[k]; });
+}
 function arrowGeom(o) {
-  const [A, B] = arrowEnds(o), L = V.dist(A, B); if (L < 1) return null;
+  let [A, B] = arrowEnds(o);
+  if (V.dist(A, B) < 1) return null;
   const d = V.norm(V.sub(B, A)), n = perpOf(d);
+  // 점에 붙은 끝은 점 바로 앞에서 멈춰서 점이 가려지지 않게
+  const gap = id => { const p = id && P(id); return p ? p.size + 3 : 0; };
+  A = V.add(A, V.mul(d, gap(o.p1))); B = V.sub(B, V.mul(d, gap(o.p2)));
+  const L = V.dist(A, B); if (L < 1 || V.dot(V.sub(B, A), d) <= 0) return null;
   const h = Math.min(o.headSize, L * (o.heads === 'both' ? 0.45 : 0.8)), w = h * 0.42;
   const head = (tip, dir) => { const b = V.sub(tip, V.mul(dir, h)), p = V.add(b, V.mul(n, w)), q = V.sub(b, V.mul(n, w));
     return `M${tip.x} ${tip.y}L${p.x} ${p.y}L${q.x} ${q.y}Z`; };
@@ -1904,6 +1932,10 @@ function dragInfoFor(o, pt) {
     setTempHint(`${o.name}은(는) ${DERIVED_NAME[o.def.kind]}이라 직접 옮길 수 없어요. 연결된 점을 옮기면 따라 움직여요.`);
     return null;
   }
+  if (o.type === 'arrow' && o.p1 && o.p2) {
+    setTempHint('양 끝이 모두 점에 붙은 화살표예요. 점을 옮기면 따라가요. (끝의 동그라미를 끌면 다른 곳으로 옮겨요)');
+    return null;
+  }
   if (o.type === 'point' || o.type === 'text' || o.type === 'arrow') return { kind: 'move', orig: { x: o.x, y: o.y } };
   if (o.type === 'image') return o.locked ? null : { kind: 'move', orig: { x: o.x, y: o.y } };
   if (['segment', 'line', 'circle', 'arc', 'polygon'].includes(o.type)) return groupDragInfo([o.id], pt);   // 선분·원 등을 끌면 연결된 점이 함께 움직여요
@@ -1945,7 +1977,7 @@ board.addEventListener('pointerdown', e => {
     if (handleEl) {
       const img = getObj(selectedId);
       if (img && img.type === 'arrow') {   // 화살표 끝 손잡이: 한쪽 끝만 옮겨요
-        beginDrag(e, { kind: 'arrowEnd', id: img.id, end: handleEl.dataset.handle, start: pt, orig: { x: img.x, y: img.y, dx: img.dx, dy: img.dy } });
+        beginDrag(e, { kind: 'arrowEnd', id: img.id, end: handleEl.dataset.handle, start: pt, ends: arrowEnds(img) });
         return;
       }
       if (img && img.type === 'image' && !img.locked)
@@ -2161,9 +2193,10 @@ board.addEventListener('pointermove', e => {
     }
     else if (drag.kind === 'resize') resizeImage(o, drag, dx, dy);
     else if (drag.kind === 'arrowEnd') {
-      const g = drag.orig, A = { x: g.x, y: g.y }, B = { x: g.x + g.dx, y: g.y + g.dy };
-      if (drag.end === 'a0') { const q = arrowSnap(V.add(A, { x: dx, y: dy }), e.shiftKey && B); o.x = q.x; o.y = q.y; o.dx = round1(B.x - q.x); o.dy = round1(B.y - q.y); }
-      else { const q = arrowSnap(V.add(B, { x: dx, y: dy }), e.shiftKey && A); o.dx = round1(q.x - A.x); o.dy = round1(q.y - A.y); }
+      // 점 가까이에서 놓으면 그 점에 붙고, 점에서 멀리 끌면 떨어져요
+      const i = drag.end === 'a0' ? 0 : 1, from = drag.ends[i], other = drag.ends[1 - i];
+      const q = arrowSnap(V.add(from, { x: dx, y: dy }), e.shiftKey && other);
+      if (V.dist(q, other) >= 1 && !(q.pid && q.pid === o[i ? 'p1' : 'p2'])) setArrowEnd(o, i, q);
     }
     else if (drag.kind === 'slide') {   // 선·원 위의 점: 그 위를 따라 이동
       const obj = getObj(o.def.obj), t = obj ? projectParam(obj, pt) : null;
@@ -2209,7 +2242,8 @@ function endDrag() {
   if (kind === 'arrowNew') {
     if (!moved || V.dist(d.a, d.cur) * pxPerUnit() < 6) { renderOverlay(); setTempHint('화살표는 시작할 곳에서 끝날 곳까지 끌어서 그려요.'); return; }
     record();
-    select(addArrow(d.a.x, d.a.y, d.cur.x, d.cur.y).id);
+    const same = d.a.pid && d.a.pid === d.cur.pid;
+    select(addArrow(d.a.x, d.a.y, d.cur.x, d.cur.y, d.a.pid, same ? null : d.cur.pid).id);
     return;
   }
   if (kind === 'box') {
@@ -2234,14 +2268,14 @@ board.addEventListener('pointerleave', () => {
   renderOverlay();
 });
 
-/* 화살표 끝 자리: 점 가까이면 그 점에 딱 붙이고, 아니면 격자에 맞춤. anchor가 있으면(Shift) 45°씩 */
+/* 화살표 끝 자리: 점 가까이면 그 점에 붙이고(pid = 붙을 점), 아니면 격자에 맞춤. anchor가 있으면(Shift) 45°씩 */
 function arrowSnap(pt, anchor) {
   if (anchor) {
     const v = V.sub(pt, anchor), L = V.len(v), a = Math.round(Math.atan2(v.y, v.x) / (Math.PI / 4)) * (Math.PI / 4);
-    return { x: round1(anchor.x + L * Math.cos(a)), y: round1(anchor.y + L * Math.sin(a)) };
+    return { x: round1(anchor.x + L * Math.cos(a)), y: round1(anchor.y + L * Math.sin(a)), pid: null };
   }
   const p = nearestPoint(pt);
-  return p ? { x: p.x, y: p.y } : snapPt(pt);
+  return p ? { x: p.x, y: p.y, pid: p.id } : { ...snapPt(pt), pid: null };
 }
 /* 그림 크기 조절 (모서리 손잡이: 비율 유지 가능 / 변 손잡이: 가로 또는 세로만) */
 function resizeImage(o, d, dx, dy) {
@@ -2333,6 +2367,8 @@ function deleteSelected() {
   record();
   const gone = new Set();
   for (const o of targets) withDependents(o.id).forEach(id => gone.add(id));
+  // 붙어 있던 점이 지워지면 화살표는 남기고 그 자리에서 떼어요
+  for (const a of byType('arrow')) if (!gone.has(a.id)) bakeArrow(a, ['p1', 'p2'].filter(k => a[k] && gone.has(a[k])));
   doc.objects = doc.objects.filter(x => !gone.has(x.id));
   picks = picks.filter(id => !gone.has(id));
   const extra = gone.size - targets.length;
@@ -2366,6 +2402,8 @@ function pasteClip() {
   const fresh = [];
   for (const src of clip.objects) {
     const o = JSON.parse(JSON.stringify(src));
+    // 화살표만 복사했다면 원래 점에서 떼어 내 함께 비켜 놓아요 (점도 같이 복사했으면 새 점에 붙어요)
+    if (o.type === 'arrow') bakeArrow(o, ['p1', 'p2'].filter(k => o[k] && !map[o[k]]));
     o.id = map[src.id];
     remapIds(o, map);
     if ('x' in o) { o.x = round1(o.x + step); o.y = round1(o.y + step); }
@@ -2851,17 +2889,25 @@ const PANELS = {
 
   arrow(o) {
     return [
+      (o.p1 || o.p2) ? H('div', { class: 'info' }, `🔗 ${[o.p1 ? `시작이 점 ${pname(o.p1)}` : '', o.p2 ? `끝이 점 ${pname(o.p2)}` : ''].filter(Boolean).join(', ')}에 붙어 있어요. 점을 옮기면 따라가요.`) : null,
       field('화살촉', segmented([['end', '→ 한쪽'], ['both', '↔ 양쪽']], o.heads, v => setOnce(o, 'heads', v, () => refreshTitle(o)))),
-      H('div', { class: 'btn-row' }, H('button', { class: 'small-btn', title: '시작과 끝을 바꿔요', onclick: () => {
-        hist.lastKey = null; record();
-        o.x = round1(o.x + o.dx); o.y = round1(o.y + o.dy); o.dx = -o.dx; o.dy = -o.dy;
-        renderCanvas();
-      } }, '⇄ 방향 뒤집기')),
+      H('div', { class: 'btn-row' },
+        H('button', { class: 'small-btn', title: '시작과 끝을 바꿔요', onclick: () => {
+          hist.lastKey = null; record();
+          const [A, B] = arrowEnds(o), p1 = o.p1, p2 = o.p2;
+          o.x = B.x; o.y = B.y; o.dx = round1(A.x - B.x); o.dy = round1(A.y - B.y);
+          delete o.p1; delete o.p2; if (p2) o.p1 = p2; if (p1) o.p2 = p1;
+          renderCanvas(); refreshTitle(o);
+        } }, '⇄ 방향 뒤집기'),
+        (o.p1 || o.p2) ? H('button', { class: 'small-btn', title: '점을 옮겨도 화살표는 그 자리에 있어요', onclick: () => {
+          hist.lastKey = null; record(); bakeArrow(o); renderAll();
+          toast('화살표를 점에서 뗐어요. 이제 점을 옮겨도 화살표는 그 자리에 있어요.');
+        } }, '점에서 떼기') : null),
       field('화살촉 크기', slider({ min: 4, max: 30, value: o.headSize, onInput: v => setProp(o, 'headSize', v) })),
       field('선 굵기', slider({ min: CONFIG.segment.widthMin, max: CONFIG.segment.widthMax, step: 0.5, value: o.width, onInput: v => setProp(o, 'width', v) })),
       colorField(o, '선 색'),
       field('선 모양', segmented([[false, '━━ 실선'], [true, '╍╍ 점선']], o.dashed, v => setOnce(o, 'dashed', v))),
-      H('div', { class: 'info' }, '💡 화살표를 끌면 통째로 옮겨지고, 양 끝의 동그라미를 끌면 그쪽 끝만 움직여요. (Shift: 45°씩)'),
+      H('div', { class: 'info' }, '💡 화살표를 끌면 통째로 옮겨지고, 양 끝의 동그라미를 끌면 그쪽 끝만 움직여요. 끝을 점 가까이에 놓으면 그 점에 붙어요. (Shift: 45°씩)'),
       visibleField(o),
       deleteButton(o),
     ];
@@ -3226,14 +3272,15 @@ const AI_PARSERS = {
   },
   arrow(o, conf, ctx) {   // from/to: 좌표 [x, y]·{x, y} 또는 점 이름 (점 이름이면 그 점 자리에서 시작·끝)
     const at = r => {
-      if (typeof r === 'string') { const c = ctx.byId.get(r) || ctx.byLabel.get(r); return c && c.kind === 'point' ? { x: c.data.x, y: c.data.y } : null; }
+      if (typeof r === 'string') { const c = ctx.byId.get(r) || ctx.byLabel.get(r); return c && c.kind === 'point' ? { x: c.data.x, y: c.data.y, key: c.key } : null; }
       const x = Array.isArray(r) ? r[0] : r && r.x, y = Array.isArray(r) ? r[1] : r && r.y;
       return isFinite(+x) && isFinite(+y) && x !== null && y !== null ? ctx.toPaper(+x, +y) : null;
     };
     const a = at(o.from ?? o.start ?? o.tail), b = at(o.to ?? o.end ?? o.head);
     if (!a || !b || V.dist(a, b) < 1) return null;
     const both = /double/i.test(String(o.type)) || o.both === true || o.heads === 'both';
-    return ctx.add('arrow', { x1: a.x, y1: a.y, x2: b.x, y2: b.y, both, dashed: !!o.dashed || /dash|dot/.test(String(o.style || '')) }, conf);
+    return ctx.add('arrow', { x1: a.x, y1: a.y, x2: b.x, y2: b.y, a: a.key || null, b: b.key || null, both, dashed: !!o.dashed || /dash|dot/.test(String(o.style || '')) },
+      conf, [a.key, b.key].filter(Boolean));   // 점 이름으로 가리킨 끝은 그 점에 붙어요
   },
   text(o, conf, ctx) {
     const text = String(o.text ?? o.value ?? o.label ?? '').trim(); if (!text || !isFinite(+o.x) || !isFinite(+o.y)) return null;
@@ -3347,8 +3394,9 @@ const AI_KINDS = {
   arrow: {
     group: '선', order: 3,
     title: (d) => '화살표 ' + (d.both ? '↔' : '→'),
-    create(d) {
-      const o = addArrow(d.x1, d.y1, d.x2, d.y2);
+    create(d, id) {
+      const p1 = d.a ? id(d.a) : null, p2 = d.b ? id(d.b) : null;
+      const o = addArrow(d.x1, d.y1, d.x2, d.y2, p1, p2 !== p1 ? p2 : null);
       o.heads = d.both ? 'both' : 'end'; if (d.dashed) o.dashed = true;
       return o.id;
     },
