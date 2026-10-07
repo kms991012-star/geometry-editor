@@ -3524,6 +3524,8 @@ const AI_PARSERS = {
   perp: (o, conf, ctx) => AI_PARSERS._twoSegs(o, conf, ctx, 'perp'),
   _twoSegs(o, conf, ctx, kind) {
     const ss = (o.segments || o.lines || []).map(r => ctx.seg(r, conf)); if (ss.length !== 2 || !ss[0] || !ss[1] || ss[0] === ss[1]) return null;
+    const dup = ctx.cands.find(c => c.kind === kind && [c.data.s1, c.data.s2].sort().join() === [ss[0].key, ss[1].key].sort().join());
+    if (dup) return dup;   // 같은 표시를 두 번 알려 주면 하나로
     return ctx.add(kind, { s1: ss[0].key, s2: ss[1].key, count: clamp(Math.round(+o.count || 1), 1, 3) }, conf, [ss[0].key, ss[1].key]);
   },
   length: (o, conf, ctx) => AI_PARSERS._len(o, conf, ctx, false),

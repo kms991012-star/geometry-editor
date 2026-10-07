@@ -47,7 +47,9 @@ Points and labels
 - An unlabeled point gets an empty label and an id such as "P1", "P2".
 
 Lines and shapes
-- "segment": every drawn straight piece between two points ("from", "to"), including each side of a triangle or quadrilateral. "dashed": true for dashed or dotted lines. "heads": "end" (arrowhead at "to"), "start" (at "from"), "both", or "none". "ticks": number of equal-length tick marks across it (0-3).
+- "segment": every drawn straight piece between two points ("from", "to"), including each side of a triangle or quadrilateral.
+  If several points lie on one drawn straight line (for example B, H, M, C on a base), output one segment for each pair of neighboring points (B-H, H-M, M-C), never one long segment over them.
+- "dashed": true when the line is made of short dashes or dots with gaps. Check every line carefully; heights, auxiliary lines and hidden edges are often dashed. "heads": "end" (arrowhead at "to"), "start" (at "from"), "both", or "none". "ticks": number of equal-length tick marks across it (0-3).
 - "polygon": closed shapes (triangle, quadrilateral, polygon) with "points" = vertex ids in order, in addition to their sides as segments. "fill": true only if the region is shaded.
 - "line": a line through two points ("from", "to") extending past both. "ray": starts at "from" and extends past "through".
 - "circle": a full circle, "center" id plus "through" (id of a point on it) or "radius". "arc": only part of a circle, "center", "from", "to", going counterclockwise as seen on screen from "from" to "to". Do not confuse circles and arcs.
@@ -56,7 +58,7 @@ Lines and shapes
 Marks and text
 - "rightAngle": a small square in a corner. "points" = [side point id, vertex id, side point id].
 - "angle": an angle arc and/or a written angle value at a vertex. "points" = [side, vertex, side]. "value" = the written text such as "60°" or "x" (empty if none).
-- "parallel": arrowheads (>, >>) on two segments meaning they are parallel: "segment" and "otherSegment" (each [id, id]), "count" = number of arrowheads.
+- "parallel": arrowheads (>, >>) on two segments meaning they are parallel: "segment" and "otherSegment" (each [id, id]), "count" = number of arrowheads. Report each parallel pair once.
 - "perpendicular": two segments marked perpendicular where no corner square fits ("segment", "otherSegment").
 - "length": a number or expression written beside a segment ("5", "7 cm", "x"): "segment" = its two endpoint ids, "value" = the text. Lengths are numbers/expressions near the middle of a segment; labels are letters next to points - do not confuse them.
 - "dimension": a separate dimension line (arrows or brackets) showing a length between two points: "segment" = [id, id], "value".
