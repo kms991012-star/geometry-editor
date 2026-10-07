@@ -7,6 +7,48 @@
   - 예비 주소: https://kms991012-star.github.io/geometry-editor/ (학교망에서는 막힐 수 있어요)
 - **내 PC에서 쓰기:** `도형편집기.html` 파일 하나만 내려받아 더블클릭하면 브라우저(Chrome/Edge)에서 바로 실행됩니다. 설치·서버·인터넷 연결이 필요 없습니다.
 - 만든 그림과 작업 파일은 각자의 컴퓨터에만 저장되고, 어디에도 전송되지 않습니다.
+  - 단, **[🤖 AI로 도형 인식하기]를 누를 때만** 그 그림이 AI 서버(아래 설정한 Vercel → Anthropic Claude)로 보내져 분석됩니다.
+  - AI 도형 인식은 인터넷이 필요하고, 처음 한 번 아래 **"AI 도형 인식 설정"** 을 해야 합니다. 다른 기능은 설정 없이 그대로 쓸 수 있어요.
+
+## AI 도형 인식 설정 (처음 한 번)
+문제 그림을 불러오고 [🤖 AI로 도형 인식하기]를 누르면, AI가 그림 속 점·선분·각·직각·숫자 등을 찾아 **고칠 수 있는 개체**로 바꿔 줍니다.
+AI는 Anthropic의 **Claude**(이미지를 읽을 수 있는 AI)를 씁니다. 코드를 고칠 필요는 없고, 아래 세 단계만 하면 됩니다.
+
+**1단계. Anthropic API 키 만들기**
+1. https://console.anthropic.com 에 로그인합니다. (처음이면 가입)
+2. 왼쪽 메뉴 **Billing**에서 결제 수단을 등록하고 사용할 금액을 충전합니다.
+   - 권장: **Limits**에서 한 달 사용 한도(예: 5달러)를 정해 두면 예상보다 많이 쓰일 걱정이 없어요.
+3. **API Keys** → **Create Key** → 이름(예: 도형편집기)을 적고 만든 뒤, 나온 키(`sk-ant-`로 시작)를 복사해 둡니다.
+   - 이 키는 비밀번호와 같아요. 다른 사람에게 보내거나 코드·채팅에 붙여 넣지 마세요.
+
+**2단계. Vercel에 키 넣기** (키는 서버에만 있어서 편집기 화면·브라우저에는 보이지 않아요)
+1. https://vercel.com 에 로그인 → **geometry-editor** 프로젝트를 누릅니다.
+2. 위쪽 **Settings** → 왼쪽 **Environment Variables**에서 아래 두 개를 추가합니다. (Key와 Value 칸에 적고 **Save**)
+
+   | Key (이름) | Value (값) |
+   |---|---|
+   | `ANTHROPIC_API_KEY` | 1단계에서 복사한 API 키 |
+   | `AI_ACCESS_CODE` | 내가 정하는 **AI 접속 비밀번호** (예: 남이 모르는 긴 문장). 이 비밀번호를 아는 사람만 AI 인식을 쓸 수 있어요 |
+
+3. 위쪽 **Deployments** → 맨 위 배포의 **⋯** → **Redeploy** 를 눌러 다시 배포합니다. (1~2분)
+
+**3단계. 편집기에서 비밀번호 한 번 입력**
+1. 편집기에서 그림을 불러와 선택하고, 오른쪽 **[🤖 AI로 도형 인식하기]** 를 누릅니다.
+2. 처음이면 **AI 설정** 창이 뜹니다. 2단계에서 정한 **AI 접속 비밀번호**를 넣고 **[🔌 연결 시험]** 을 누릅니다.
+   - "✓ 연결됐어요"가 나오면 **[저장하고 인식 시작]**. (비밀번호는 그 컴퓨터 브라우저에만 저장돼요. 다른 컴퓨터에서는 한 번 더 입력)
+   - 내 PC에서 `도형편집기.html` 파일로 열어도 인터넷만 되면 같은 Vercel 서버를 써요.
+
+**요금:** 인식 버튼을 누를 때마다 Anthropic 요금이 듭니다(그림만 불러올 때는 들지 않아요).
+그림 하나에 대략 몇십~몇백 원 정도로 예상되지만, 그림 크기와 도형 수에 따라 달라요. 정확한 사용량은 Anthropic 콘솔의 **Usage**에서 볼 수 있어요.
+
+**AI 인식 쓰는 법**
+- **[🤖 AI로 도형 인식하기]** → "AI가 도형을 분석하고 있습니다..." → **AI 인식 결과** 창에서 맞는 것만 체크 → **[선택한 객체 적용]**
+  - 체크한 항목은 그림 위에 주황 점선으로 미리 보여요. 확신이 낮은 항목(⚠)은 처음에 체크가 꺼져 있어요.
+  - 적용하면 직접 그린 것과 똑같은 점·선분·문자·표시가 돼요. 끌어서 옮기기, 이름·색·굵기 바꾸기, 지우기 모두 됩니다. 마음에 안 들면 Ctrl+Z 한 번.
+- **[✂ 영역 골라서 인식]**: 그림 위를 끌어서 네모로 고른 부분만 인식해요(큰 문제지에서 도형 부분만).
+- **[🔄 AI로 다시 인식하기]**: 기존 AI 개체를 지우고 다시 하거나, 그대로 두고 더 인식할 수 있어요.
+- 왼쪽 **[원본 그림]** / **[AI 개체]** 버튼으로 각각 보이기·숨기기 (원본만 / AI 개체만 / 둘 다 보기).
+- **좌표 자동 보정**(AI 설정에서 켜고 끔): AI가 찍은 점을 그림 속 선이 실제로 만나는 곳으로 몇 픽셀 맞춰 줘요.
 
 ## 이용 조건
 [CC BY-NC 4.0](LICENSE) — 비영리 교육 목적이라면 누구나 자유롭게 쓰고, 나누고, 고쳐 쓸 수 있습니다(출처 표시).
@@ -34,7 +76,10 @@
 - [x] 화살표 도구([선] 묶음): 끌어서 그리기, 점에 붙이기, 한쪽/양쪽 화살촉, 방향 뒤집기, 양 끝 손잡이, 점선 — AI 결과의 "arrow"도 화살표로 만듦
   - 끝을 점 가까이에 놓으면 그 점에 붙어서 점을 옮기면 따라감(`p1`/`p2`), [점에서 떼기], 점을 지우면 그 자리에 남음
 - [x] 선분 끝 모양(화살촉): 선분 속성창에서 없음 / A→B / B→A / ↔ 양쪽 (수직선 끝·이동 방향·벡터), 길이·평행 표시와 함께 쓸 수 있음
-  - [ ] 다음: 그림을 AI 모델에 바로 보내는 자동 인식(`AI_RECOGNIZERS.auto`), 일부 영역만 다시 인식하는 화면
+- [x] 7단계 (AI 도형 인식 연결): Vercel 서버 함수 `api/recognize.js`(Claude Opus 5.5, 구조화 출력 JSON) ↔ 편집기 `AI_RECOGNIZERS.auto`,
+  AI 설정(접속 비밀번호·연결 시험·좌표 자동 보정), 분석 중 안내·취소, 쉬운 오류 안내, 좌표 자동 보정, 영역 골라서 인식,
+  다시 인식(기존 AI 개체 삭제/유지), [AI 개체] 보이기·숨기기, 호·같은 길이 표시·원 점선 인식
+  - [ ] 다음: 실제 문제 그림으로 인식 정확도 확인·지시문 다듬기, 좌표평면(축·눈금) 인식
 
 ## 수정할 때 참고 (Claude Code용)
 파일 하나 안에 구역 제목(`[설정]`, `[그리기]` 등)이 주석으로 나뉘어 있습니다.
@@ -50,10 +95,13 @@
 | 여러 개 선택·복사 | `[선택]` 구역(`selectMany`, `moversFor`), `[복사 · 붙여넣기 · 복제]` 구역 |
 | 저장·자동 저장·PNG 작업 정보 | `[새 작업 · 작업 저장 · 작업 열기]` 구역 (`saveProject`, `scheduleAutosave`, `pngWithProject`) |
 | PNG 저장 방식 | `[PNG 내보내기]` 구역 |
-| AI 자동 인식 모델 연결 | `[AI 도형 인식]` 구역의 `AI_RECOGNIZERS.auto` (`ready: true` + `recognize(input)`이 결과 JSON을 돌려주면 됨) |
-| AI 결과 형식·요청문 | `AI_PROMPT` (형식 설명서 겸 다른 AI에게 보내는 요청문) |
+| AI 모델 바꾸기 | Vercel 환경변수 `AI_MODEL` (기본 `claude-opus-5-5`). 다른 회사 AI로 바꾸려면 `api/recognize.js`의 `callModel()`만 |
+| AI에게 주는 지시문·결과 형식 | `api/recognize.js`의 `SYSTEM_PROMPT`, `RESULT_SCHEMA` (서버에서 편집기 형식으로 바꿔 돌려줌: `toEditorFormat`) |
+| 편집기 쪽 AI 호출 흐름 | `[AI 도형 인식]` 구역: `aiStart` → `runRecognition` → `recognitionInput`(그림 준비) → `analyzeGeometryImage`(서버 호출) → `refineRecognition`(좌표 보정) → `normalizeRecognitionResult` → `reviewRecognitionDialog` → `applyRecognition` |
+| AI 서버 주소·오류 안내 문구 | `AI_DEFAULT_SERVER`, `aiServerUrl()`, `AI_ERRORS` |
+| 다른 AI 결과 붙여넣기 요청문 | `AI_PROMPT` |
 | AI가 알아듣는 종류 추가 | 결과 읽기 `AI_PARSERS`(+ 이름 맞추기 `AI_TYPE_ALIAS`) → 개체 만들기·이름 `AI_KINDS` |
-| AI 검토 창 기준(확신도·점 합치기 거리) | `CONFIG.ai` |
+| AI 검토 창 기준·보내는 그림 크기·기다리는 시간 | `CONFIG.ai` |
 
 - 모든 개체는 `doc.objects` 배열에 `{ id, type, ... }` 형태로 따로 저장됩니다.
   type: `point`, `segment`, `line`, `circle`, `arc`, `polygon`, `text`, `length`, `angle`, `right`, `parallel`, `perp`, `arrow`, `image`
@@ -70,3 +118,7 @@
 - AI 인식 흐름: 인식 결과(JSON) → `normalizeRecognitionResult()`(종이 좌표로 변환, 후보 목록) → `reviewRecognitionDialog()`
   → `applyRecognition()`. 개체는 수동 도구와 같은 `add…()` 함수로 만들고, 출처 기록 `o.ai = { image, conf }`만 더 붙습니다(동작은 같음).
 - 원본 그림은 `image` 개체로 따로 남습니다. `visible: false`면 화면·PNG에서 빠집니다.
+- AI 서버: `api/recognize.js` (Vercel 서버리스 함수, `@anthropic-ai/sdk`). API 키는 환경변수(`ANTHROPIC_API_KEY`, `AI_ACCESS_CODE`)에만 있고 코드·브라우저에는 없습니다.
+  AI 좌표는 편집기가 보낸 그림(긴 쪽 최대 2576px, 작은 그림은 키워서)의 픽셀 기준 → `normalizeRecognitionResult()`가 원본 그림의 위치·크기에 맞춰 종이 좌표로 바꿉니다.
+- 내 PC에서 AI까지 시험: `npm install` → 저장소 맨 위에 `.env.local`(위 두 값) → `npm run dev` → http://localhost:3000/도형편집기.html
+  (`.env.local`은 GitHub에 올라가지 않아요.)

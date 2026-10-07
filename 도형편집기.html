@@ -138,6 +138,11 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
 .tool-btn.wide .pill{font-size:10px;font-weight:800;padding:1px 6px;border-radius:99px;background:#e6eaf2;color:var(--muted)}
 .tool-btn.wide.on{border-color:var(--green);background:#ecf8f2;color:#1d7a52}
 .tool-btn.wide.on .pill{background:var(--green);color:#fff}
+.tool-btn.vis{gap:3px;padding:7px 2px 6px}
+.tool-btn.vis .tl{font-size:12.5px}
+.tool-btn.vis .pill{font-size:10px;font-weight:800;padding:0 6px;border-radius:99px;background:#e6eaf2;color:var(--muted)}
+.tool-btn.vis.on{border-color:var(--green);background:#ecf8f2;color:#1d7a52}
+.tool-btn.vis.on .pill{background:var(--green);color:#fff}
 .coord-xy{display:grid;grid-template-columns:auto 1fr auto 1fr;align-items:center;gap:6px 8px;font-family:"Times New Roman",serif;font-style:italic;font-size:17px}
 .tool-chip{flex:none;background:var(--accent);color:#fff;font-weight:700;padding:3px 11px;border-radius:999px}
 .hint{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -154,8 +159,8 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
 .props-body{flex:1;overflow:auto;padding:14px 15px}
 .field{margin-bottom:15px}
 .field-label{display:block;font-size:12.5px;font-weight:700;color:var(--muted);margin-bottom:6px}
-.props input[type=text],.props input[type=number],.modal input[type=text]{width:100%;padding:8px 10px;border:1.5px solid var(--line-strong);border-radius:9px;font:inherit;background:#fff;color:var(--text)}
-.modal input[type=text]{font-size:17px;padding:10px 12px}
+.props input[type=text],.props input[type=number],.modal input[type=text],.modal input[type=password]{width:100%;padding:8px 10px;border:1.5px solid var(--line-strong);border-radius:9px;font:inherit;background:#fff;color:var(--text)}
+.modal input[type=text],.modal input[type=password]{font-size:17px;padding:10px 12px}
 .props input:focus,.modal input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 .props input:disabled{background:#f3f5f9;color:var(--muted)}
 .pt-select{flex:1;min-width:0;padding:7px 8px;border:1.5px solid var(--line-strong);border-radius:9px;background:#fff;font:italic 16px "Times New Roman",serif;color:var(--text)}
@@ -252,6 +257,14 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
 .ai-row .conf{margin-left:auto;font-size:11.5px;font-weight:700;color:var(--muted);white-space:nowrap}
 .ai-row .conf.low{color:#c27311}
 .ai-row.off{opacity:.5;cursor:not-allowed}
+.ai-loading{text-align:center;padding:6px 0 2px}
+.ai-spin{width:42px;height:42px;margin:4px auto 14px;border-radius:50%;border:4px solid var(--accent-soft);border-top-color:var(--accent);animation:aispin .9s linear infinite}
+@keyframes aispin{to{transform:rotate(360deg)}}
+.ai-busy{font-size:16px;font-weight:800;color:var(--text) !important;margin:0 0 6px !important}
+.ai-sub{font-size:12px;color:var(--muted);margin-top:5px}
+.ai-adv{margin:4px 0 0}
+.ai-adv summary{cursor:pointer;font-size:12.5px;font-weight:700;color:var(--muted);margin-bottom:8px}
+#board.picking,#board.picking .obj{cursor:crosshair !important}
 </style>
 </head>
 <body>
@@ -414,6 +427,11 @@ const CONFIG = {
     mergeDist: 8,              // 이미 있는 점과 이 거리(px) 안이면 새로 만들지 않고 그 점을 씀
     labelAttach: 45,           // 따로 인식된 이름 글자를 이 거리(px) 안의 점 이름으로 붙임
     dimOpacity: 0.4,           // 적용 후 '원본 그림 흐리게'를 고르면 이 투명도로
+    maxSide: 2576,             // AI에 보내는 그림의 긴 쪽 최대 픽셀 (이 크기까지는 AI 좌표가 픽셀과 1:1)
+    minSide: 1000,             // 작은 그림은 이 크기까지 키워 보내요(작은 글자도 잘 읽게)
+    maxUpscale: 3,             //   …단, 3배까지만
+    maxBase64: 3800000,        // 보내는 그림 데이터 최대 크기 (넘으면 JPG로, 그래도 크면 줄여요)
+    timeoutSec: 150,           // 이 시간(초)이 지나도 답이 없으면 멈춰요
   },
 };
 
@@ -683,7 +701,8 @@ window.addEventListener('error', e => showError(e.error || e.message));
 window.addEventListener('unhandledrejection', e => showError(e.reason));
 
 let modalEl = null;
-function openModal({ title, body, buttons = [], width, side = false }) {
+let modalOnClose = null;   // 창이 닫힐 때 한 번 부를 함수 (예: AI 분석 기다리기를 닫으면 요청 취소)
+function openModal({ title, body, buttons = [], width, side = false, onClose = null }) {
   closeModal();
   // side: 오른쪽에 띄워 작업 영역(미리보기)이 가려지지 않게
   const back = H('div', { class: 'modal-back' + (side ? ' side' : ''), onmousedown: e => { if (e.target === back) closeModal(); } });
@@ -697,12 +716,13 @@ function openModal({ title, body, buttons = [], width, side = false }) {
   back.appendChild(H('div', { class: 'modal', style: width ? `width:${width}px` : null },
     H('h3', {}, title), body, H('div', { class: 'modal-actions' }, actions)));
   document.body.appendChild(back);
-  modalEl = back;
+  modalEl = back; modalOnClose = onClose;
   const focusEl = back.querySelector('input[type=text]') || back.querySelector('.m-btn.primary, .m-btn.danger');
   if (focusEl) { focusEl.focus(); if (focusEl.select) focusEl.select(); }
 }
 function closeModal() {
   if (modalEl) { modalEl.remove(); modalEl = null; }
+  if (modalOnClose) { const f = modalOnClose; modalOnClose = null; f(); }
   if (aiPreview) { aiPreview = null; renderOverlay(); }   // AI 결과 미리보기 지우기
 }
 function confirmBox(title, message, okLabel, onOk, kind = 'primary') {
@@ -1589,7 +1609,7 @@ function panBy(dxScreen, dyScreen) {
 function renderCanvas() {
   LAYER.content.replaceChildren();
   drawScene(LAYER.content, 'edit');
-  board.setAttribute('class', 'tool-' + tool);
+  board.setAttribute('class', 'tool-' + tool + (regionPick ? ' picking' : ''));
   $('#emptyHint').style.display = doc.objects.length ? 'none' : '';
   renderOverlay();
 }
@@ -1624,6 +1644,15 @@ function renderOverlay() {
   if (drag && drag.kind === 'box' && drag.cur) {
     const x = Math.min(drag.start.x, drag.cur.x), y = Math.min(drag.start.y, drag.cur.y);
     S('rect', { x, y, width: Math.abs(drag.cur.x - drag.start.x), height: Math.abs(drag.cur.y - drag.start.y), fill: accent, 'fill-opacity': .08, stroke: accent, 'stroke-width': 1.2 * k, 'stroke-dasharray': `${5 * k} ${3 * k}` }, ov);
+  }
+  // AI 인식 영역 고르는 중: 그림 테두리와 고르는 네모를 주황색으로
+  if (regionPick) {
+    const ri = getObj(regionPick.imgId);
+    if (ri) S('rect', { x: ri.x, y: ri.y, width: ri.w, height: ri.h, fill: 'none', stroke: orange, 'stroke-width': 2 * k, 'stroke-dasharray': `${6 * k} ${4 * k}` }, ov);
+    if (drag && drag.kind === 'aiRegion' && drag.cur) {
+      const x = Math.min(drag.start.x, drag.cur.x), y = Math.min(drag.start.y, drag.cur.y);
+      S('rect', { x, y, width: Math.abs(drag.cur.x - drag.start.x), height: Math.abs(drag.cur.y - drag.start.y), fill: orange, 'fill-opacity': .12, stroke: orange, 'stroke-width': 2 * k }, ov);
+    }
   }
   // 화살표: 그리는 중 미리보기, 선택하면 양 끝 손잡이(끌어서 한쪽 끝만 옮기기)
   if (drag && drag.kind === 'arrowNew' && drag.moved) {
@@ -1728,8 +1757,10 @@ function buildToolbar() {
   bar.insertBefore(H('div', { class: 'tool-grid' },
     H('button', { class: 'tool-btn wide', id: 'btnCoord', title: '좌표평면 켜기/설정', onclick: openCoord },
       icon('coord'), '좌표평면', H('span', { class: 'pill', id: 'coordPill' }, '꺼짐')),
-    H('button', { class: 'tool-btn wide', id: 'btnImgVis', title: '불러온 원본 그림을 보이거나 숨겨요 (숨기면 점·선 등 개체만 보여요)', onclick: toggleImages },
-      icon('image'), '원본 그림', H('span', { class: 'pill', id: 'imgPill' }, '없음'))), before);
+    H('button', { class: 'tool-btn vis', id: 'btnImgVis', title: '불러온 원본 그림을 보이거나 숨겨요 (숨기면 점·선 등 개체만 보여요)', onclick: toggleImages },
+      H('span', { class: 'tl' }, '원본 그림'), H('span', { class: 'pill', id: 'imgPill' }, '없음')),
+    H('button', { class: 'tool-btn vis', id: 'btnAiVis', title: 'AI가 인식해 만든 개체를 보이거나 숨겨요', onclick: toggleAiObjects },
+      H('span', { class: 'tl' }, 'AI 개체'), H('span', { class: 'pill', id: 'aiPill' }, '없음'))), before);
   renderToolButtons();
 }
 /* 원본 그림 모두 보이기/숨기기 — 인식한 개체만 따로 보고 싶을 때 */
@@ -1742,7 +1773,20 @@ function toggleImages() {
   renderAll();
   toast(show ? '원본 그림을 다시 보여 줘요.' : '원본 그림을 숨겼어요. 점·선 같은 개체만 보여요. (PNG에도 빠져요)');
 }
+/* AI가 만든 개체 모두 보이기/숨기기 (숨기면 편집 화면엔 흐리게, PNG에서는 빠져요) */
+function toggleAiObjects() {
+  const list = doc.objects.filter(o => o.ai);
+  if (!list.length) { toast('아직 AI로 만든 개체가 없어요. 그림을 선택하고 [🤖 AI로 도형 인식하기]를 눌러 보세요.'); return; }
+  const show = list.some(o => o.visible === false);
+  hist.lastKey = null; record();
+  list.forEach(o => { o.visible = show; });
+  renderAll();
+  toast(show ? 'AI 개체를 다시 보여 줘요.' : 'AI 개체를 숨겼어요. 편집 화면에는 흐리게 보이고, PNG에서는 빠져요.');
+}
 function updateImageButton() {
+  const ais = doc.objects.filter(o => o.ai), aiShown = ais.some(o => o.visible !== false);
+  $('#btnAiVis').classList.toggle('on', ais.length > 0 && aiShown);
+  $('#aiPill').textContent = !ais.length ? '없음' : aiShown ? '보임' : '숨김';
   const imgs = byType('image'), shown = imgs.some(o => o.visible !== false);
   $('#btnImgVis').classList.toggle('on', imgs.length > 0 && shown);
   $('#imgPill').textContent = !imgs.length ? '없음' : shown ? '보임' : '숨김';
@@ -1797,7 +1841,7 @@ function openCoord() {
   select(COORD_ID);
 }
 function setTool(t) {
-  tool = t; picks = []; tempHint = null;
+  tool = t; picks = []; tempHint = null; regionPick = null;
   const g = groupOf(t); if (g) groupCurrent[g.id] = t;
   renderToolButtons();
   $('#toolChip').textContent = '현재 도구: ' + TOOLS[t].label;
@@ -1978,6 +2022,8 @@ board.addEventListener('pointerdown', e => {
   if (e.button !== 0) return;
   blurInputs();
   const pt = toBoard(e);
+  // AI 인식 영역 고르는 중: 끌어서 네모
+  if (regionPick) { beginDrag(e, { kind: 'aiRegion', start: pt, cur: pt }); return; }
   const handleEl = e.target.closest('[data-handle]');
   const objEl = e.target.closest('[data-id]');
   const hit = objEl ? getObj(objEl.dataset.id) : null;
@@ -2185,9 +2231,9 @@ board.addEventListener('pointermove', e => {
     if (!drag.moved) {
       if (Math.hypot(dx, dy) * pxPerUnit() < 3) return;   // 살짝 떨린 클릭은 이동으로 보지 않음
       drag.moved = true;
-      if (drag.kind !== 'box' && drag.kind !== 'arrowNew') record();
+      if (drag.kind !== 'box' && drag.kind !== 'arrowNew' && drag.kind !== 'aiRegion') record();
     }
-    if (drag.kind === 'box') { drag.cur = pt; renderOverlay(); return; }
+    if (drag.kind === 'box' || drag.kind === 'aiRegion') { drag.cur = pt; renderOverlay(); return; }
     if (drag.kind === 'arrowNew') { drag.cur = arrowSnap(pt, e.shiftKey && drag.a); renderOverlay(); return; }
     if (drag.kind === 'group') {
       moveGroup(drag.items, dx, dy);
@@ -2249,6 +2295,7 @@ function dragLengthLabel(o, pt) {
 function endDrag() {
   if (!drag) return;
   const d = drag, moved = drag.moved, kind = drag.kind; drag = null;
+  if (kind === 'aiRegion') { if (moved && d.cur) aiRegionFinish(d.start, d.cur); else renderOverlay(); return; }
   if (kind === 'arrowNew') {
     if (!moved || V.dist(d.a, d.cur) * pxPerUnit() < 6) { renderOverlay(); setTempHint('화살표는 시작할 곳에서 끝날 곳까지 끌어서 그려요.'); return; }
     record();
@@ -2972,9 +3019,15 @@ const PANELS = {
       toggle('원본 그림 보이기 (끄면 화면·PNG에서 빠져요)', o.visible !== false, v => { hist.lastKey = null; record(); o.visible = v; renderAll(); }),
       field('투명도 (낮출수록 흐려져요)', slider({ min: 0, max: 100, value: Math.round(o.opacity * 100), unit: '%', onInput: v => setProp(o, 'opacity', v / 100) })),
       groupTitle('🤖 AI 도형 인식'),
-      H('button', { class: 'big-btn accent', title: '그림 속 점·선·표시를 고칠 수 있는 개체로 바꿔요', onclick: () => aiStart(o) }, '🤖 AI로 도형 인식하기'),
+      H('button', { class: 'big-btn accent', title: '그림 속 점·선·표시를 고칠 수 있는 개체로 바꿔요', onclick: () => aiStart(o) },
+        aiMade.length ? '🔄 AI로 다시 인식하기' : '🤖 AI로 도형 인식하기'),
+      H('div', { class: 'btn-row' },
+        H('button', { class: 'small-btn', title: '그림 위를 끌어서 고른 부분만 AI가 인식해요', onclick: () => aiRegionStart(o) }, '✂ 영역 골라서 인식'),
+        H('button', { class: 'small-btn', title: '접속 비밀번호·좌표 보정·연결 시험', onclick: () => aiSettingsDialog() }, '⚙ AI 설정')),
       aiMade.length ? H('button', { class: 'big-btn', title: '이 그림에서 인식해 만든 개체만 골라요', onclick: () => { selectMany(aiMade.map(x => x.id)); } },
         `이 그림에서 인식한 개체 ${aiMade.length}개 선택`) : null,
+      H('div', { class: 'info' }, '💡 AI는 버튼을 누를 때만 그림을 분석해요(분석할 때마다 요금이 들어요). 결과를 확인하고 고른 것만 개체로 만들어요.'),
+      H('button', { class: 'small-btn', style: 'width:100%;margin:-6px 0 15px', title: '다른 AI(ChatGPT·Claude 채팅 등)에게 받은 결과를 붙여 넣어요', onclick: () => aiPasteDialog(o) }, '📋 다른 AI 결과 붙여넣기'),
       groupTitle('그림 크기·위치'),
       field('크기', scale),
       field('너비 × 높이 (픽셀)', H('div', { class: 'wh' }, wIn, '×', hIn)),
@@ -3097,6 +3150,7 @@ const AI_PROMPT = `첨부한 수학 문제 그림을 분석해서, 그림 속 �
     { "type": "ray", "from": "A", "through": "B" },
     { "type": "triangle", "points": ["A", "B", "C"] },
     { "type": "circle", "center": "O", "through": "A" },
+    { "type": "arc", "center": "O", "from": "A", "to": "B" },
     { "type": "angle", "points": ["A", "B", "C"], "value": "60°" },
     { "type": "rightAngle", "points": ["A", "B", "C"] },
     { "type": "parallel", "segments": [["A", "D"], ["B", "C"]], "count": 1 },
@@ -3113,35 +3167,176 @@ const AI_PROMPT = `첨부한 수학 문제 그림을 분석해서, 그림 속 �
 - 점 이름을 모르면 label을 비워 두세요. 점과 떨어져 있는 이름 글자는 "label"로 적으면 가까운 점의 이름이 돼요.
 - 점선은 "dashed": true, 치수선(양쪽 화살표와 길이)은 "dimension"으로 적어 주세요.
 - 화살표는 "arrow"로, 꼬리(from)와 머리(to)를 적어요. 양쪽 화살표면 "heads": "both".
+- 같은 길이 표시(|, ||)가 있는 선분은 segment에 "ticks": 1~3을 적어요. 호(arc)는 화면에서 시계 반대 방향으로 from → to예요.
 - 두 점을 잇는 선분 끝에 화살촉이 있으면 segment에 "heads"를 적어요: "end"(to 쪽), "start"(from 쪽), "both".
 - 확실하지 않은 항목은 "confidence"를 0~1 사이로 낮게 적어 주세요.`;
 
-/* 인식기 목록: 지금은 '붙여넣기'만 쓸 수 있어요. 자동 인식 모델을 연결하면 auto를 ready: true로 */
+/* 인식기 목록: auto = AI 서버(api/recognize.js)로 그림을 보내 자동 인식, paste = 다른 AI 결과 붙여넣기
+   다른 인식 방법을 더하려면 { label, ready: true, async recognize(input, { signal }) → raw } 를 추가 */
 const AI_RECOGNIZERS = {
   paste: { label: 'AI 결과 붙여넣기', ready: true },   // 화면에서 직접 처리 (aiPasteDialog)
-  auto: {
-    label: 'AI 자동 인식', ready: false,
-    /* input = { dataUrl, width, height, region } → 위 AI_PROMPT 형식의 결과(객체)를 돌려주면 됩니다 */
-    async recognize(input) { throw new UserError('자동 인식은 아직 연결되지 않았어요.'); },
-  },
+  auto: { label: 'AI 자동 인식', ready: true, recognize: (input, opt) => analyzeGeometryImage(input, opt) },
 };
-/* 인식기에 넘길 그림: 원본 전체 또는 일부(region, 원본 픽셀 기준) */
+
+/* ---------- AI 설정: 이 컴퓨터 브라우저에만 저장 (접속 비밀번호·서버 주소·좌표 보정) ----------
+   API 키는 여기 없어요. API 키는 서버(Vercel 환경변수)에만 있어서 브라우저에 보이지 않아요. */
+const AI_DEFAULT_SERVER = 'https://geometry-editor.vercel.app/api/recognize';
+function aiSettings() { return { code: '', server: '', refine: true, ...(store.get('aiSettings') || {}) }; }
+function aiServerUrl() {
+  const s = (aiSettings().server || '').trim(); if (s) return s;
+  // 웹 주소(Vercel)나 내 PC 시험 서버로 열었으면 같은 곳의 /api, 파일로 열었거나 GitHub Pages면 Vercel 서버
+  return /^https?:$/.test(location.protocol) && !/github\.io$/.test(location.hostname) ? new URL('/api/recognize', location.href).href : AI_DEFAULT_SERVER;
+}
+/* 서버가 알려 준 오류 종류 → 쉬운 안내 */
+const AI_ERRORS = {
+  not_configured: 'AI 서버에 API 키가 아직 설정되지 않았어요. README의 "AI 도형 인식 설정"을 따라 설정해 주세요.',
+  bad_code: 'AI 접속 비밀번호가 맞지 않아요. 그림 속성창의 [⚙ AI 설정]에서 다시 입력해 주세요.',
+  too_large: '그림이 너무 커요. [영역 골라서 인식]으로 필요한 부분만 골라 주세요.',
+  busy: 'AI 사용량이 많아요. 1분쯤 뒤에 다시 시도해 주세요.',
+  timeout: 'AI 분석이 너무 오래 걸려서 멈췄어요. [영역 골라서 인식]으로 작은 부분만 골라 보세요.',
+  refused: 'AI가 이 그림을 분석하지 않았어요. 다른 그림이나 일부 영역으로 시도해 주세요.',
+  too_long: '그림 속 개체가 너무 많아요. [영역 골라서 인식]으로 나눠서 인식해 보세요.',
+  bad_output: 'AI 응답을 이해하지 못했어요. 다시 인식해 주세요.',
+  ai_auth: 'AI 서버의 API 키가 올바르지 않아요. Vercel 설정의 ANTHROPIC_API_KEY를 확인해 주세요.',
+  ai_model: 'AI 모델 이름이 올바르지 않아요. Vercel 설정의 AI_MODEL을 지우거나 고쳐 주세요.',
+  network: 'AI 인식에 실패했어요. 인터넷 연결이나 AI 설정을 확인해 주세요.',
+  not_found: 'AI 서버를 찾을 수 없어요. [⚙ AI 설정]의 서버 주소를 확인해 주세요.',
+  server: 'AI 인식에 실패했어요. 잠시 후 다시 시도해 주세요.',
+};
+class AiError extends UserError { constructor(code) { super(AI_ERRORS[code] || AI_ERRORS.server); this.code = code; } }
+async function postAi(body, signal) {
+  let res;
+  try { res = await fetch(aiServerUrl(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal }); }
+  catch (err) { if (err && err.name === 'AbortError') throw err; throw new AiError('network'); }
+  let data = null;
+  try { data = await res.json(); } catch (_) {}
+  if (!data || typeof data !== 'object') throw new AiError(res.status === 404 ? 'not_found' : res.status === 413 ? 'too_large' : res.status === 504 ? 'timeout' : 'server');
+  if (!data.ok) throw new AiError(data.error);
+  return data;
+}
+
+/* 인식기에 넘길 그림: 원본 전체 또는 일부(region, 원본 픽셀 기준)
+   흰 바탕에 그려서 AI가 읽기 좋은 크기로(너무 크면 줄이고 작으면 키움) → PNG(크면 JPG)
+   → { mediaType, data(base64), width, height, region, canvas } — 결과 좌표는 이 그림(width×height)의 픽셀 기준 */
 async function recognitionInput(img, region = null) {
   const a = assets[img.asset]; if (!a) throw new UserError('원본 그림을 찾을 수 없어요.');
-  if (!region) return { dataUrl: a.src, width: a.w, height: a.h, region: null };
-  const im = await loadImg(a.src), c = document.createElement('canvas');
-  c.width = Math.max(1, Math.round(region.width)); c.height = Math.max(1, Math.round(region.height));
-  c.getContext('2d').drawImage(im, region.x, region.y, region.width, region.height, 0, 0, c.width, c.height);
-  return { dataUrl: c.toDataURL('image/png'), width: c.width, height: c.height, region };
+  const r = region || { x: 0, y: 0, width: a.w, height: a.h };
+  const im = await loadImg(a.src).catch(() => { throw new UserError('원본 그림을 읽을 수 없어요.'); });
+  const C = CONFIG.ai, long = Math.max(r.width, r.height);
+  let s = long > C.maxSide ? C.maxSide / long : long < C.minSide ? Math.min(C.maxUpscale, C.minSide / long) : 1;
+  for (let tries = 0; tries < 5; tries++, s *= 0.75) {
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(r.width * s)); c.height = Math.max(1, Math.round(r.height * s));
+    const g = c.getContext('2d');
+    g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+    g.drawImage(im, r.x, r.y, r.width, r.height, 0, 0, c.width, c.height);
+    for (const [type, q] of [['image/png'], ['image/jpeg', 0.92]]) {
+      const dataUrl = c.toDataURL(type, q), data = dataUrl.slice(dataUrl.indexOf(',') + 1);
+      if (data.length <= C.maxBase64) return { mediaType: type, data, dataUrl, width: c.width, height: c.height, region, canvas: c };
+    }
+  }
+  throw new AiError('too_large');
 }
-/* 자동 인식기 실행 → 결과 정리 → 검토 창 (모델을 연결하면 이 함수 하나로 이어져요) */
-async function runRecognition(img, recognizerId = 'auto', region = null) {
+/* AI 호출: 그림 → AI 서버 → 표준 결과(raw: { image, region, objects }) — 어떤 AI를 쓰는지는 서버가 정해요 */
+async function analyzeGeometryImage(input, { signal } = {}) {
+  const data = await postAi({ code: aiSettings().code, image: { mediaType: input.mediaType, data: input.data, width: input.width, height: input.height } }, signal);
+  const raw = data.result && typeof data.result === 'object' ? data.result : { objects: [] };
+  raw.image = { width: input.width, height: input.height };   // 보낸 그림 크기 기준 좌표 (AI가 적은 크기보다 확실해요)
+  if (input.region) raw.region = input.region;
+  return raw;
+}
+
+/* ---------- 좌표 자동 보정: AI가 찍은 점을 '그림 속 선이 실제로 지나는 곳'으로 살짝 옮겨요 ----------
+   점마다 연결된 선분 방향으로 그림의 어두운 픽셀(선)이 얼마나 이어지는지 재서, 가까운 범위에서 가장 잘 맞는 자리로.
+   글자나 다른 표시 쪽으로는 끌려가지 않아요(선이 이어지는 방향만 보니까). 옮긴 점 개수를 돌려줘요. */
+function refineRecognition(raw, canvas) {
+  const W = canvas.width, Hh = canvas.height, N = W * Hh;
+  const px = canvas.getContext('2d').getImageData(0, 0, W, Hh).data;
+  const lum = new Uint8Array(N), hist = new Float64Array(256);
+  for (let i = 0; i < N; i++) { const v = (px[i * 4] * 299 + px[i * 4 + 1] * 587 + px[i * 4 + 2] * 114) / 1000 | 0; lum[i] = v; hist[v]++; }
+  // 오츠 방법으로 '선'과 '바탕'을 가르는 밝기 기준
+  let sum = 0; for (let v = 0; v < 256; v++) sum += v * hist[v];
+  let wB = 0, sB = 0, best = 0, th = 128;
+  for (let v = 0; v < 256; v++) {
+    wB += hist[v]; if (!wB || wB === N) continue;
+    sB += v * hist[v];
+    const mB = sB / wB, mF = (sum - sB) / (N - wB), between = wB * (N - wB) * (mB - mF) * (mB - mF);
+    if (between > best) { best = between; th = v; }
+  }
+  th = Math.min(th, 200);
+  // 진하기 지도: 바탕(밝음) = 0 … 선 한가운데(가장 진함) = 1 → 선의 '가운데'에 맞출 수 있어요
+  const hi = Math.max(th, 140), ink = new Float32Array(N);
+  for (let i = 0; i < N; i++) ink[i] = clamp((hi - lum[i]) / (hi - 30), 0, 1);
+  const at = (x, y) => { x = Math.round(x); y = Math.round(y); return x >= 0 && y >= 0 && x < W && y < Hh ? ink[y * W + x] : 0; };
+  const support = (p, q) => {   // p에서 q 쪽으로 절반까지, 선 위를 지나는 정도(평균 진하기)
+    const L = Math.hypot(q.x - p.x, q.y - p.y); if (L < 4) return 0;
+    const n = clamp(Math.round(L / 4), 8, 60); let hit = 0;
+    for (let i = 1; i <= n; i++) { const t = 0.5 * i / n; hit += at(p.x + (q.x - p.x) * t, p.y + (q.y - p.y) * t); }
+    return hit / n;
+  };
+  const objs = Array.isArray(raw.objects) ? raw.objects : [];
+  const pts = new Map(), byLabel = new Map();
+  for (const o of objs) if (o && o.type === 'point' && isFinite(+o.x) && isFinite(+o.y)) { pts.set(String(o.id), o); if (o.label) byLabel.set(String(o.label), o); }
+  const ref = r => typeof r === 'string' ? (pts.get(r) || byLabel.get(r) || null) : null;
+  const nbrs = new Map();
+  const link = (a, b) => { a = ref(a); b = ref(b); if (!a || !b || a === b) return; for (const [p, q] of [[a, b], [b, a]]) { if (!nbrs.has(p)) nbrs.set(p, new Set()); nbrs.get(p).add(q); } };
+  for (const o of objs) {
+    if (!o) continue;
+    if (o.type === 'segment') link(o.from, o.to);
+    else if (o.type === 'polygon' && Array.isArray(o.points)) o.points.forEach((p, i) => link(p, o.points[(i + 1) % o.points.length]));
+    else if (o.type === 'line' && Array.isArray(o.through)) link(o.through[0], o.through[1]);
+    else if (o.type === 'ray') link(o.from, o.through);
+  }
+  const R = Math.max(5, Math.round(Math.max(W, Hh) * 0.02));
+  const moved = new Set();
+  for (const p of nbrs.keys()) p._x0 = +p.x, p._y0 = +p.y;
+  for (let round = 0; round < 2; round++) for (const [p, set] of nbrs) {
+    const list = [...set];
+    const score = (x, y) => list.reduce((s, q) => s + support({ x, y }, q), 0) / list.length + at(x, y) * 0.05 - 0.002 * Math.hypot(x - p._x0, y - p._y0);
+    const cur = score(+p.x, +p.y);
+    let bx = +p.x, by = +p.y, bs = -Infinity;
+    for (let dy = -R; dy <= R; dy += 2) for (let dx = -R; dx <= R; dx += 2) { const s = score(p._x0 + dx, p._y0 + dy); if (s > bs) { bs = s; bx = p._x0 + dx; by = p._y0 + dy; } }
+    const cx = bx, cy = by;   // 2칸 간격으로 찾은 곳 주변을 1칸 간격으로 다시
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const s = score(cx + dx, cy + dy); if (s > bs) { bs = s; bx = cx + dx; by = cy + dy; } }
+    if (bs >= 0.45 && bs > cur + 0.02 && (bx !== +p.x || by !== +p.y)) { p.x = bx; p.y = by; moved.add(p); }
+  }
+  for (const p of nbrs.keys()) { delete p._x0; delete p._y0; }
+  return moved.size;
+}
+
+/* 자동 인식 실행: 그림 준비 → AI 분석(기다리는 동안 안내) → 좌표 보정 → 결과 정리 → 검토 창
+   AI는 이 함수가 불릴 때(= 사용자가 버튼을 눌렀을 때)만 호출돼요. 그림을 불러오기만 해서는 호출되지 않아요. */
+async function runRecognition(img, recognizerId = 'auto', region = null, opt = {}) {
   const R = AI_RECOGNIZERS[recognizerId];
   if (!R || !R.ready || !R.recognize) throw new UserError('이 인식 방법은 아직 쓸 수 없어요.');
-  const input = await recognitionInput(img, region);
-  const raw = await R.recognize(input);
-  if (region && raw && !raw.region) raw.region = region;   // 일부만 인식한 결과는 그 자리로
-  reviewRecognitionDialog(normalizeRecognitionResult(raw, img));
+  const ctrl = new AbortController();
+  let finished = false, timedOut = false;
+  const t0 = Date.now();
+  const elapsed = H('p', { class: 'ai-sub' }, '보통 20초~1분쯤 걸려요.');
+  openModal({ title: '🤖 AI 도형 인식', width: 420,
+    body: H('div', { class: 'ai-loading' }, H('div', { class: 'ai-spin' }), H('p', { class: 'ai-busy' }, 'AI가 도형을 분석하고 있습니다...'), elapsed),
+    buttons: [{ label: '취소' }], onClose: () => { if (!finished) ctrl.abort(); } });
+  const loading = modalEl;
+  const tick = setInterval(() => { elapsed.textContent = `${Math.round((Date.now() - t0) / 1000)}초 지났어요. 보통 20초~1분쯤 걸려요.`; }, 1000);
+  const limit = setTimeout(() => { timedOut = true; ctrl.abort(); }, CONFIG.ai.timeoutSec * 1000);
+  try {
+    const input = await recognitionInput(img, region);
+    const raw = await R.recognize(input, { signal: ctrl.signal });
+    if (ctrl.signal.aborted) throw Object.assign(new Error('aborted'), { name: 'AbortError' });
+    let fixed = 0;
+    if (aiSettings().refine && input.canvas && raw.units !== 'ratio') { try { fixed = refineRecognition(raw, input.canvas); } catch (e) { console.warn(e); } }
+    const norm = normalizeRecognitionResult(raw, img);
+    finished = true;
+    if (modalEl !== loading) return;   // 기다리다 창을 닫았으면 아무것도 하지 않아요
+    if (!norm.cands.length) { closeModal(); throw new UserError('그림에서 도형을 찾지 못했어요. 그림이 흐리거나 작다면 [영역 골라서 인식]으로 도형 부분만 골라 보세요.'); }
+    Object.assign(norm, { refined: fixed, replaceAi: !!opt.replace });
+    reviewRecognitionDialog(norm);
+  } catch (err) {
+    finished = true;
+    if (modalEl === loading) closeModal();
+    if (err && err.name === 'AbortError') { if (timedOut) throw new AiError('timeout'); toast('AI 인식을 취소했어요.'); return; }
+    throw err;
+  } finally { clearInterval(tick); clearTimeout(limit); }
 }
 
 /* ---------- 결과 정리: 인식 결과(raw) → 후보 목록 ----------
@@ -3153,9 +3348,9 @@ const AI_TYPE_ALIAS = {
   polygon: 'polygon', circle: 'circle', angle: 'angle', rightangle: 'right', right: 'right', parallel: 'parallel',
   parallelmark: 'parallel', perpendicular: 'perp', perp: 'perp', length: 'length', dimension: 'dimension',
   dimensionline: 'dimension', text: 'text', number: 'text', symbol: 'text', char: 'text', letter: 'text',
-  label: 'label', pointlabel: 'label', arrow: 'arrow', doublearrow: 'arrow',
+  label: 'label', pointlabel: 'label', arrow: 'arrow', doublearrow: 'arrow', arc: 'arc',
 };
-const AI_STAGE = { point: 0, label: 1, segment: 2, line: 2, ray: 2, polygon: 2, circle: 2 };   // 나머지는 3 (점·선을 먼저 읽어야 표시가 가리킬 수 있어요)
+const AI_STAGE = { point: 0, label: 1, segment: 2, line: 2, ray: 2, polygon: 2, circle: 2, arc: 2 };   // 나머지는 3 (점·선을 먼저 읽어야 표시가 가리킬 수 있어요)
 function normalizeRecognitionResult(raw, img) {
   if (typeof raw === 'string') {
     const s = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');   // AI가 ```json으로 감싸 줘도 읽어요
@@ -3242,6 +3437,7 @@ const AI_PARSERS = {
     if (s) {
       s.conf = Math.min(s.conf, conf);
       if (o.dashed || /dash|dot/.test(String(o.style || ''))) s.data.dashed = true;
+      if (+o.ticks >= 1) s.data.ticks = clamp(Math.round(+o.ticks), 1, 3);   // 같은 길이 표시 | || |||
       if (['end', 'start', 'both'].includes(o.heads)) {   // 끝 모양: 같은 선분을 반대 순서로 적었으면 방향도 바꿔요
         const fromRef = Array.isArray(pts) ? pts[0] : (o.from ?? o.start ?? o.p1);
         const fc = typeof fromRef === 'string' ? ctx.point(fromRef, conf) : null;   // 좌표로 적었으면 방금 만든 순서 그대로
@@ -3267,9 +3463,15 @@ const AI_PARSERS = {
   circle(o, conf, ctx) {
     const c = ctx.point(o.center, conf); if (!c) return null;
     const p = ctx.point(o.through, conf);
-    if (p) return ctx.add('circle', { c: c.key, p: p.key }, conf, [c.key, p.key]);
-    if (+o.radius > 0) return ctx.add('circle', { c: c.key, r: round1(ctx.toLen(+o.radius)) }, conf, [c.key]);
+    const dashed = !!o.dashed;
+    if (p && p !== c) return ctx.add('circle', { c: c.key, p: p.key, dashed }, conf, [c.key, p.key]);
+    if (+o.radius > 0) return ctx.add('circle', { c: c.key, r: round1(ctx.toLen(+o.radius)), dashed }, conf, [c.key]);
     return null;
+  },
+  arc(o, conf, ctx) {   // 중심, 시작점, 끝점 (화면에서 시계 반대 방향)
+    const c = ctx.point(o.center, conf), a = ctx.point(o.from, conf), b = ctx.point(o.to, conf);
+    if (!c || !a || !b || a === c || b === c) return null;
+    return ctx.add('arc', { c: c.key, a: a.key, b: b.key }, conf, [c.key, a.key, b.key]);
   },
   angle: (o, conf, ctx) => AI_PARSERS._corner(o, conf, ctx, 'angle'),
   right: (o, conf, ctx) => AI_PARSERS._corner(o, conf, ctx, 'right'),
@@ -3327,12 +3529,12 @@ const AI_KINDS = {
   },
   segment: {
     group: '선', order: 1,
-    title: (d, L) => (d.dashed ? '점선 ' : '선분 ') + L(d.a) + L(d.b) + ({ end: ` (${L(d.a)}→${L(d.b)})`, start: ` (${L(d.b)}→${L(d.a)})`, both: ' (↔)' }[d.heads] || ''),
+    title: (d, L) => (d.dashed ? '점선 ' : '선분 ') + L(d.a) + L(d.b) + ({ end: ` (${L(d.a)}→${L(d.b)})`, start: ` (${L(d.b)}→${L(d.a)})`, both: ' (↔)' }[d.heads] || '') + (d.ticks ? ' ' + '|'.repeat(d.ticks) : ''),
     create(d, id) {
       const a = id(d.a), b = id(d.b); if (!a || !b || a === b) return null;
       const ex = byType('segment').find(s => (s.p1 === a && s.p2 === b) || (s.p1 === b && s.p2 === a));
       if (ex) return ex.id;
-      const s = addSegment(a, b); if (d.dashed) s.dashed = true; if (d.heads) s.heads = d.heads;
+      const s = addSegment(a, b); if (d.dashed) s.dashed = true; if (d.heads) s.heads = d.heads; if (d.ticks) s.ticks = d.ticks;
       return s.id;
     },
   },
@@ -3352,9 +3554,15 @@ const AI_KINDS = {
     title: (d, L) => `원 (중심 ${L(d.c)}${d.p ? ', ' + L(d.p) + ' 지남' : ''})`,
     create(d, id) {
       const c = id(d.c); if (!c) return null;
-      if (d.p) { const p = id(d.p); return p && p !== c ? addCircle({ kind: 'cp', c, p }).id : null; }
-      return d.r > 0 ? addCircle({ kind: 'cr', c, r: d.r }).id : null;
+      const o = d.p ? (id(d.p) && id(d.p) !== c ? addCircle({ kind: 'cp', c, p: id(d.p) }) : null) : d.r > 0 ? addCircle({ kind: 'cr', c, r: d.r }) : null;
+      if (o && d.dashed) o.dashed = true;
+      return o ? o.id : null;
     },
+  },
+  arc: {
+    group: '원', order: 1,
+    title: (d, L) => `호 ${L(d.a)}${L(d.b)} (중심 ${L(d.c)})`,
+    create(d, id) { const [c, a, b] = [id(d.c), id(d.a), id(d.b)]; return c && a && b ? addArc(c, a, b, false).id : null; },
   },
   polygon: {
     group: '선', order: 2,
@@ -3452,6 +3660,7 @@ function applyRecognition(norm, keys, opt = {}) {
   if (!list.length) { toast('적용할 항목을 하나 이상 골라 주세요.', 'warn'); return false; }
   const picked = new Set(keys), extra = list.filter(c => !picked.has(c.key)).length;
   record();
+  const removed = norm.replaceAi ? removeAiObjects(norm.imageId) : 0;   // [다시 인식]에서 '기존 AI 개체 삭제'를 골랐을 때
   const made = new Map(), fresh = [], skipped = [];
   const id = key => made.get(key) || null;
   for (const c of list) {
@@ -3466,17 +3675,97 @@ function applyRecognition(norm, keys, opt = {}) {
   if (img && opt.dimImage) img.opacity = Math.min(img.opacity, CONFIG.ai.dimOpacity);
   if (tool !== 'select') setTool('select');
   if (fresh.length) selectMany(fresh); else renderAll();
-  toast(`인식한 개체 ${fresh.length}개를 만들었어요.` + (extra ? ` (필요한 점·선분 ${extra}개 포함)` : '')
+  toast((removed ? `기존 AI 개체를 지우고 ` : '') + `인식한 개체 ${fresh.length}개를 만들었어요.` + (extra ? ` (필요한 점·선분 ${extra}개 포함)` : '')
     + (made.size > fresh.length ? ` 이미 있던 ${made.size - fresh.length}개는 그대로 썼어요.` : '')
     + (skipped.length ? ` ${skipped.length}개는 만들 수 없어서 건너뛰었어요.` : '') + ' 마음에 들지 않으면 Ctrl+Z', fresh.length ? 'ok' : 'warn');
   return true;
 }
 
-/* ---------- 화면: 시작 → 결과 붙여넣기 → 검토 ---------- */
-function aiStart(img) {
-  const auto = AI_RECOGNIZERS.auto;
-  if (auto.ready) { runRecognition(img, 'auto').catch(showError); return; }
-  aiPasteDialog(img);
+/* 이 그림에서 인식해 만든 개체(와 거기에 기대는 표시)를 모두 지우기 — 지운 개수 */
+function removeAiObjects(imageId) {
+  const gone = new Set();
+  for (const o of doc.objects) if (o.ai && o.ai.image === imageId) withDependents(o.id).forEach(i => gone.add(i));
+  for (const a of byType('arrow')) if (!gone.has(a.id)) bakeArrow(a, ['p1', 'p2'].filter(k => a[k] && gone.has(a[k])));
+  doc.objects = doc.objects.filter(o => !gone.has(o.id));
+  return gone.size;
+}
+
+/* ---------- 화면: [🤖 AI 도형 인식] → (처음이면 설정) → (이미 인식했으면 다시 인식 방법) → 분석 → 검토 ---------- */
+function aiStart(img, region = null) {
+  if (!aiSettings().code) { aiSettingsDialog(() => aiStart(img, region), true); return; }
+  const old = doc.objects.filter(o => o.ai && o.ai.image === img.id);
+  const go = replace => setTimeout(() => runRecognition(img, 'auto', region, { replace }).catch(showError));   // 이 창이 닫힌 뒤에 시작
+  if (!old.length) { go(false); return; }
+  openModal({
+    title: '🔄 다시 인식할까요?', width: 500,
+    body: H('div', {},
+      H('p', {}, `이 그림에서 이미 인식한 개체가 ${old.length}개 있어요. 새 결과를 적용할 때 기존 AI 개체를 어떻게 할까요?`),
+      H('div', { class: 'info' }, '💡 "삭제하고 다시 인식"은 결과를 적용하는 순간에 지워요. 그 전에 취소하면 그대로 남아요. (AI 개체에 이어 그린 표시도 함께 지워지고, Ctrl+Z로 되돌릴 수 있어요)')),
+    buttons: [
+      { label: '취소' },
+      { label: '기존 개체 유지하고 추가 인식', onClick: () => go(false) },
+      { label: '기존 AI 개체 삭제하고 다시 인식', kind: 'primary', onClick: () => go(true) },
+    ],
+  });
+}
+/* AI 설정 창: 접속 비밀번호(서버에 정해 둔 값), 좌표 자동 보정, 서버 주소(고급), 연결 시험 */
+function aiSettingsDialog(then = null, first = false) {
+  const s = aiSettings();
+  let refine = s.refine;
+  const codeIn = H('input', { type: 'password', value: s.code, placeholder: 'Vercel에 적어 둔 AI_ACCESS_CODE 값', autocomplete: 'off' });
+  const serverIn = H('input', { type: 'text', value: s.server, placeholder: '비워 두면 자동: ' + aiServerUrl() });
+  const status = H('div', { class: 'info', style: 'margin:10px 0 0' }, '[연결 시험]을 누르면 그림 인식 없이(요금 없이) 설정만 확인해요.');
+  const save = () => store.set('aiSettings', { code: codeIn.value.trim(), server: serverIn.value.trim(), refine });
+  const testBtn = H('button', { class: 'small-btn', onclick: async () => {
+    save(); status.textContent = '연결을 확인하고 있어요...';
+    try { const d = await postAi({ code: aiSettings().code, ping: true }); status.textContent = `✓ 연결됐어요. 이제 [🤖 AI로 도형 인식하기]를 쓸 수 있어요. (AI 모델: ${d.model})`; }
+    catch (e) { status.textContent = '✗ ' + (e instanceof UserError ? e.message : '연결하지 못했어요.'); }
+  } }, '🔌 연결 시험 (요금 없음)');
+  openModal({
+    title: '⚙ AI 설정', width: 540,
+    body: H('div', {},
+      first ? H('p', {}, 'AI 도형 인식을 처음 쓰기 전에 한 번만 설정해요.') : null,
+      H('div', { class: 'field' }, H('span', { class: 'field-label' }, 'AI 접속 비밀번호'), codeIn,
+        H('div', { class: 'ai-sub' }, 'Vercel 설정에 적어 둔 AI_ACCESS_CODE 값이에요. 이 컴퓨터 브라우저에만 저장돼요.')),
+      H('div', { class: 'field' }, toggle('좌표 자동 보정 (AI가 찍은 점을 그림 속 선이 만나는 곳에 맞춰요)', refine, v => { refine = v; })),
+      H('details', { class: 'ai-adv' }, H('summary', {}, '고급: AI 서버 주소'), serverIn, H('div', { class: 'ai-sub' }, '보통은 비워 두세요. 다른 서버를 쓸 때만 적어요.')),
+      H('div', { class: 'btn-row', style: 'margin:12px 0 0' }, testBtn),
+      status,
+      H('div', { class: 'note', style: 'margin:12px 0 0' }, '🔑 API 키는 여기에 넣지 않아요. API 키는 서버(Vercel 설정)에만 있어서 브라우저에 보이지 않아요. 설정 방법은 README의 "AI 도형 인식 설정"에 있어요.')),
+    buttons: [
+      { label: '취소' },
+      { label: then ? '저장하고 인식 시작' : '저장', kind: 'primary', onClick: () => {
+        if (!codeIn.value.trim()) { toast('AI 접속 비밀번호를 입력해 주세요.', 'warn'); codeIn.focus(); return false; }
+        save(); toast('AI 설정을 저장했어요.', 'ok');
+        if (then) setTimeout(then);
+      } },
+    ],
+  });
+  codeIn.focus();
+}
+
+/* ---------- 영역 골라서 인식: 그림 위를 끌어서 네모로 고르면 그 부분만 AI에게 ---------- */
+let regionPick = null;   // { imgId } — 고르는 중일 때
+function aiRegionStart(img) {
+  if (!aiSettings().code) { aiSettingsDialog(() => aiRegionStart(img), true); return; }
+  if (tool !== 'select') setTool('select');
+  regionPick = { imgId: img.id };
+  setTempHint('✂ 그림에서 인식할 부분을 끌어서 네모로 고르세요. (취소: Esc)');
+  board.classList.add('picking');
+  renderOverlay();
+}
+function aiRegionCancel() { regionPick = null; board.classList.remove('picking'); tempHint = null; updateHint(); renderOverlay(); }
+/* 고른 네모(종이 좌표) → 원본 그림 픽셀 범위 */
+function aiRegionFinish(a, b) {
+  const img = getObj(regionPick && regionPick.imgId), asset = img && assets[img.asset];
+  aiRegionCancel();
+  if (!img || !asset) return;
+  const x1 = Math.max(Math.min(a.x, b.x), img.x), x2 = Math.min(Math.max(a.x, b.x), img.x + img.w);
+  const y1 = Math.max(Math.min(a.y, b.y), img.y), y2 = Math.min(Math.max(a.y, b.y), img.y + img.h);
+  const sx = asset.w / img.w, sy = asset.h / img.h;
+  const region = { x: Math.round((x1 - img.x) * sx), y: Math.round((y1 - img.y) * sy), width: Math.round((x2 - x1) * sx), height: Math.round((y2 - y1) * sy) };
+  if (!(region.width >= 16 && region.height >= 16)) { toast('그림 위에서 조금 더 크게 끌어서 골라 주세요.', 'warn'); return; }
+  aiStart(img, region);
 }
 /* 지금 방식: 다른 AI에게 그림을 보여 주고 받은 결과(JSON)를 붙여 넣기 */
 function aiPasteDialog(img) {
@@ -3495,7 +3784,7 @@ function aiPasteDialog(img) {
         H('li', {}, '[인식 결과 확인]에서 맞는 것만 골라 적용하면, 직접 그린 것처럼 고칠 수 있어요.')),
       H('div', { class: 'btn-row' }, copyBtn, sampleBtn),
       ta,
-      H('div', { class: 'info', style: 'margin:10px 0 0' }, '💡 그림을 바로 AI에게 보내는 자동 인식은 다음 단계에서 이 자리에 연결될 예정이에요.')),
+      H('div', { class: 'info', style: 'margin:10px 0 0' }, '💡 보통은 그림 속성창의 [🤖 AI로 도형 인식하기]가 더 편해요. 이 방법은 다른 AI의 결과를 쓰고 싶을 때만 써요.')),
     buttons: [
       { label: '취소' },
       { label: '인식 결과 확인', kind: 'primary', onClick: () => {
@@ -3545,22 +3834,22 @@ function reviewRecognitionDialog(norm) {
   ]));
   const setAll = v => { for (const [k, cb] of boxes) { cb.checked = v; v ? on.add(k) : on.delete(k); } renderOverlay(); };
   const opt = { lockImage: true, dimImage: true };
-  const supported = norm.cands.filter(c => c.supported).map(c => c.key);
   openModal({
-    title: '🤖 AI 인식 결과 확인', width: 470, side: true,
+    title: '🤖 AI 인식 결과', width: 470, side: true,
     body: H('div', {},
       H('p', {}, `${norm.cands.length}개를 찾았어요. 체크한 것만 고칠 수 있는 개체로 만들어요. 그림 위 주황 점선이 미리보기예요.`),
+      norm.refined ? H('div', { class: 'info', style: 'margin:0 0 8px' }, `📐 좌표 자동 보정: 점 ${norm.refined}개를 그림 속 선이 만나는 곳에 맞췄어요.`) : null,
+      norm.replaceAi ? H('div', { class: 'note', style: 'margin:0 0 8px' }, '🔄 적용하면 이 그림의 기존 AI 개체는 지우고 새 결과로 바꿔요.') : null,
       norm.warnings.length ? H('div', { class: 'note', style: 'margin:0 0 8px' }, norm.warnings.slice(0, 4).join(' ') + (norm.warnings.length > 4 ? ` 외 ${norm.warnings.length - 4}개` : '')) : null,
       H('div', { class: 'btn-row', style: 'margin:0' },
-        H('button', { class: 'small-btn', onclick: () => setAll(true) }, '모두 체크'),
-        H('button', { class: 'small-btn', onclick: () => setAll(false) }, '모두 해제')),
+        H('button', { class: 'small-btn', onclick: () => setAll(true) }, '☑ 전체 선택'),
+        H('button', { class: 'small-btn', onclick: () => setAll(false) }, '☐ 전체 해제')),
       listEl,
       toggle('적용한 뒤 원본 그림 잠그기 (인식한 개체만 고치기 편해요)', opt.lockImage, v => { opt.lockImage = v; }),
       toggle(`적용한 뒤 원본 그림 흐리게 (${Math.round(CONFIG.ai.dimOpacity * 100)}%)`, opt.dimImage, v => { opt.dimImage = v; })),
     buttons: [
       { label: '취소' },
-      { label: '선택 항목만 적용', kind: 'primary', onClick: () => applyRecognition(norm, [...on], opt) },
-      { label: '전체 적용', onClick: () => applyRecognition(norm, supported, opt) },
+      { label: '선택한 객체 적용', kind: 'primary', onClick: () => applyRecognition(norm, [...on], opt) },
     ],
   });
   aiPreview = { norm, on, hot: null, map: new Map(norm.cands.map(c => [c.key, c])) };
@@ -3584,6 +3873,8 @@ function drawAiPreview(ov, k) {
       const a = pt(d.a), b = pt(d.b); if (a && b) S('line', { ...st, x1: a.x, y1: a.y, x2: b.x, y2: b.y }, ov);
     } else if (c.kind === 'polygon') {
       const ps = d.pts.map(pt); if (ps.every(Boolean)) S('polygon', { ...st, fill: color, 'fill-opacity': .12, points: ps.map(p => `${p.x},${p.y}`).join(' ') }, ov);
+    } else if (c.kind === 'arc') {
+      const G = arcFromPts(pt(d.c), pt(d.a), pt(d.b), false); if (G) S('path', { ...st, d: arcD(G) }, ov);
     } else if (c.kind === 'circle') {
       const C = pt(d.c), p = d.p && pt(d.p), r = p ? V.dist(C, p) : d.r; if (C && r > 0) S('circle', { ...st, cx: C.x, cy: C.y, r }, ov);
     } else if (c.kind === 'angle' || c.kind === 'right') {
@@ -3937,6 +4228,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && tool === 'polygon' && picks.length) { e.preventDefault(); finishPolygon(false); return; }
   if (e.key === 'Escape') {
     if (flyEl) { closeFlyout(); return; }
+    if (regionPick) { aiRegionCancel(); toast('영역 고르기를 취소했어요.'); return; }
     if (picks.length) { picks = []; renderAll(); toast('고르던 것을 취소했어요.'); }
     else if (tool !== 'select') setTool('select');
     else select(null);

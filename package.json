@@ -1,0 +1,14 @@
+{
+  "name": "geometry-editor",
+  "private": true,
+  "description": "도형 편집기 — AI 도형 인식 서버(api/recognize.js)용 설정. 편집기 자체(도형편집기.html)는 설치 없이 동작합니다.",
+  "scripts": {
+    "dev": "node tools/dev-server.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
