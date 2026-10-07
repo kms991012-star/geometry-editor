@@ -6,7 +6,7 @@
 <title>도형 편집기 · 수학 문제 그림 만들기</title>
 <!--
   ┌──────────────────────────────────────────────────────────────┐
-  │  도형 편집기 (1단계)                                            │
+  │  도형 편집기 (2단계)                                            │
   │  이 파일 하나만 더블클릭하면 브라우저에서 바로 실행됩니다.          │
   │  인터넷 연결·서버·설치가 필요 없습니다.                            │
   │                                                              │
@@ -15,6 +15,7 @@
   │   2. <body>   : 화면 뼈대(상단 바, 도구 모음, 작업 영역, 속성창)      │
   │   3. <script> : 동작. [설정] 구역의 CONFIG 값만 바꿔도               │
   │                 점 크기·선 굵기·기본 색 등이 전체에 적용됩니다.       │
+  │                 [도구 목록] TOOLS 에서 왼쪽 도구 버튼을 정합니다.      │
   └──────────────────────────────────────────────────────────────┘
 -->
 <style>
@@ -42,7 +43,7 @@
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
 body{
-  display:flex;flex-direction:column;overflow:hidden;min-width:980px;
+  display:flex;flex-direction:column;overflow:hidden;min-width:1000px;
   background:var(--bg);color:var(--text);
   font:14px/1.45 "Pretendard","Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",system-ui,sans-serif;
 }
@@ -64,15 +65,16 @@ svg.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.9;str
 .spacer{flex:1}
 
 /* ---------- 3단 레이아웃 ---------- */
-.main{flex:1;display:grid;grid-template-columns:128px 1fr 296px;gap:12px;padding:12px;min-height:0}
+.main{flex:1;display:grid;grid-template-columns:156px 1fr 300px;gap:12px;padding:12px;min-height:0}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);min-height:0}
 
 /* ---------- 왼쪽: 도구 모음 ---------- */
-.tools{display:flex;flex-direction:column;gap:8px;padding:10px;overflow:auto}
+.tools{display:flex;flex-direction:column;gap:6px;padding:10px;overflow:auto}
 .section-title{font-size:12px;font-weight:700;color:var(--muted);padding:2px 4px}
-.tool-btn{position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;padding:13px 6px 11px;border:2px solid var(--line);border-radius:13px;background:#fafbfe;font-weight:700;font-size:14.5px;transition:background .12s,border-color .12s}
-.tool-btn svg.ic{width:30px;height:30px}
-.tool-btn .key{position:absolute;top:5px;right:8px;font-size:10.5px;font-weight:700;color:#a3adc0}
+.tool-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px}
+.tool-btn{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 2px 7px;border:2px solid var(--line);border-radius:12px;background:#fafbfe;font-weight:700;font-size:13.5px;transition:background .12s,border-color .12s}
+.tool-btn svg.ic{width:26px;height:26px}
+.tool-btn .key{position:absolute;top:3px;right:6px;font-size:10px;font-weight:700;color:#a3adc0}
 .tool-btn:hover{border-color:#b9c7fb;background:var(--accent-soft)}
 .tool-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 3px 10px rgba(91,124,250,.42)}
 .tool-btn.active .key{color:#dbe3ff}
@@ -82,13 +84,16 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
 /* ---------- 가운데: 작업 영역 ---------- */
 .stage{display:flex;flex-direction:column;overflow:hidden}
 .canvas-wrap{position:relative;flex:1;min-height:0;background-color:#f4f6fb;background-image:radial-gradient(#d9dfeb 1px,transparent 1px);background-size:18px 18px;border-radius:var(--r) var(--r) 0 0}
-#board{position:absolute;inset:0;width:100%;height:100%;display:block;user-select:none;-webkit-user-select:none;touch-action:none}
+#board{position:absolute;inset:0;width:100%;height:100%;display:block;user-select:none;-webkit-user-select:none;touch-action:none;cursor:crosshair}
 #board .paper{fill:#fff;filter:drop-shadow(0 2px 8px rgba(30,40,70,.16))}
-#board.tool-select .obj.point,
+#board.tool-select{cursor:default}
+#board.tool-select .obj{cursor:pointer}
+#board.tool-select .obj.point,#board.tool-select .obj.text,#board.tool-select .obj.length,
 #board.tool-select .obj.image.unlocked{cursor:move}
-#board.tool-select .obj.segment{cursor:pointer}
-#board.tool-point,#board.tool-segment{cursor:crosshair}
-#board.tool-point .obj.point,#board.tool-segment .obj.point{cursor:pointer}
+#board.tool-select .obj.angle,#board.tool-select .obj.right,#board.tool-select .obj.perp{cursor:nwse-resize}
+#board.tool-select .obj.image.locked{cursor:default}
+#board.tool-text{cursor:text}
+#board.tool-text .obj.text{cursor:move}
 #board .is-hidden{opacity:.28}
 #board .overlay{pointer-events:none}
 #board .overlay .handle{pointer-events:all}
@@ -100,6 +105,7 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
 .tool-chip{flex:none;background:var(--accent);color:#fff;font-weight:700;padding:3px 11px;border-radius:999px}
 .hint{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hint.warn{color:#b86b00;font-weight:600}
+.hint .step{display:inline-block;background:var(--orange-soft);color:#a35d00;font-weight:800;border-radius:6px;padding:0 7px;margin-right:6px}
 .coords{flex:none;color:var(--muted);font-variant-numeric:tabular-nums}
 
 /* ---------- 오른쪽: 속성창 ---------- */
@@ -112,10 +118,12 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
 .field{margin-bottom:15px}
 .field-label{display:block;font-size:12.5px;font-weight:700;color:var(--muted);margin-bottom:6px}
 .props input[type=text],.props input[type=number],.modal input[type=text]{width:100%;padding:8px 10px;border:1.5px solid var(--line-strong);border-radius:9px;font:inherit;background:#fff;color:var(--text)}
-.props input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.modal input[type=text]{font-size:17px;padding:10px 12px}
+.props input:focus,.modal input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 .props input:disabled{background:#f3f5f9;color:var(--muted)}
 .chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
-.chip{border:1px solid var(--line-strong);background:#fff;border-radius:7px;padding:1px 8px;font-family:"Times New Roman",serif;font-style:italic;font-size:15px}
+.chip{min-width:28px;border:1px solid var(--line-strong);background:#fff;border-radius:7px;padding:1px 8px;font-family:"Times New Roman",serif;font-size:15px}
+.chip.it{font-style:italic}
 .chip:hover{border-color:var(--accent);color:var(--accent-dark)}
 .slider{display:flex;align-items:center;gap:10px}
 .slider input{flex:1;accent-color:var(--accent)}
@@ -125,9 +133,14 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
 .sw.on{box-shadow:0 0 0 2.5px var(--accent)}
 .swatches input[type=color]{width:32px;height:28px;padding:0;border:none;background:none;cursor:pointer}
 .seg{display:flex;gap:2px;padding:3px;background:#f0f3f9;border-radius:10px}
-.seg button{flex:1;padding:7px 6px;border:none;border-radius:8px;background:transparent;font-weight:600;color:var(--muted)}
+.seg button{flex:1;padding:7px 4px;border:none;border-radius:8px;background:transparent;font-weight:600;color:var(--muted);white-space:nowrap}
 .seg button.on{background:#fff;color:var(--accent-dark);box-shadow:0 1px 4px rgba(30,40,70,.14)}
-.switch-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;margin-bottom:6px;cursor:pointer;font-weight:600}
+.dir-grid{display:grid;grid-template-columns:repeat(3,44px);gap:4px}
+.dir-grid button{height:30px;border:1.5px solid var(--line-strong);border-radius:8px;background:#fff;font-size:14px;font-weight:700;color:var(--muted);padding:0}
+.dir-grid button:hover{border-color:var(--accent);color:var(--accent-dark)}
+.dir-grid button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.dir-grid button:nth-child(5){font-size:11.5px}
+.switch-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;margin-bottom:4px;cursor:pointer;font-weight:600}
 .switch{position:relative;width:42px;height:24px;flex:none}
 .switch input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer}
 .switch i{position:absolute;inset:0;border-radius:99px;background:#cfd6e4;transition:.15s;pointer-events:none}
@@ -137,6 +150,7 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
 .big-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;margin-bottom:14px;border:1.5px solid var(--line-strong);border-radius:12px;background:#fff;font-weight:700}
 .big-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent-dark)}
 .big-btn.lock-on{background:var(--orange-soft);border-color:#f8c98c;color:#a35d00}
+.big-btn.accent{background:var(--accent-soft);border-color:#c5d2fd;color:var(--accent-dark)}
 .big-btn.danger{background:var(--danger-soft);border-color:#f3c3c4;color:var(--danger);margin:6px 0 0}
 .big-btn:disabled{opacity:.45}
 .btn-row{display:flex;gap:6px;margin-bottom:15px}
@@ -149,14 +163,14 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
 .guide h4{margin:2px 0 10px;font-size:14px}
 .guide ol{margin:0;padding-left:20px;line-height:1.85;color:#45506a}
 .guide .tip{margin-top:14px;padding:10px 12px;border-radius:10px;background:var(--accent-soft);color:var(--accent-dark);font-size:12.5px;line-height:1.7}
-.list-wrap{border-top:1px solid var(--line);max-height:40%;display:flex;flex-direction:column}
+.list-wrap{border-top:1px solid var(--line);max-height:30%;display:flex;flex-direction:column}
 .list-wrap .section-title{padding:10px 15px 4px}
 .obj-list{overflow:auto;padding:2px 8px 10px}
-.list-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:9px;cursor:pointer}
+.list-item{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:9px;cursor:pointer}
 .list-item:hover{background:#f4f6fb}
 .list-item.on{background:var(--accent-soft);color:var(--accent-dark);font-weight:700}
 .list-item .li-ic{width:20px;text-align:center;color:var(--muted)}
-.list-item .tag{margin-left:auto;font-size:11px;color:var(--muted);font-weight:500}
+.list-item .tag{margin-left:auto;font-size:11px;color:var(--muted);font-weight:500;white-space:nowrap}
 .list-empty{padding:6px 10px;color:var(--muted);font-size:12.5px}
 
 /* ---------- 알림(토스트) ---------- */
@@ -173,6 +187,7 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
 .modal h3{margin:0 0 14px;font-size:18px}
 .modal p{margin:0 0 12px;color:#45506a}
 .modal .field-label{display:block;font-size:12.5px;font-weight:700;color:var(--muted);margin-bottom:6px}
+.modal .field{margin:12px 0 0}
 .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
 .m-btn{padding:9px 16px;border-radius:10px;border:1.5px solid var(--line-strong);background:#fff;font-weight:700}
 .m-btn:hover{border-color:var(--accent);color:var(--accent-dark)}
@@ -181,8 +196,10 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
 .m-btn.danger{background:var(--danger);border-color:var(--danger);color:#fff}
 .preview{height:170px;border-radius:12px;border:1px solid var(--line);margin-bottom:6px;display:grid;place-items:center;overflow:hidden;
   background-color:#fff;background-image:linear-gradient(45deg,#eef1f6 25%,transparent 25%,transparent 75%,#eef1f6 75%),linear-gradient(45deg,#eef1f6 25%,transparent 25%,transparent 75%,#eef1f6 75%);background-size:16px 16px;background-position:0 0,8px 8px}
-.preview img{max-width:100%;max-height:100%;box-shadow:0 0 0 1px rgba(0,0,0,.08)}
+.preview img{max-width:100%;max-height:166px;box-shadow:0 0 0 1px rgba(0,0,0,.08)}
 .preview-size{font-size:12px;color:var(--muted);text-align:right;margin-bottom:12px}
+.live-preview{margin-top:10px;font-size:13px;color:var(--muted)}
+.live-preview b{font-family:"Times New Roman",serif;font-size:18px;color:var(--text);font-weight:400}
 </style>
 </head>
 <body>
@@ -213,16 +230,9 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
 
 <main class="main">
   <!-- ================================================================
-       [화면 뼈대] 왼쪽 — 도구 모음
+       [화면 뼈대] 왼쪽 — 도구 모음 (버튼은 아래 [도구 목록]의 TOOLBAR로 자동 생성)
        ================================================================ -->
-  <aside class="card tools">
-    <div class="section-title">도구</div>
-    <button class="tool-btn" data-tool="select" title="선택 도구 (V)"><span class="key">V</span>
-      <svg class="ic" viewBox="0 0 24 24"><path d="M6 3.5l12 7.2-5.3 1.4L9.8 17z" fill="currentColor" fill-opacity=".15"/><path d="M12.7 12.1l3.6 5.4"/></svg>선택</button>
-    <button class="tool-btn" data-tool="point" title="점 도구 (P)"><span class="key">P</span>
-      <svg class="ic" viewBox="0 0 24 24"><circle cx="9" cy="15" r="3.4" fill="currentColor"/><path d="M15 3.5l-3 7M15 3.5l3 7M13 8h4"/></svg>점</button>
-    <button class="tool-btn" data-tool="segment" title="선분 도구 (L)"><span class="key">L</span>
-      <svg class="ic" viewBox="0 0 24 24"><path d="M5.5 18.5L18.5 5.5"/><circle cx="5.5" cy="18.5" r="2.6" fill="currentColor"/><circle cx="18.5" cy="5.5" r="2.6" fill="currentColor"/></svg>선분</button>
+  <aside class="card tools" id="toolbar">
     <div class="shortcuts">
       <kbd>Del</kbd> 지우기<br>
       <kbd>Esc</kbd> 취소<br>
@@ -275,55 +285,98 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
 
 /* ================================================================
    [설정] 기본값
-   여기 숫자와 색을 바꾸면 새로 만드는 점·선분에 적용됩니다.
+   여기 숫자와 색을 바꾸면 새로 만드는 개체에 적용됩니다.
    예) "점의 크기를 조금 작게 해줘" → point.size 값을 줄이면 됩니다.
    ================================================================ */
+const INK = '#222b3c';   // 기본 검정색
 const CONFIG = {
   paper: { width: 800, height: 600, margin: 40 },   // 작업 종이 크기(px)와 바깥 여백
+  mathFont: "'Times New Roman', Batang, serif",     // 수학 글자 글꼴(교과서 느낌)
   point: {
     size: 4.5,                 // 점 반지름
-    color: '#222b3c',          // 점 색
+    color: INK,                // 점 색
     labelSize: 22,             // 점 이름 글자 크기
-    labelFont: "'Times New Roman', Batang, serif",   // 점 이름 글꼴(교과서 느낌)
     labelItalic: true,         // 점 이름 기울임
-    labelDx: 7, labelDy: -9,   // 점 이름 위치(점 기준 오른쪽 위)
+    labelGap: 5,               // 점과 이름 사이 간격
+    labelDx: 13, labelDy: -14, // 연결된 선분이 없을 때 이름 위치(점 기준 오른쪽 위)
     sizeMin: 2, sizeMax: 12,
   },
   segment: {
     width: 2,                  // 선 굵기
-    color: '#222b3c',          // 선 색
+    color: INK,                // 선 색
     dashPattern: [3.5, 2.5],   // 점선 모양(선 굵기의 배수: 선 길이, 빈칸 길이)
     widthMin: 0.5, widthMax: 8,
   },
+  text: { size: 22, color: INK, bold: false, italic: false, sizeMin: 10, sizeMax: 64 },   // 문자
+  length: {                    // 길이 표시
+    size: 19, color: INK, lineWidth: 1.3,
+    format: 'value',           // 'value' = "5"처럼 숫자만,  'named' = "AB = 5"
+    style: 'plain',            // 'plain' = 글자만,  'brace' = 둥근 괄호선 + 글자
+    gap: 6, braceDepth: 16,    // 선분에서 떨어진 거리
+  },
+  angle: {                     // 각 표시
+    radius: 28, width: 1.6, color: INK, labelSize: 18,
+    labelMode: 'auto',         // 'auto' = 각도 숫자,  'custom' = 직접 입력,  'none' = 숨김
+    arcGap: 4,                 // 호를 여러 개 그릴 때 간격
+    fillOpacity: 0.15,
+  },
+  right: { size: 12, width: 1.6, color: INK },       // 직각 표시
+  parallel: { size: 9, width: 1.8, color: INK, count: 1 },   // 평행 표시(화살표 크기, 개수)
+  perp: { size: 12, width: 1.6, color: INK },        // 수직 표시
   image: { fitRatio: 0.9 },    // 그림을 불러올 때 종이의 90% 크기에 맞춤
   palette: ['#222b3c', '#7c879c', '#e5484d', '#f08c2e', '#2fa36b', '#3b6fe0', '#8b5cf6'],  // 색 고르기 버튼
-  quickNames: ['A','B','C','D','E','O','P','Q','R','H','M'],  // 이름 빠른 선택 버튼
+  quickNames: ['A','B','C','D','E','O','P','Q','R','H','M'],  // 점 이름 빠른 선택 버튼
+  symbols: ['∠','△','°','⊥','∥','≡','∽','π','√','²','³','½','□','x','y','a','b','cm'],  // 문자 입력 기호 버튼
   hitRadius: 11,               // 점·선을 클릭하기 쉬운 범위(화면 픽셀)
   historyLimit: 150,           // 실행 취소 가능한 횟수
   export: { padding: 24, scale: 2 },   // PNG: 도형 부분만 저장할 때 여백, 기본 선명도
 };
 
 /* ================================================================
-   [아이콘] 화면에 쓰는 작은 그림들
+   [아이콘] 화면에 쓰는 작은 그림들 (24×24 기준 SVG)
    ================================================================ */
 const ICONS = {
-  point:   '<circle cx="12" cy="12" r="4" fill="currentColor"/>',
-  segment: '<path d="M5.5 18.5L18.5 5.5"/><circle cx="5.5" cy="18.5" r="2.2" fill="currentColor"/><circle cx="18.5" cy="5.5" r="2.2" fill="currentColor"/>',
-  image:   '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 8"/>',
-  lock:    '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
-  unlock:  '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.6-1.8"/>',
-  trash:   '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
-  info:    '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>',
-};
-const TOOL_INFO = {
-  select:  { label: '선택', hint: '개체를 클릭해 선택하고, 드래그해서 옮겨요. 지우려면 Delete 키를 누르세요.' },
-  point:   { label: '점',   hint: '원하는 곳을 클릭하면 점이 생겨요. 그림 위에서도 찍을 수 있어요. 기존 점은 드래그해서 옮겨요.' },
-  segment: { label: '선분', hint: '선분의 첫 번째 점을 클릭하세요. 빈 곳을 클릭하면 새 점이 생기면서 시작해요.' },
+  select:   '<path d="M6 3.5l12 7.2-5.3 1.4L9.8 17z" fill="currentColor" fill-opacity=".15"/><path d="M12.7 12.1l3.6 5.4"/>',
+  point:    '<circle cx="12" cy="12" r="4" fill="currentColor"/>',
+  pointTool:'<circle cx="9" cy="15" r="3.4" fill="currentColor"/><path d="M15 3.5l-3 7M15 3.5l3 7M13 8h4"/>',
+  segment:  '<path d="M5.5 18.5L18.5 5.5"/><circle cx="5.5" cy="18.5" r="2.2" fill="currentColor"/><circle cx="18.5" cy="5.5" r="2.2" fill="currentColor"/>',
+  text:     '<path d="M5 6V4.5h14V6M12 4.5v15M9 19.5h6"/>',
+  length:   '<rect x="2.5" y="8" width="19" height="8" rx="1.5"/><path d="M6.5 8v3M10.5 8v4.5M14.5 8v3M18.5 8v4.5"/>',
+  angle:    '<path d="M4 19h16M4 19L14 5"/><path d="M11 19a7 7 0 0 0-2.9-5.7"/>',
+  right:    '<path d="M5 4v15h15"/><path d="M5 12h7v7"/>',
+  parallel: '<path d="M3 8h18M3 16h18"/><path d="M10 5.5l2.5 2.5-2.5 2.5M10 13.5l2.5 2.5-2.5 2.5"/>',
+  perp:     '<path d="M12 4v15M4 19h16"/><path d="M12 14h5v5"/>',
+  image:    '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 8"/>',
+  lock:     '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  unlock:   '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.6-1.8"/>',
+  trash:    '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+  info:     '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>',
 };
 
 /* ================================================================
+   [도구 목록] 왼쪽 도구 버튼
+   pick: 'point' → 점을 n개 차례로 클릭 / 'segment' → 선분을 n개 차례로 클릭
+   steps: 클릭할 때마다 아래 안내줄에 보여줄 말
+   ================================================================ */
+const TOOLS = {
+  select:   { label: '선택', key: 'v', icon: 'select', hint: '개체를 클릭해 선택하고 드래그해서 옮겨요. 각·직각 표시는 드래그하면 크기가 바뀌어요.' },
+  point:    { label: '점',   key: 'p', icon: 'pointTool', hint: '원하는 곳을 클릭하면 점이 생겨요. 그림 위에서도 찍을 수 있어요. 기존 점은 드래그해서 옮겨요.' },
+  segment:  { label: '선분', key: 'l', icon: 'segment', pick: 'point', n: 2, steps: ['선분의 첫 번째 점', '두 번째 점'], tip: '빈 곳을 클릭하면 새 점이 생겨요.' },
+  text:     { label: '문자', key: 't', icon: 'text', hint: '글자를 넣을 곳을 클릭하세요. 이미 있는 글자는 드래그해서 옮겨요.' },
+  length:   { label: '길이', key: 'd', icon: 'length', pick: 'segment', n: 1, steps: ['길이를 표시할 선분'] },
+  angle:    { label: '각',   key: 'a', icon: 'angle', pick: 'point', n: 3, steps: ['첫 번째 점(예: A)', '꼭짓점(예: B)', '마지막 점(예: C)'], tip: '∠ABC라면 A → B → C 순서로 클릭해요.' },
+  right:    { label: '직각', key: 'r', icon: 'right', pick: 'point', n: 3, steps: ['첫 번째 점(예: A)', '직각인 꼭짓점(예: B)', '마지막 점(예: C)'] },
+  parallel: { label: '평행', icon: 'parallel', pick: 'segment', n: 2, steps: ['첫 번째 선분', '평행한 두 번째 선분'] },
+  perp:     { label: '수직', icon: 'perp', pick: 'segment', n: 2, steps: ['첫 번째 선분', '수직인 두 번째 선분'] },
+};
+const TOOLBAR = [
+  { title: '그리기',   tools: ['select', 'point', 'segment', 'text'] },
+  { title: '표시하기', tools: ['length', 'angle', 'right', 'parallel', 'perp'] },
+];
+
+/* ================================================================
    [상태] 프로그램이 기억하는 내용
-   doc.objects 에 점·선분·그림이 각각 따로 저장됩니다.
+   doc.objects 에 점·선분·문자·표시·그림이 각각 따로 저장됩니다.
    ================================================================ */
 const SVGNS = 'http://www.w3.org/2000/svg';
 const $ = sel => document.querySelector(sel);
@@ -333,8 +386,8 @@ let doc = emptyDoc();       // 현재 작업 { nextId, objects: [...] }
 const assets = {};          // 불러온 그림 원본 { 그림ID: { src, w, h } } — 실행 취소 기록에 중복 저장하지 않으려고 따로 보관
 let selectedId = null;      // 선택된 개체
 let tool = 'select';        // 현재 도구
-let segStartId = null;      // 선분 도구: 첫 번째로 고른 점
-let hover = { pos: null, pointId: null };
+let picks = [];             // 선분·각·평행 등 도구에서 지금까지 고른 점/선분
+let hover = { pos: null, pointId: null, segId: null };
 let drag = null;            // 드래그 중인 정보
 let dirty = false;          // 저장하지 않은 변경이 있는지
 let tempHint = null;
@@ -344,6 +397,7 @@ const newId = () => 'o' + (doc.nextId++);
 const getObj = id => (id ? doc.objects.find(o => o.id === id) : null) || null;
 const byType = t => doc.objects.filter(o => o.type === t);
 const round1 = v => Math.round(v * 10) / 10;
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 class UserError extends Error {}   // 사용자에게 그대로 보여줄 안내 메시지
 
 /* ================================================================
@@ -362,7 +416,6 @@ function H(tag, props = {}, ...children) {
     if (v == null || v === false) continue;
     if (k === 'class') e.className = v;
     else if (k === 'style') e.style.cssText = v;
-    else if (k === 'html') e.innerHTML = v;
     else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
     else if (k === 'value' || k === 'checked' || k === 'disabled') e[k] = v;
     else e.setAttribute(k, v === true ? '' : v);
@@ -375,7 +428,7 @@ function H(tag, props = {}, ...children) {
 }
 function icon(name, cls = 'ic') {
   const s = document.createElementNS(SVGNS, 'svg');
-  s.setAttribute('class', cls); s.setAttribute('viewBox', '0 0 24 24'); s.innerHTML = ICONS[name];
+  s.setAttribute('class', cls); s.setAttribute('viewBox', '0 0 24 24'); s.innerHTML = ICONS[name] || '';
   return s;
 }
 function stamp() {
@@ -390,6 +443,43 @@ function downloadBlob(blob, filename) {
 }
 function loadImg(src) {
   return new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = src; });
+}
+function insertAtCursor(inp, s) {
+  const a = inp.selectionStart ?? inp.value.length, b = inp.selectionEnd ?? inp.value.length;
+  inp.value = inp.value.slice(0, a) + s + inp.value.slice(b);
+  inp.focus(); inp.setSelectionRange(a + s.length, a + s.length);
+  inp.dispatchEvent(new Event('input', { bubbles: true }));
+}
+/* 글자 폭 어림값(글자가 선과 겹치지 않게 위치를 잡을 때 사용) */
+function textWidth(str, size) {
+  let w = 0;
+  for (const ch of String(str)) w += ch.charCodeAt(0) > 0x2E80 ? 1 : ch === ' ' ? 0.3 : 0.55;
+  return w * size;
+}
+
+/* ---------- [기하 계산] ---------- */
+const V = {
+  sub: (a, b) => ({ x: a.x - b.x, y: a.y - b.y }),
+  add: (a, b) => ({ x: a.x + b.x, y: a.y + b.y }),
+  mul: (a, k) => ({ x: a.x * k, y: a.y * k }),
+  dot: (a, b) => a.x * b.x + a.y * b.y,
+  cross: (a, b) => a.x * b.y - a.y * b.x,
+  len: a => Math.hypot(a.x, a.y),
+  dist: (a, b) => Math.hypot(a.x - b.x, a.y - b.y),
+  norm: a => { const l = Math.hypot(a.x, a.y) || 1; return { x: a.x / l, y: a.y / l }; },
+  lerp: (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }),
+};
+function distToSegment(p, a, b) {
+  const ab = V.sub(b, a), L2 = V.dot(ab, ab);
+  const t = L2 ? clamp(V.dot(V.sub(p, a), ab) / L2, 0, 1) : 0;
+  return V.dist(p, V.lerp(a, b, t));
+}
+function segEnds(s) { const a = s && getObj(s.p1), b = s && getObj(s.p2); return a && b ? [a, b] : null; }
+/* 두 직선의 교점 (거의 평행하면 null) */
+function lineIntersect(a1, a2, b1, b2) {
+  const r = V.sub(a2, a1), s = V.sub(b2, b1), den = V.cross(r, s);
+  if (Math.abs(V.cross(V.norm(r), V.norm(s))) < 0.03) return null;
+  return V.add(a1, V.mul(r, V.cross(V.sub(b1, a1), s) / den));
 }
 
 /* ================================================================
@@ -424,12 +514,28 @@ function openModal({ title, body, buttons = [], width }) {
     H('h3', {}, title), body, H('div', { class: 'modal-actions' }, actions)));
   document.body.appendChild(back);
   modalEl = back;
-  const primary = back.querySelector('.m-btn.primary, .m-btn.danger');
-  if (primary) primary.focus();
+  const focusEl = back.querySelector('input[type=text]') || back.querySelector('.m-btn.primary, .m-btn.danger');
+  if (focusEl) { focusEl.focus(); if (focusEl.select) focusEl.select(); }
 }
 function closeModal() { if (modalEl) { modalEl.remove(); modalEl = null; } }
 function confirmBox(title, message, okLabel, onOk, kind = 'primary') {
   openModal({ title, body: H('p', {}, message), buttons: [{ label: '취소' }, { label: okLabel, kind, onClick: onOk }] });
+}
+/* 글자를 입력받는 대화상자 (기호 버튼 포함) */
+function inputDialog({ title, value = '', placeholder = '', chips = [], extra = null, okLabel = '확인', onInput, onOk }) {
+  const inp = H('input', { type: 'text', value, placeholder, maxlength: 40, oninput: () => onInput && onInput(inp.value) });
+  const chipRow = chips.length ? H('div', { class: 'chips' }, chips.map(c =>
+    H('button', { class: 'chip' + (/^[a-z]$/.test(c) ? ' it' : ''), title: `"${c}" 넣기`, onclick: () => insertAtCursor(inp, c) }, c))) : null;
+  openModal({ title, body: H('div', {}, inp, chipRow, extra), buttons: [
+    { label: '취소' },
+    { label: okLabel, kind: 'primary', onClick: () => {
+      const v = inp.value.trim();
+      if (!v) { toast('글자를 입력해 주세요.', 'warn'); inp.focus(); return false; }
+      return onOk(v);
+    } },
+  ] });
+  if (onInput) onInput(inp.value);
+  return inp;
 }
 
 /* ================================================================
@@ -452,7 +558,7 @@ function record(key) {
 function restore(s) {
   const d = JSON.parse(s);
   doc = d.doc; selectedId = getObj(d.selectedId) ? d.selectedId : null;
-  segStartId = null; drag = null; dirty = true;
+  picks = []; drag = null; dirty = true;
   renderAll();
 }
 function undo() {
@@ -469,7 +575,7 @@ function updateUndoButtons() {
 }
 
 /* ================================================================
-   [개체 만들기] 점 · 선분 · 그림
+   [개체 만들기] 점 · 선분 · 문자 · 길이 · 각 · 직각 · 평행 · 수직 · 그림
    ================================================================ */
 function nextPointName() {
   const used = new Set(byType('point').map(p => p.name));
@@ -480,33 +586,191 @@ function nextPointName() {
     }
   }
 }
+function push(o) { doc.objects.push(o); return o; }
 function addPoint(x, y) {
   const P = CONFIG.point;
-  const p = { id: newId(), type: 'point', name: nextPointName(), x: round1(x), y: round1(y),
-    size: P.size, color: P.color, visible: true, showLabel: true, labelDx: P.labelDx, labelDy: P.labelDy };
-  doc.objects.push(p);
-  return p;
+  return push({ id: newId(), type: 'point', name: nextPointName(), x: round1(x), y: round1(y),
+    size: P.size, color: P.color, visible: true, showLabel: true, labelAuto: true, labelDx: P.labelDx, labelDy: P.labelDy });
 }
 function addSegment(p1, p2) {
-  const s = { id: newId(), type: 'segment', p1, p2, width: CONFIG.segment.width, color: CONFIG.segment.color,
-    dashed: false, visible: true };
-  doc.objects.push(s);
-  return s;
+  return push({ id: newId(), type: 'segment', p1, p2, width: CONFIG.segment.width, color: CONFIG.segment.color, dashed: false, visible: true });
 }
-function segmentName(s) {
-  const a = getObj(s.p1), b = getObj(s.p2);
-  return (a ? a.name || '?' : '?') + (b ? b.name || '?' : '?');
+function addText(x, y, content) {
+  const T = CONFIG.text;
+  return push({ id: newId(), type: 'text', content, x: round1(x), y: round1(y), size: T.size, color: T.color, bold: T.bold, italic: T.italic, visible: true });
 }
+function addLength(segId, value, format) {
+  const L = CONFIG.length, s = getObj(segId), [A, B] = segEnds(s);
+  // 도형 바깥쪽(이 선분과 이어진 이웃 점들의 반대편)에 글자가 오도록 방향을 고릅니다
+  const ids = new Set();
+  for (const t of byType('segment')) for (const [p, q] of [[t.p1, t.p2], [t.p2, t.p1]])
+    if ((p === s.p1 || p === s.p2) && q !== s.p1 && q !== s.p2) ids.add(q);
+  let pts = [...ids].map(getObj).filter(Boolean);
+  if (!pts.length) pts = byType('point');
+  const mid = V.lerp(A, B, .5);
+  const c = { x: pts.reduce((t, p) => t + p.x, 0) / pts.length, y: pts.reduce((t, p) => t + p.y, 0) / pts.length };
+  const d = V.norm(V.sub(B, A)), n = { x: -d.y, y: d.x };
+  let side = V.dot(V.sub(c, mid), n);
+  side = Math.abs(side) < 1 ? (n.y < 0 || (n.y === 0 && n.x > 0) ? 1 : -1) : (side > 0 ? -1 : 1);
+  return push({ id: newId(), type: 'length', seg: segId, value, format, style: L.style, t: 0.5,
+    offset: side * (L.style === 'brace' ? L.braceDepth : L.gap), size: L.size, color: L.color, lineWidth: L.lineWidth, visible: true });
+}
+function addAngle(p1, vertex, p2) {
+  const A = CONFIG.angle;
+  return push({ id: newId(), type: 'angle', p1, vertex, p2, radius: A.radius, arcs: 1, showArc: true, fill: false,
+    labelMode: A.labelMode, label: '', labelSize: A.labelSize, width: A.width, color: A.color, visible: true });
+}
+function addRight(p1, vertex, p2) {
+  const R = CONFIG.right;
+  return push({ id: newId(), type: 'right', p1, vertex, p2, size: R.size, width: R.width, color: R.color, visible: true });
+}
+function addParallel(s1, s2) {
+  const P = CONFIG.parallel;
+  return push({ id: newId(), type: 'parallel', segs: [s1, s2], count: P.count, size: P.size, t: 0.5, width: P.width, color: P.color, visible: true });
+}
+function addPerp(s1, s2) {
+  const P = CONFIG.perp;
+  return push({ id: newId(), type: 'perp', segs: [s1, s2], size: P.size, width: P.width, color: P.color, visible: true });
+}
+
+/* 이 개체가 기대고 있는 다른 개체들 (점이 지워지면 연결된 선분·표시도 함께 지움) */
+function refsOf(o) {
+  switch (o.type) {
+    case 'segment': return [o.p1, o.p2];
+    case 'length': return [o.seg];
+    case 'angle': case 'right': return [o.p1, o.vertex, o.p2];
+    case 'parallel': case 'perp': return o.segs;
+    default: return [];
+  }
+}
+function withDependents(id) {
+  const gone = new Set([id]);
+  for (let changed = true; changed;) {
+    changed = false;
+    for (const o of doc.objects) if (!gone.has(o.id) && refsOf(o).some(r => gone.has(r))) { gone.add(o.id); changed = true; }
+  }
+  return gone;
+}
+
+/* 이름 붙이기 */
+const pname = id => { const p = getObj(id); return p ? p.name || '?' : '?'; };
+function segmentName(s) { return s ? pname(s.p1) + pname(s.p2) : '?'; }
+function lengthText(o) { return o.format === 'named' ? `${segmentName(getObj(o.seg))} = ${o.value}` : o.value; }
 function objLabel(o) {
-  if (o.type === 'point') return '점 ' + (o.name || '(이름 없음)');
-  if (o.type === 'segment') return '선분 ' + segmentName(o);
-  if (o.type === 'image') return '그림 ' + (byType('image').indexOf(o) + 1);
-  return o.type;
+  switch (o.type) {
+    case 'point': return '점 ' + (o.name || '(이름 없음)');
+    case 'segment': return '선분 ' + segmentName(o);
+    case 'text': return '문자 “' + (o.content.length > 10 ? o.content.slice(0, 10) + '…' : o.content) + '”';
+    case 'length': return '길이 ' + segmentName(getObj(o.seg));
+    case 'angle': return '각 ∠' + pname(o.p1) + pname(o.vertex) + pname(o.p2);
+    case 'right': return '직각 ∠' + pname(o.p1) + pname(o.vertex) + pname(o.p2);
+    case 'parallel': return '평행 ' + segmentName(getObj(o.segs[0])) + ' ∥ ' + segmentName(getObj(o.segs[1]));
+    case 'perp': return '수직 ' + segmentName(getObj(o.segs[0])) + ' ⊥ ' + segmentName(getObj(o.segs[1]));
+    case 'image': return '그림 ' + (byType('image').indexOf(o) + 1);
+    default: return o.type;
+  }
+}
+const KIND_NAME = { point: '점', segment: '선분', text: '문자', length: '길이 표시', angle: '각 표시', right: '직각 표시', parallel: '평행 표시', perp: '수직 표시', image: '그림' };
+
+/* ================================================================
+   [표시 모양 계산] 길이 · 각 · 직각 · 수직
+   ================================================================ */
+function lengthGeom(o) {
+  const ends = segEnds(getObj(o.seg)); if (!ends) return null;
+  const [A, B] = ends; if (V.dist(A, B) < 1) return null;
+  const d = V.norm(V.sub(B, A)), n = { x: -d.y, y: d.x };
+  const text = lengthText(o), sg = o.offset >= 0 ? 1 : -1;
+  const ext = Math.abs(n.x) * textWidth(text, o.size) / 2 + Math.abs(n.y) * o.size * 0.45;   // 글자 절반 크기(법선 방향)
+  let label, bow = null;
+  if (o.style === 'brace') {
+    const mid = V.lerp(A, B, .5), ctrl = V.add(mid, V.mul(n, 2 * o.offset));
+    bow = `M${A.x} ${A.y} Q${ctrl.x} ${ctrl.y} ${B.x} ${B.y}`;
+    label = V.add(mid, V.mul(n, o.offset + sg * (5 + ext)));
+  } else {
+    label = V.add(V.lerp(A, B, o.t), V.mul(n, o.offset + sg * ext));
+  }
+  return { A, B, d, n, text, label, bow, ext };
+}
+function angleGeom(o) {
+  const A = getObj(o.p1), B = getObj(o.vertex), C = getObj(o.p2);
+  if (!A || !B || !C || V.dist(A, B) < 1 || V.dist(C, B) < 1) return null;
+  const a1 = Math.atan2(A.y - B.y, A.x - B.x), a2 = Math.atan2(C.y - B.y, C.x - B.x);
+  let d = a2 - a1;
+  while (d <= -Math.PI) d += 2 * Math.PI;
+  while (d > Math.PI) d -= 2 * Math.PI;
+  return { B, a1, d, deg: Math.abs(d) * 180 / Math.PI };
+}
+const polar = (B, r, a) => ({ x: B.x + r * Math.cos(a), y: B.y + r * Math.sin(a) });
+function arcPath(B, r, a1, d) {
+  const p = polar(B, r, a1), q = polar(B, r, a1 + d);
+  return `M${p.x} ${p.y} A${r} ${r} 0 0 ${d > 0 ? 1 : 0} ${q.x} ${q.y}`;
+}
+function sectorPath(B, r, a1, d) { return `M${B.x} ${B.y} L` + arcPath(B, r, a1, d).slice(1) + 'Z'; }
+function angleLabel(o, G) {
+  if (o.labelMode === 'none') return '';
+  if (o.labelMode === 'custom') return o.label;
+  return Math.round(G.deg) + '°';
+}
+function cornerPath(X, u, v, s) {   // 꼭짓점 X에서 u, v 방향으로 크기 s인 직각 표시
+  const p1 = V.add(X, V.mul(u, s)), p3 = V.add(X, V.mul(v, s)), p2 = V.add(p1, V.mul(v, s));
+  return { open: `M${p1.x} ${p1.y} L${p2.x} ${p2.y} L${p3.x} ${p3.y}`, closed: `M${X.x} ${X.y} L${p1.x} ${p1.y} L${p2.x} ${p2.y} L${p3.x} ${p3.y}Z` };
+}
+function rightGeom(o) {
+  const A = getObj(o.p1), B = getObj(o.vertex), C = getObj(o.p2);
+  if (!A || !B || !C || V.dist(A, B) < 1 || V.dist(C, B) < 1) return null;
+  return { X: B, u: V.norm(V.sub(A, B)), v: V.norm(V.sub(C, B)) };
+}
+function perpGeom(o) {
+  const e1 = segEnds(getObj(o.segs[0])), e2 = segEnds(getObj(o.segs[1]));
+  if (!e1 || !e2) return null;
+  const X = lineIntersect(e1[0], e1[1], e2[0], e2[1]); if (!X) return null;
+  // 교점에서 각 선분의 먼 쪽 끝을 향하도록
+  const far = ([a, b]) => V.norm(V.sub(V.dist(X, a) > V.dist(X, b) ? a : b, X));
+  return { X, u: far(e1), v: far(e2) };
+}
+function chevronPath(A, B, t, count, size) {
+  const d = V.norm(V.sub(B, A)), n = { x: -d.y, y: d.x }, c = V.lerp(A, B, t);
+  let path = '';
+  for (let i = 0; i < count; i++) {
+    const off = (i - (count - 1) / 2) * size * 0.75;
+    const tip = V.add(c, V.mul(d, off + size * 0.4)), back = V.add(c, V.mul(d, off - size * 0.4));
+    const w1 = V.add(back, V.mul(n, size * 0.55)), w2 = V.sub(back, V.mul(n, size * 0.55));
+    path += `M${w1.x} ${w1.y} L${tip.x} ${tip.y} L${w2.x} ${w2.y} `;
+  }
+  return path;
+}
+
+/* 점 이름 위치: '자동'이면 연결된 선분들의 반대쪽(도형 바깥)에 놓습니다 */
+const LABEL_DIRS = { nw: [-1, -1], n: [0, -1], ne: [1, -1], w: [-1, 0], e: [1, 0], sw: [-1, 1], s: [0, 1], se: [1, 1] };
+function pointLabelPos(o) {
+  const P = CONFIG.point;
+  let dir = null;
+  if (o.labelAuto !== false) {
+    let sum = { x: 0, y: 0 }, first = null;
+    for (const s of byType('segment')) {
+      const other = s.p1 === o.id ? getObj(s.p2) : s.p2 === o.id ? getObj(s.p1) : null;
+      if (!other || V.dist(other, o) < 0.5) continue;
+      const u = V.norm(V.sub(other, o));
+      sum = V.add(sum, u); first = first || u;
+    }
+    if (!first) return { x: o.x + P.labelDx, y: o.y + P.labelDy };
+    if (V.len(sum) < 0.2) {   // 일직선 한가운데 점: 선에 수직인 방향(위쪽)으로
+      dir = { x: first.y, y: -first.x };
+      if (dir.y > 0) dir = V.mul(dir, -1);
+    } else dir = V.norm(V.mul(sum, -1));
+  } else if (o.labelDir && LABEL_DIRS[o.labelDir]) {
+    dir = V.norm({ x: LABEL_DIRS[o.labelDir][0], y: LABEL_DIRS[o.labelDir][1] });
+  } else {
+    return { x: o.x + o.labelDx, y: o.y + o.labelDy };
+  }
+  const ext = Math.abs(dir.x) * textWidth(o.name, P.labelSize) / 2 + Math.abs(dir.y) * P.labelSize * 0.38;
+  return V.add(o, V.mul(dir, o.size + P.labelGap + ext));
 }
 
 /* ================================================================
    [그리기] 작업 영역(SVG)에 개체를 그립니다.
    drawScene은 화면용('edit')과 PNG 저장용('export') 모두에 쓰입니다.
+   개체 종류마다 DRAW.종류(g, o, ctx) 함수가 모양을 그립니다.
    ================================================================ */
 function pxPerUnit() { const m = board.getScreenCTM(); return m && m.a ? m.a : 1; }
 function toBoard(e) {
@@ -514,41 +778,115 @@ function toBoard(e) {
   return p.matrixTransform(board.getScreenCTM().inverse());
 }
 function dashFor(s) { return s.dashed ? CONFIG.segment.dashPattern.map(v => v * s.width).join(' ') : null; }
+function mathText(g, x, y, str, size, color, extra = {}) {
+  const t = S('text', { x, y, fill: color, 'font-size': size, 'font-family': CONFIG.mathFont, 'text-anchor': 'middle', 'dominant-baseline': 'central', ...extra }, g);
+  t.textContent = str;
+  return t;
+}
+const HIT = 'transparent';
+
+const DRAW = {
+  segment(g, o, { edit, k }) {
+    const e = segEnds(o); if (!e) return false;
+    const [a, b] = e;
+    if (edit) S('line', { class: 'hit', x1: a.x, y1: a.y, x2: b.x, y2: b.y, stroke: HIT, 'stroke-width': CONFIG.hitRadius * 2 * k, 'pointer-events': 'stroke' }, g);
+    S('line', { x1: a.x, y1: a.y, x2: b.x, y2: b.y, stroke: o.color, 'stroke-width': o.width,
+      'stroke-linecap': o.dashed ? 'butt' : 'round', 'stroke-dasharray': dashFor(o) }, g);
+  },
+  point(g, o, { edit, k }) {
+    if (edit) S('circle', { class: 'hit', cx: o.x, cy: o.y, r: Math.max(o.size + 3 * k, CONFIG.hitRadius * k), fill: HIT, 'pointer-events': 'all' }, g);
+    S('circle', { cx: o.x, cy: o.y, r: o.size, fill: o.color }, g);
+    if (o.showLabel && o.name) {
+      const L = pointLabelPos(o);
+      mathText(g, L.x, L.y, o.name, CONFIG.point.labelSize, o.color, { 'font-style': CONFIG.point.labelItalic ? 'italic' : 'normal' });
+    }
+  },
+  text(g, o) {
+    mathText(g, o.x, o.y, o.content, o.size, o.color, { 'font-weight': o.bold ? 700 : 400, 'font-style': o.italic ? 'italic' : 'normal', 'pointer-events': 'bounding-box' });
+  },
+  length(g, o, { edit, k }) {
+    const G = lengthGeom(o); if (!G) return false;
+    if (G.bow) {
+      if (edit) S('path', { class: 'hit', d: G.bow, fill: 'none', stroke: HIT, 'stroke-width': 10 * k, 'pointer-events': 'stroke' }, g);
+      S('path', { d: G.bow, fill: 'none', stroke: o.color, 'stroke-width': o.lineWidth }, g);
+    }
+    mathText(g, G.label.x, G.label.y, G.text, o.size, o.color, { 'pointer-events': 'bounding-box' });
+  },
+  angle(g, o, { edit }) {
+    const G = angleGeom(o); if (!G) return false;
+    const rOut = o.radius + (o.arcs - 1) * CONFIG.angle.arcGap;
+    if (edit) S('path', { class: 'hit', d: sectorPath(G.B, rOut + 4, G.a1, G.d), fill: HIT, 'pointer-events': 'all' }, g);
+    if (o.fill) S('path', { d: sectorPath(G.B, o.radius, G.a1, G.d), fill: o.color, 'fill-opacity': CONFIG.angle.fillOpacity, stroke: 'none' }, g);
+    if (o.showArc) for (let i = 0; i < o.arcs; i++)
+      S('path', { d: arcPath(G.B, o.radius + i * CONFIG.angle.arcGap, G.a1, G.d), fill: 'none', stroke: o.color, 'stroke-width': o.width }, g);
+    const label = angleLabel(o, G);
+    if (label) {
+      const mid = G.a1 + G.d / 2, ux = Math.cos(mid), uy = Math.sin(mid);
+      const ext = Math.abs(ux) * textWidth(label, o.labelSize) / 2 + Math.abs(uy) * o.labelSize * 0.45;
+      const p = polar(G.B, rOut + 4 + ext, mid);
+      mathText(g, p.x, p.y, label, o.labelSize, o.color, { 'pointer-events': 'bounding-box' });
+    }
+  },
+  right(g, o, { edit }) {
+    const G = rightGeom(o); if (!G) return false;
+    const c = cornerPath(G.X, G.u, G.v, o.size);
+    if (edit) S('path', { class: 'hit', d: c.closed, fill: HIT, stroke: HIT, 'stroke-width': 8, 'pointer-events': 'all' }, g);
+    S('path', { d: c.open, fill: 'none', stroke: o.color, 'stroke-width': o.width, 'stroke-linejoin': 'miter' }, g);
+  },
+  perp(g, o, { edit }) {
+    const G = perpGeom(o); if (!G) return false;
+    const c = cornerPath(G.X, G.u, G.v, o.size);
+    if (edit) S('path', { class: 'hit', d: c.closed, fill: HIT, stroke: HIT, 'stroke-width': 8, 'pointer-events': 'all' }, g);
+    S('path', { d: c.open, fill: 'none', stroke: o.color, 'stroke-width': o.width, 'stroke-linejoin': 'miter' }, g);
+  },
+  parallel(g, o, { edit, k }) {
+    const e1 = segEnds(getObj(o.segs[0])), e2 = segEnds(getObj(o.segs[1]));
+    if (!e1 || !e2) return false;
+    // 두 선분의 화살표가 같은 방향을 가리키도록 맞춥니다
+    const d1 = V.sub(e1[1], e1[0]), d2 = V.sub(e2[1], e2[0]);
+    const second = V.dot(d1, d2) < 0 ? [e2[1], e2[0]] : e2;
+    const path = chevronPath(e1[0], e1[1], o.t, o.count, o.size) + chevronPath(second[0], second[1], o.t, o.count, o.size);
+    if (edit) S('path', { class: 'hit', d: path, fill: 'none', stroke: HIT, 'stroke-width': 14 * k, 'pointer-events': 'stroke' }, g);
+    S('path', { d: path, fill: 'none', stroke: o.color, 'stroke-width': o.width, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, g);
+  },
+};
+/* 그리는 순서(아래 → 위): 그림 → 선분 → 각·직각·평행·수직 → 문자·길이 → 점 (점은 항상 맨 위라 언제나 잡을 수 있어요) */
+const LAYER_OF = { image: 0, segment: 1, angle: 2, right: 2, parallel: 2, perp: 2, text: 3, length: 3, point: 4 };
+/* 선택했을 때 파란 빛으로 감싸 보여줄 종류 (점·선분·그림은 따로 표시) */
+const GLOW_TYPES = new Set(['text', 'length', 'angle', 'right', 'parallel', 'perp']);
+
+function glow(g, k) {
+  const first = g.firstChild;
+  for (const c of [...g.children]) {
+    if (c.classList.contains('hit')) continue;
+    const cl = c.cloneNode(true);
+    const isText = c.tagName === 'text';
+    cl.setAttribute('stroke', '#5b7cfa'); cl.setAttribute('stroke-opacity', '.38');
+    cl.setAttribute('stroke-width', (parseFloat(c.getAttribute('stroke-width')) || 0) + 7 * k);
+    cl.setAttribute('stroke-linejoin', 'round'); cl.setAttribute('stroke-linecap', 'round');
+    cl.setAttribute('fill', isText ? '#5b7cfa' : 'none'); cl.setAttribute('fill-opacity', '.38');
+    cl.setAttribute('pointer-events', 'none');
+    g.insertBefore(cl, first);
+  }
+}
 
 function drawScene(root, mode, opt = {}) {
   const edit = mode === 'edit';
   const k = edit ? 1 / pxPerUnit() : 1;          // 화면 1px이 종이에서 몇 단위인지
-  const gImg = S('g', { class: 'layer-images' }, root);
-  const gSeg = S('g', { class: 'layer-segments' }, root);
-  const gPt  = S('g', { class: 'layer-points' }, root);
-
+  const layers = [0, 1, 2, 3, 4].map(() => S('g', {}, root));
   for (const o of doc.objects) {
     if (o.type === 'image') {
       if (!edit && opt.includeImages === false) continue;
       const a = assets[o.asset]; if (!a) continue;
-      const g = S('g', edit ? { 'data-id': o.id, class: 'obj image ' + (o.locked ? 'locked' : 'unlocked') } : {}, gImg);
+      const g = S('g', edit ? { 'data-id': o.id, class: 'obj image ' + (o.locked ? 'locked' : 'unlocked') } : {}, layers[0]);
       S('image', { href: a.src, x: o.x, y: o.y, width: o.w, height: o.h, preserveAspectRatio: 'none', opacity: o.opacity }, g);
+      continue;
     }
-    else if (o.type === 'segment') {
-      const a = getObj(o.p1), b = getObj(o.p2);
-      if (!a || !b || (!edit && !o.visible)) continue;
-      const g = S('g', edit ? { 'data-id': o.id, class: 'obj segment' + (o.visible ? '' : ' is-hidden') } : {}, gSeg);
-      if (edit) S('line', { x1: a.x, y1: a.y, x2: b.x, y2: b.y, stroke: 'transparent', 'stroke-width': CONFIG.hitRadius * 2 * k, 'pointer-events': 'stroke' }, g);
-      S('line', { x1: a.x, y1: a.y, x2: b.x, y2: b.y, stroke: o.color, 'stroke-width': o.width,
-        'stroke-linecap': o.dashed ? 'butt' : 'round', 'stroke-dasharray': dashFor(o) }, g);
-    }
-    else if (o.type === 'point') {
-      if (!edit && !o.visible) continue;
-      const g = S('g', edit ? { 'data-id': o.id, class: 'obj point' + (o.visible ? '' : ' is-hidden') } : {}, gPt);
-      if (edit) S('circle', { cx: o.x, cy: o.y, r: Math.max(o.size + 3 * k, CONFIG.hitRadius * k), fill: 'transparent', 'pointer-events': 'all' }, g);
-      S('circle', { cx: o.x, cy: o.y, r: o.size, fill: o.color }, g);
-      if (o.showLabel && o.name) {
-        const t = S('text', { x: o.x + o.labelDx, y: o.y + o.labelDy, fill: o.color,
-          'font-size': CONFIG.point.labelSize, 'font-family': CONFIG.point.labelFont,
-          'font-style': CONFIG.point.labelItalic ? 'italic' : 'normal' }, g);
-        t.textContent = o.name;
-      }
-    }
+    if (!edit && o.visible === false) continue;
+    const draw = DRAW[o.type]; if (!draw) continue;
+    const g = S('g', edit ? { 'data-id': o.id, class: `obj ${o.type}` + (o.visible === false ? ' is-hidden' : '') } : {}, layers[LAYER_OF[o.type]]);
+    if (draw(g, o, { edit, k }) === false) { g.remove(); continue; }
+    if (edit && o.id === selectedId && GLOW_TYPES.has(o.type)) glow(g, k);
   }
 }
 
@@ -569,21 +907,18 @@ function renderCanvas() {
   renderOverlay();
 }
 
-/* 선택 표시, 크기 조절 손잡이, 선분 미리보기 등 (PNG에는 저장되지 않음) */
+/* 선택 표시, 크기 조절 손잡이, 도구 미리보기 등 (PNG에는 저장되지 않음) */
 const HANDLES = { nw: 'nwse-resize', n: 'ns-resize', ne: 'nesw-resize', e: 'ew-resize', se: 'nwse-resize', s: 'ns-resize', sw: 'nesw-resize', w: 'ew-resize' };
 function renderOverlay() {
   const ov = LAYER.overlay; ov.replaceChildren();
   const k = 1 / pxPerUnit();
   const accent = '#5b7cfa', orange = '#f59f3a';
   const sel = getObj(selectedId);
+  const ring = (p, color, extra = 6) => S('circle', { cx: p.x, cy: p.y, r: p.size + extra * k, fill: color, 'fill-opacity': .12, stroke: color, 'stroke-width': 2.2 * k }, ov);
+  const band = (s, color, op) => { const e = segEnds(s); if (e) S('line', { x1: e[0].x, y1: e[0].y, x2: e[1].x, y2: e[1].y, stroke: color, 'stroke-opacity': op, 'stroke-width': s.width + 9 * k, 'stroke-linecap': 'round' }, ov); };
 
-  if (sel && sel.type === 'point') {
-    S('circle', { cx: sel.x, cy: sel.y, r: sel.size + 6 * k, fill: accent, 'fill-opacity': .15, stroke: accent, 'stroke-width': 2 * k }, ov);
-  }
-  if (sel && sel.type === 'segment') {
-    const a = getObj(sel.p1), b = getObj(sel.p2);
-    if (a && b) S('line', { x1: a.x, y1: a.y, x2: b.x, y2: b.y, stroke: accent, 'stroke-opacity': .35, 'stroke-width': sel.width + 9 * k, 'stroke-linecap': 'round' }, ov);
-  }
+  if (sel && sel.type === 'point') ring(sel, accent);
+  if (sel && sel.type === 'segment') band(sel, accent, .35);
   if (sel && sel.type === 'image') {
     S('rect', { x: sel.x, y: sel.y, width: sel.w, height: sel.h, fill: 'none', stroke: sel.locked ? orange : accent, 'stroke-width': 2 * k, 'stroke-dasharray': `${6 * k} ${4 * k}` }, ov);
     if (sel.locked) {
@@ -600,17 +935,23 @@ function renderOverlay() {
       }
     }
   }
-  // 선분 도구: 첫 점 표시 + 마우스까지 미리보기 선
-  if (tool === 'segment' && segStartId) {
-    const a = getObj(segStartId);
-    if (a) {
-      const target = getObj(hover.pointId) || hover.pos;
-      if (target) S('line', { x1: a.x, y1: a.y, x2: target.x, y2: target.y, stroke: accent, 'stroke-width': 2 * k, 'stroke-dasharray': `${6 * k} ${5 * k}` }, ov);
-      S('circle', { cx: a.x, cy: a.y, r: a.size + 7 * k, fill: 'none', stroke: orange, 'stroke-width': 2.5 * k }, ov);
+
+  const T = TOOLS[tool];
+  if (T.pick) {
+    // 지금까지 고른 점·선분은 주황색으로
+    const picked = picks.map(getObj).filter(Boolean);
+    for (const o of picked) o.type === 'point' ? ring(o, orange, 7) : band(o, orange, .5);
+    // 점을 고르는 도구: 고른 점들을 잇는 미리보기 점선
+    if (T.pick === 'point' && picked.length && !drag) {
+      const pts = [...picked], tgt = getObj(hover.pointId) || hover.pos;
+      if (tgt) pts.push(tgt);
+      if (pts.length > 1) S('polyline', { points: pts.map(p => `${p.x},${p.y}`).join(' '), fill: 'none', stroke: accent, 'stroke-width': 2 * k, 'stroke-dasharray': `${6 * k} ${5 * k}` }, ov);
     }
+    // 선분을 고르는 도구: 마우스 아래 선분을 파랗게
+    if (T.pick === 'segment' && !drag) { const hs = getObj(hover.segId); if (hs && !picks.includes(hs.id)) band(hs, accent, .3); }
   }
-  // 점/선분 도구: 마우스 위치 미리보기 (기존 점 위면 그 점을 강조)
-  if (!drag && (tool === 'point' || tool === 'segment')) {
+  // 점을 찍는 도구: 마우스 위치 미리보기 (기존 점 위면 그 점을 강조)
+  if (!drag && (tool === 'point' || (T.pick === 'point'))) {
     const hp = getObj(hover.pointId);
     if (hp) S('circle', { cx: hp.x, cy: hp.y, r: hp.size + 6 * k, fill: 'none', stroke: accent, 'stroke-width': 2 * k }, ov);
     else if (hover.pos) S('circle', { cx: hover.pos.x, cy: hover.pos.y, r: CONFIG.point.size, fill: accent, 'fill-opacity': .45 }, ov);
@@ -620,20 +961,35 @@ function renderOverlay() {
 /* ================================================================
    [도구 선택]
    ================================================================ */
+function buildToolbar() {
+  const bar = $('#toolbar'), before = bar.querySelector('.shortcuts');
+  for (const sec of TOOLBAR) {
+    bar.insertBefore(H('div', { class: 'section-title' }, sec.title), before);
+    bar.insertBefore(H('div', { class: 'tool-grid' }, sec.tools.map(t => {
+      const T = TOOLS[t];
+      return H('button', { class: 'tool-btn', 'data-tool': t, title: T.label + (T.key ? ` (${T.key.toUpperCase()})` : ''), onclick: () => setTool(t) },
+        T.key ? H('span', { class: 'key' }, T.key.toUpperCase()) : null, icon(T.icon), T.label);
+    })), before);
+  }
+}
 function setTool(t) {
-  tool = t; segStartId = null; tempHint = null;
+  tool = t; picks = []; tempHint = null;
   document.querySelectorAll('.tool-btn').forEach(b => b.classList.toggle('active', b.dataset.tool === t));
-  $('#toolChip').textContent = '현재 도구: ' + TOOL_INFO[t].label;
+  $('#toolChip').textContent = '현재 도구: ' + TOOLS[t].label;
   renderCanvas(); updateHint();
 }
 function updateHint() {
   const el = $('#hint');
+  el.replaceChildren();
   if (tempHint) { el.textContent = tempHint; el.classList.add('warn'); return; }
   el.classList.remove('warn');
-  if (tool === 'segment' && segStartId) {
-    const a = getObj(segStartId);
-    el.textContent = `점 ${a ? a.name : ''}에서 시작해요. 이어질 두 번째 점을 클릭하세요. (취소: Esc)`;
-  } else el.textContent = TOOL_INFO[tool].hint;
+  const T = TOOLS[tool];
+  if (T.pick) {
+    const n = picks.length;
+    el.append(H('span', { class: 'step' }, `${n + 1} / ${T.n}`), `${T.steps[n]}을 클릭하세요.`);
+    if (n === 0 && T.tip) el.append(' ' + T.tip);
+    if (n > 0) el.append(' (취소: Esc)');
+  } else el.textContent = T.hint;
 }
 function setTempHint(msg) { tempHint = msg; updateHint(); }
 
@@ -654,6 +1010,31 @@ function beginDrag(e, info) {
   drag = { ...info, moved: false };
   try { board.setPointerCapture(e.pointerId); } catch (_) {}
 }
+/* 클릭한 곳에서 가장 가까운 점 / 선분 찾기 (그림·글자에 가려져도 찾을 수 있게 거리로 계산) */
+function nearestPoint(pt) {
+  const r = CONFIG.hitRadius / pxPerUnit();
+  let best = null, bd = Infinity;
+  for (const p of byType('point')) { const d = V.dist(pt, p); if (d <= Math.max(r, p.size + 2) && d < bd) { best = p; bd = d; } }
+  return best;
+}
+function nearestSegment(pt) {
+  const r = CONFIG.hitRadius / pxPerUnit();
+  let best = null, bd = Infinity;
+  for (const s of byType('segment')) { const e = segEnds(s); if (!e) continue; const d = distToSegment(pt, e[0], e[1]); if (d <= r && d < bd) { best = s; bd = d; } }
+  return best;
+}
+/* 선택 도구에서 드래그하면 무엇이 바뀌는지 */
+function dragInfoFor(o, pt) {
+  if (o.type === 'point' || o.type === 'text') return { kind: 'move', orig: { x: o.x, y: o.y } };
+  if (o.type === 'image') return o.locked ? null : { kind: 'move', orig: { x: o.x, y: o.y } };
+  if (o.type === 'length') return { kind: 'length' };
+  if (o.type === 'angle') { const B = getObj(o.vertex); return B ? { kind: 'radius', center: B, d0: V.dist(pt, B), orig: { radius: o.radius } } : null; }
+  if (o.type === 'right' || o.type === 'perp') {
+    const G = o.type === 'right' ? rightGeom(o) : perpGeom(o);
+    return G ? { kind: 'size', center: G.X, d0: Math.max(1, V.dist(pt, G.X)), orig: { size: o.size } } : null;
+  }
+  return null;
+}
 
 board.addEventListener('pointerdown', e => {
   if (e.button !== 0) return;
@@ -662,7 +1043,6 @@ board.addEventListener('pointerdown', e => {
   const handleEl = e.target.closest('[data-handle]');
   const objEl = e.target.closest('[data-id]');
   const hit = objEl ? getObj(objEl.dataset.id) : null;
-  const hitPoint = hit && hit.type === 'point' ? hit : null;
 
   // ── 선택 도구
   if (tool === 'select') {
@@ -674,37 +1054,105 @@ board.addEventListener('pointerdown', e => {
     }
     if (!hit) { select(null); return; }
     select(hit.id);
-    if (hit.type === 'point') beginDrag(e, { kind: 'move', id: hit.id, start: pt, orig: { x: hit.x, y: hit.y } });
-    else if (hit.type === 'image') {
-      if (hit.locked) setTempHint('🔒 잠긴 그림이라 움직이지 않아요. 옮기려면 오른쪽 속성창에서 잠금을 해제하세요.');
-      else beginDrag(e, { kind: 'move', id: hit.id, start: pt, orig: { x: hit.x, y: hit.y } });
-    }
+    if (hit.type === 'image' && hit.locked) { setTempHint('🔒 잠긴 그림이라 움직이지 않아요. 옮기려면 오른쪽 속성창에서 잠금을 해제하세요.'); return; }
+    const info = dragInfoFor(hit, pt);
+    if (info) beginDrag(e, { ...info, id: hit.id, start: pt });
     return;
   }
 
-  // ── 점 도구: 그림·선분 위를 눌러도 점이 생깁니다 (점만 따로 인식)
+  // ── 점 도구: 그림·선분 위를 눌러도 점이 생깁니다
   if (tool === 'point') {
-    if (hitPoint) { select(hitPoint.id); beginDrag(e, { kind: 'move', id: hitPoint.id, start: pt, orig: { x: hitPoint.x, y: hitPoint.y } }); return; }
+    const p0 = nearestPoint(pt);
+    if (p0) { select(p0.id); beginDrag(e, { kind: 'move', id: p0.id, start: pt, orig: { x: p0.x, y: p0.y } }); return; }
     record();
-    const p = addPoint(pt.x, pt.y);
-    select(p.id);
+    select(addPoint(pt.x, pt.y).id);
     return;
   }
 
-  // ── 선분 도구: 두 점을 차례로 클릭
-  if (tool === 'segment') {
-    let target = hitPoint;
-    if (!target) { record(); target = addPoint(pt.x, pt.y); }
-    if (!segStartId) { segStartId = target.id; selectedId = target.id; renderAll(); return; }
-    if (target.id === segStartId) { toast('같은 점이에요. 다른 점을 클릭해 주세요.', 'warn'); return; }
-    const exists = byType('segment').find(s => (s.p1 === segStartId && s.p2 === target.id) || (s.p1 === target.id && s.p2 === segStartId));
-    if (exists) { toast(`선분 ${segmentName(exists)}은(는) 이미 있어요.`, 'warn'); segStartId = null; select(exists.id); return; }
-    if (hitPoint) record();
-    const s = addSegment(segStartId, target.id);
-    segStartId = null;
-    select(s.id);
+  // ── 문자 도구
+  if (tool === 'text') {
+    if (hit && hit.type === 'text') { select(hit.id); beginDrag(e, { kind: 'move', id: hit.id, start: pt, orig: { x: hit.x, y: hit.y } }); return; }
+    textDialog(pt);
+    return;
   }
+
+  // ── 점이나 선분을 차례로 고르는 도구 (선분·길이·각·직각·평행·수직)
+  if (TOOLS[tool].pick) handlePick(pt);
 });
+
+function handlePick(pt) {
+  const T = TOOLS[tool];
+  let target, created = false;
+  if (T.pick === 'point') {
+    target = nearestPoint(pt);
+    if (!target) { record(); target = addPoint(pt.x, pt.y); created = true; }
+    if (picks.includes(target.id)) { toast('이미 고른 점이에요. 다른 점을 클릭하세요.', 'warn'); return; }
+  } else {
+    target = nearestSegment(pt);
+    if (!target) { toast(byType('segment').length ? '선분 위를 정확히 클릭해 주세요.' : '먼저 [선분] 도구로 선분을 만들어 주세요.', 'warn'); return; }
+    if (picks.includes(target.id)) { toast('이미 고른 선분이에요. 다른 선분을 클릭하세요.', 'warn'); return; }
+  }
+  picks.push(target.id);
+  if (picks.length < T.n) {
+    if (created) selectedId = target.id;
+    renderAll();
+    return;
+  }
+  const ids = picks; picks = [];
+  finishPick(ids, created);
+}
+
+/* 필요한 개수를 다 고르면 실제로 만듭니다 */
+function finishPick(ids, alreadyRecorded) {
+  const rec = () => { if (!alreadyRecorded) record(); };
+  const same3 = (o) => o.vertex === ids[1] && ((o.p1 === ids[0] && o.p2 === ids[2]) || (o.p1 === ids[2] && o.p2 === ids[0]));
+  const samePair = (o) => (o.segs[0] === ids[0] && o.segs[1] === ids[1]) || (o.segs[0] === ids[1] && o.segs[1] === ids[0]);
+  let made = null;
+  switch (tool) {
+    case 'segment': {
+      const ex = byType('segment').find(s => (s.p1 === ids[0] && s.p2 === ids[1]) || (s.p1 === ids[1] && s.p2 === ids[0]));
+      if (ex) { toast(`선분 ${segmentName(ex)}은(는) 이미 있어요.`, 'warn'); select(ex.id); return; }
+      rec(); made = addSegment(ids[0], ids[1]);
+      break;
+    }
+    case 'length': {
+      const ex = byType('length').find(l => l.seg === ids[0]);
+      if (ex) { toast('이 선분에는 이미 길이 표시가 있어요. 오른쪽에서 고칠 수 있어요.', 'warn'); select(ex.id); return; }
+      renderAll();
+      lengthDialog(ids[0]);
+      return;
+    }
+    case 'angle': {
+      const ex = byType('angle').find(same3);
+      if (ex) { toast('이 각에는 이미 각 표시가 있어요.', 'warn'); select(ex.id); return; }
+      rec(); made = addAngle(ids[0], ids[1], ids[2]);
+      break;
+    }
+    case 'right': {
+      const ex = byType('right').find(same3);
+      if (ex) { toast('이 각에는 이미 직각 표시가 있어요.', 'warn'); select(ex.id); return; }
+      rec(); made = addRight(ids[0], ids[1], ids[2]);
+      const G = angleGeom(made);
+      if (G && Math.abs(G.deg - 90) > 3) toast(`참고: 그림에서 이 각은 약 ${Math.round(G.deg)}°예요. 표시는 그대로 넣었어요.`);
+      break;
+    }
+    case 'parallel': {
+      const ex = byType('parallel').find(samePair);
+      if (ex) { toast('이 두 선분에는 이미 평행 표시가 있어요.', 'warn'); select(ex.id); return; }
+      rec(); made = addParallel(ids[0], ids[1]);
+      break;
+    }
+    case 'perp': {
+      const e1 = segEnds(getObj(ids[0])), e2 = segEnds(getObj(ids[1]));
+      if (!lineIntersect(e1[0], e1[1], e2[0], e2[1])) { toast('두 선분이 거의 평행해서 수직 표시를 넣을 수 없어요.', 'error'); renderAll(); return; }
+      const ex = byType('perp').find(samePair);
+      if (ex) { toast('이 두 선분에는 이미 수직 표시가 있어요.', 'warn'); select(ex.id); return; }
+      rec(); made = addPerp(ids[0], ids[1]);
+      break;
+    }
+  }
+  if (made) select(made.id);
+}
 
 board.addEventListener('pointermove', e => {
   const pt = toBoard(e);
@@ -717,15 +1165,32 @@ board.addEventListener('pointermove', e => {
     }
     const o = getObj(drag.id); if (!o) return;
     if (drag.kind === 'move') { o.x = round1(drag.orig.x + dx); o.y = round1(drag.orig.y + dy); }
-    else resizeImage(o, drag, dx, dy);
+    else if (drag.kind === 'resize') resizeImage(o, drag, dx, dy);
+    else if (drag.kind === 'length') dragLengthLabel(o, pt);
+    else if (drag.kind === 'radius') o.radius = round1(clamp(drag.orig.radius + V.dist(pt, drag.center) - drag.d0, 8, 200));
+    else if (drag.kind === 'size') o.size = round1(clamp(drag.orig.size * V.dist(pt, drag.center) / drag.d0, 4, 80));
     renderCanvas();
     return;
   }
-  const el = e.target.closest('[data-id]');
-  const o = el ? getObj(el.dataset.id) : null;
-  hover.pos = pt; hover.pointId = o && o.type === 'point' ? o.id : null;
-  if (tool !== 'select') renderOverlay();
+  hover.pos = pt;
+  const T = TOOLS[tool];
+  hover.pointId = (tool === 'point' || T.pick === 'point') ? (nearestPoint(pt) || {}).id || null : null;
+  hover.segId = T.pick === 'segment' ? (nearestSegment(pt) || {}).id || null : null;
+  if (tool === 'point' || T.pick) renderOverlay();
 });
+
+/* 길이 글자를 끌면: 선분을 따라 위치(t)와 선분에서 떨어진 거리(offset)가 바뀝니다 */
+function dragLengthLabel(o, pt) {
+  const G = lengthGeom(o); if (!G) return;
+  const L = V.dist(G.A, G.B);
+  if (o.style !== 'brace') o.t = round1(clamp(V.dot(V.sub(pt, G.A), G.d) / L, 0.05, 0.95) * 100) / 100;
+  const base = V.lerp(G.A, G.B, o.style === 'brace' ? 0.5 : o.t);
+  const perp = V.dot(V.sub(pt, base), G.n), s = perp >= 0 ? 1 : -1;
+  let off = perp - s * (G.ext + (o.style === 'brace' ? 5 : 0));
+  const min = o.style === 'brace' ? 6 : 1;
+  if (s * off < min) off = s * min;
+  o.offset = round1(off);
+}
 
 function endDrag() {
   if (!drag) return;
@@ -736,7 +1201,7 @@ board.addEventListener('pointerup', endDrag);
 board.addEventListener('pointercancel', endDrag);
 board.addEventListener('pointerleave', () => {
   if (drag) return;
-  hover.pos = null; hover.pointId = null; $('#coords').textContent = '';
+  hover = { pos: null, pointId: null, segId: null }; $('#coords').textContent = '';
   renderOverlay();
 });
 
@@ -762,22 +1227,45 @@ function resizeImage(o, d, dx, dy) {
 }
 
 /* ================================================================
+   [문자 · 길이 입력 창]
+   ================================================================ */
+function textDialog(pt) {
+  inputDialog({
+    title: '문자 넣기', placeholder: '예: x, ∠A, 10 cm, 3', chips: CONFIG.symbols, okLabel: '넣기',
+    onOk: v => { record(); const t = addText(pt.x, pt.y, v); select(t.id); },
+  });
+}
+function lengthDialog(segId) {
+  const name = segmentName(getObj(segId));
+  let format = CONFIG.length.format;
+  const prev = H('div', { class: 'live-preview' });
+  const show = v => { prev.replaceChildren('미리보기: ', H('b', {}, format === 'named' ? `${name} = ${v || '□'}` : (v || '□'))); };
+  let inp;
+  const extra = H('div', {},
+    H('div', { class: 'field' }, H('span', { class: 'field-label' }, '표시 방법'),
+      segmented([['value', '숫자만 (5)'], ['named', `이름 포함 (${name} = 5)`]], format, v => { format = v; show(inp.value); })),
+    prev);
+  inp = inputDialog({
+    title: `선분 ${name}의 길이 표시`, placeholder: '예: 5, 10 cm, x', chips: ['cm', 'x', 'y', 'a', '√', '²', '½'], extra, okLabel: '표시하기',
+    onInput: show,
+    onOk: v => { record(); const o = addLength(segId, v, format); select(o.id); },
+  });
+}
+
+/* ================================================================
    [삭제]
    ================================================================ */
 function deleteSelected() {
   const o = getObj(selectedId);
   if (!o) { toast('지울 개체를 먼저 클릭해서 선택하세요.'); return; }
   if (o.type === 'image' && o.locked) { toast('🔒 잠긴 그림은 지울 수 없어요. 먼저 잠금을 해제하세요.', 'warn'); return; }
+  const label = objLabel(o);
   record();
-  let extra = 0;
-  if (o.type === 'point') {
-    const before = doc.objects.length;
-    doc.objects = doc.objects.filter(x => !(x.type === 'segment' && (x.p1 === o.id || x.p2 === o.id)));
-    extra = before - doc.objects.length;
-  }
-  doc.objects = doc.objects.filter(x => x.id !== o.id);
-  if (segStartId === o.id) segStartId = null;
-  toast(extra ? `${objLabel(o)}와(과) 연결된 선분 ${extra}개를 함께 지웠어요. (되돌리기: Ctrl+Z)` : `${objLabel(o)}을(를) 지웠어요. (되돌리기: Ctrl+Z)`);
+  const gone = withDependents(o.id);
+  doc.objects = doc.objects.filter(x => !gone.has(x.id));
+  picks = picks.filter(id => !gone.has(id));
+  const extra = gone.size - 1;
+  toast(extra ? `${label}와(과) 연결된 선분·표시 ${extra}개를 함께 지웠어요. (되돌리기: Ctrl+Z)` : `${label}을(를) 지웠어요. (되돌리기: Ctrl+Z)`);
   select(null);
 }
 
@@ -790,9 +1278,7 @@ function slider({ min, max, step = 1, value, unit = '', disabled, onInput }) {
   const out = H('span', { class: 'slider-val' }, fmt(value));
   const inp = H('input', { type: 'range', min, max, step, value, disabled,
     oninput: e => { const v = +e.target.value; out.textContent = fmt(v); onInput(v); } });
-  const wrap = H('div', { class: 'slider' }, inp, out);
-  wrap.setValue = v => { inp.value = v; out.textContent = fmt(v); };
-  return wrap;
+  return H('div', { class: 'slider' }, inp, out);
 }
 function toggle(label, value, onChange) {
   return H('label', { class: 'switch-row' }, H('span', {}, label),
@@ -800,13 +1286,12 @@ function toggle(label, value, onChange) {
 }
 function segmented(options, value, onChange) {
   const wrap = H('div', { class: 'seg' });
-  for (const [v, label] of options) {
+  options.forEach(([v, label], i) => {
     wrap.appendChild(H('button', { class: v === value ? 'on' : '', onclick: () => {
-      wrap.querySelectorAll('button').forEach(b => b.classList.remove('on'));
-      wrap.querySelectorAll('button')[options.findIndex(x => x[0] === v)].classList.add('on');
+      wrap.querySelectorAll('button').forEach((b, j) => b.classList.toggle('on', i === j));
       onChange(v);
     } }, label));
-  }
+  });
   return wrap;
 }
 function colorPicker(value, onPick) {
@@ -834,6 +1319,20 @@ function setProp(o, key, value, after) {
   renderCanvas();
   if (after) after();
 }
+/* 한 번 누르는 버튼형 설정은 매번 따로 되돌릴 수 있게 */
+function setOnce(o, key, value, after) { hist.lastKey = null; setProp(o, key, value, after); hist.lastKey = null; }
+/* 여러 표시에서 같이 쓰는 칸들 */
+const colorField = (o, label = '색') => field(label, colorPicker(o.color, c => setProp(o, 'color', c)));
+const widthField = (o, key = 'width', label = '선 굵기') => field(label, slider({ min: 0.5, max: 6, step: 0.5, value: o[key], onInput: v => setProp(o, key, v) }));
+const visibleField = o => toggle('그림에 보이기 (끄면 숨김)', o.visible, v => setProp(o, 'visible', v, renderList));
+
+/* 점 이름 위치 고르기: 3×3 버튼 (가운데 '자동') */
+function labelDirPicker(o) {
+  const cells = [['nw', '↖'], ['n', '↑'], ['ne', '↗'], ['w', '←'], ['auto', '자동'], ['e', '→'], ['sw', '↙'], ['s', '↓'], ['se', '↘']];
+  const cur = o.labelAuto !== false ? 'auto' : o.labelDir;
+  return H('div', { class: 'dir-grid' }, cells.map(([k, label]) => H('button', { class: k === cur ? 'on' : '', title: k === 'auto' ? '선분을 피해 자동으로' : '이 방향에 이름 두기',
+    onclick: () => { hist.lastKey = null; record(); o.labelAuto = k === 'auto'; if (k !== 'auto') o.labelDir = k; renderCanvas(); renderPanel(); } }, label)));
+}
 
 function renderPanel() {
   const head = $('#propsHead'), body = $('#propsBody');
@@ -846,106 +1345,214 @@ function renderPanel() {
       H('ol', {},
         H('li', {}, '위쪽 [그림 불러오기]로 문제 그림을 넣어요.'),
         H('li', {}, '그림 위치·크기를 맞춘 뒤 🔒 잠금을 눌러요.'),
-        H('li', {}, '왼쪽 [점] 도구로 꼭짓점을 찍어요.'),
-        H('li', {}, '[선분] 도구로 두 점을 차례로 클릭해요.'),
+        H('li', {}, '[점] 도구로 꼭짓점을 찍고 [선분]으로 이어요.'),
+        H('li', {}, '[길이]·[각]·[직각]·[평행]·[수직]으로 표시를 더해요.'),
         H('li', {}, '[PNG로 내보내기]로 저장해요.')),
-      H('div', { class: 'tip' }, '💡 개체를 클릭하면 여기에서 이름·크기·색을 바꿀 수 있어요. 실수했다면 Ctrl+Z로 되돌리세요.')));
+      H('div', { class: 'tip' }, '💡 개체를 클릭하면 여기에서 글자·크기·색을 바꿀 수 있어요. 실수했다면 Ctrl+Z로 되돌리세요.')));
     return;
   }
-  const kind = { point: '점', segment: '선분', image: '그림' }[o.type];
   const t1 = H('div', { class: 't1', id: 'propsTitle' }, objLabel(o));
-  head.append(H('div', { class: 'badge' }, icon(o.type)), H('div', {}, t1, H('div', { class: 't2' }, kind + ' 속성')));
-
-  const parts = o.type === 'point' ? pointPanel(o) : o.type === 'segment' ? segmentPanel(o) : imagePanel(o);
+  head.append(H('div', { class: 'badge' }, icon(o.type)), H('div', {}, t1, H('div', { class: 't2' }, KIND_NAME[o.type] + ' 속성')));
+  const parts = PANELS[o.type](o);
   body.append(...parts.filter(Boolean));
 }
 function refreshTitle(o) { const t = $('#propsTitle'); if (t) t.textContent = objLabel(o); renderList(); }
 
-function pointPanel(o) {
-  const nameInput = H('input', { type: 'text', value: o.name, maxlength: 12, placeholder: '예: A, P, Q',
-    oninput: e => setProp(o, 'name', e.target.value.trim(), () => refreshTitle(o)),
-    onchange: () => {
-      if (o.name && byType('point').some(p => p !== o && p.name === o.name)) toast(`'${o.name}' 이름의 점이 이미 있어요. 그대로 써도 되지만 헷갈릴 수 있어요.`, 'warn');
-    } });
-  const chips = H('div', { class: 'chips' }, CONFIG.quickNames.map(n =>
-    H('button', { class: 'chip', title: `이름을 ${n}(으)로`, onclick: () => { nameInput.value = n; setProp(o, 'name', n, () => refreshTitle(o)); hist.lastKey = null; } }, n)));
-  return [
-    field('이름', nameInput, chips),
-    toggle('이름 보이기', o.showLabel, v => setProp(o, 'showLabel', v)),
-    field('점 크기', slider({ min: CONFIG.point.sizeMin, max: CONFIG.point.sizeMax, step: 0.5, value: o.size, onInput: v => setProp(o, 'size', v) })),
-    field('색', colorPicker(o.color, c => setProp(o, 'color', c))),
-    toggle('그림에 보이기 (끄면 숨김)', o.visible, v => setProp(o, 'visible', v, renderList)),
-    H('div', { class: 'info' }, `위치: x ${Math.round(o.x)}, y ${Math.round(o.y)}  ·  키보드 화살표로 조금씩 옮길 수 있어요.`),
-    deleteButton(o),
-  ];
-}
+const PANELS = {
+  point(o) {
+    const nameInput = H('input', { type: 'text', value: o.name, maxlength: 12, placeholder: '예: A, P, Q',
+      oninput: e => setProp(o, 'name', e.target.value.trim(), () => refreshTitle(o)),
+      onchange: () => {
+        if (o.name && byType('point').some(p => p !== o && p.name === o.name)) toast(`'${o.name}' 이름의 점이 이미 있어요. 그대로 써도 되지만 헷갈릴 수 있어요.`, 'warn');
+      } });
+    const chips = H('div', { class: 'chips' }, CONFIG.quickNames.map(n =>
+      H('button', { class: 'chip it', title: `이름을 ${n}(으)로`, onclick: () => { nameInput.value = n; setOnce(o, 'name', n, () => refreshTitle(o)); } }, n)));
+    return [
+      field('이름', nameInput, chips),
+      toggle('이름 보이기', o.showLabel, v => setProp(o, 'showLabel', v)),
+      field('이름 위치 (가운데 = 자동)', labelDirPicker(o)),
+      field('점 크기', slider({ min: CONFIG.point.sizeMin, max: CONFIG.point.sizeMax, step: 0.5, value: o.size, onInput: v => setProp(o, 'size', v) })),
+      colorField(o),
+      visibleField(o),
+      H('div', { class: 'info' }, `위치: x ${Math.round(o.x)}, y ${Math.round(o.y)}  ·  키보드 화살표로 조금씩 옮길 수 있어요.`),
+      deleteButton(o),
+    ];
+  },
 
-function segmentPanel(o) {
-  const a = getObj(o.p1), b = getObj(o.p2);
-  return [
-    H('div', { class: 'info' }, `연결된 점: ${a ? a.name : '?'} — ${b ? b.name : '?'}`),
-    field('선 굵기', slider({ min: CONFIG.segment.widthMin, max: CONFIG.segment.widthMax, step: 0.5, value: o.width, onInput: v => setProp(o, 'width', v) })),
-    field('선 색', colorPicker(o.color, c => setProp(o, 'color', c))),
-    field('선 모양', segmented([[false, '━━ 실선'], [true, '╍╍ 점선']], o.dashed, v => { setProp(o, 'dashed', v); hist.lastKey = null; })),
-    toggle('그림에 보이기 (끄면 숨김)', o.visible, v => setProp(o, 'visible', v, renderList)),
-    deleteButton(o),
-  ];
-}
+  segment(o) {
+    const len = byType('length').find(l => l.seg === o.id);
+    return [
+      H('button', { class: 'big-btn accent', onclick: () => len ? select(len.id) : lengthDialog(o.id) },
+        icon('length'), len ? '길이 표시 고치기' : '길이 표시 넣기'),
+      field('선 굵기', slider({ min: CONFIG.segment.widthMin, max: CONFIG.segment.widthMax, step: 0.5, value: o.width, onInput: v => setProp(o, 'width', v) })),
+      colorField(o, '선 색'),
+      field('선 모양', segmented([[false, '━━ 실선'], [true, '╍╍ 점선']], o.dashed, v => setOnce(o, 'dashed', v))),
+      visibleField(o),
+      deleteButton(o),
+    ];
+  },
 
-function imagePanel(o) {
-  const L = o.locked;
-  const lockBtn = H('button', { class: 'big-btn' + (L ? ' lock-on' : ''),
-    onclick: () => { record(); o.locked = !o.locked; renderAll();
-      toast(o.locked ? '🔒 그림을 잠갔어요. 이제 움직이거나 지워지지 않아요.' : '🔓 잠금을 풀었어요. 그림을 옮기거나 크기를 바꿀 수 있어요.', 'ok'); } },
-    icon(L ? 'lock' : 'unlock'), L ? '잠김 — 눌러서 잠금 해제' : '잠금 해제됨 — 눌러서 잠그기');
+  text(o) {
+    const inp = H('input', { type: 'text', value: o.content, maxlength: 40,
+      oninput: e => { if (e.target.value.trim()) setProp(o, 'content', e.target.value, () => refreshTitle(o)); },
+      onchange: e => { if (!e.target.value.trim()) { toast('내용이 비어 있으면 안 돼요. 지우려면 [이 개체 지우기]를 누르세요.', 'warn'); e.target.value = o.content; } } });
+    const chips = H('div', { class: 'chips' }, CONFIG.symbols.map(c =>
+      H('button', { class: 'chip' + (/^[a-z]$/.test(c) ? ' it' : ''), onclick: () => insertAtCursor(inp, c) }, c)));
+    const num = (key) => H('input', { type: 'number', step: 1, value: Math.round(o[key]),
+      onchange: e => { const v = +e.target.value; if (isFinite(v)) setOnce(o, key, v); } });
+    return [
+      field('내용', inp, chips),
+      field('글자 크기', slider({ min: CONFIG.text.sizeMin, max: CONFIG.text.sizeMax, value: o.size, onInput: v => setProp(o, 'size', v) })),
+      toggle('굵게', o.bold, v => setProp(o, 'bold', v)),
+      toggle('기울임 (x, y 같은 문자에 어울려요)', o.italic, v => setProp(o, 'italic', v)),
+      colorField(o, '글자 색'),
+      field('위치 (x, y) — 드래그해서 옮겨도 돼요', H('div', { class: 'wh' }, num('x'), '·', num('y'))),
+      visibleField(o),
+      deleteButton(o),
+    ];
+  },
 
-  const wIn = H('input', { type: 'number', min: 10, step: 1, value: Math.round(o.w), disabled: L, onchange: e => setSize('w', +e.target.value) });
-  const hIn = H('input', { type: 'number', min: 10, step: 1, value: Math.round(o.h), disabled: L, onchange: e => setSize('h', +e.target.value) });
-  function setSize(which, v) {
-    if (!(v >= 10)) { toast('크기는 10 이상의 숫자로 입력해 주세요.', 'warn'); renderPanel(); return; }
-    record();
-    const cx = o.x + o.w / 2, cy = o.y + o.h / 2, ratio = o.h / o.w;
-    if (which === 'w') { o.w = v; if (o.keepRatio) o.h = round1(v * ratio); }
-    else { o.h = v; if (o.keepRatio) o.w = round1(v / ratio); }
-    o.x = round1(cx - o.w / 2); o.y = round1(cy - o.h / 2);
-    renderCanvas(); renderPanel();
-  }
-  const scale = slider({ min: 10, max: 300, step: 1, value: Math.round(o.w / o.baseW * 100), unit: '%', disabled: L,
-    onInput: v => {
-      record('scale:' + o.id);
+  length(o) {
+    const name = segmentName(getObj(o.seg));
+    const inp = H('input', { type: 'text', value: o.value, maxlength: 20, placeholder: '예: 5',
+      oninput: e => { if (e.target.value.trim()) setProp(o, 'value', e.target.value.trim()); },
+      onchange: e => { if (!e.target.value.trim()) { toast('표시할 글자를 입력해 주세요.', 'warn'); e.target.value = o.value; } } });
+    return [
+      field('표시할 글자', inp, H('div', { class: 'chips' }, ['cm', 'x', 'a', '√', '²'].map(c => H('button', { class: 'chip' + (/^[a-z]$/.test(c) ? ' it' : ''), onclick: () => insertAtCursor(inp, c) }, c)))),
+      field('표시 방법', segmented([['value', '숫자만'], ['named', `${name} = □`]], o.format, v => setOnce(o, 'format', v))),
+      field('모양', segmented([['plain', '글자만'], ['brace', '⌒ 괄호선']], o.style, v => {
+        const s = o.offset >= 0 ? 1 : -1;
+        hist.lastKey = null; record();
+        o.style = v; o.offset = s * (v === 'brace' ? CONFIG.length.braceDepth : CONFIG.length.gap); o.t = 0.5;
+        renderAll();
+      })),
+      H('div', { class: 'btn-row' },
+        H('button', { class: 'small-btn', title: '선분 반대쪽으로 옮겨요', onclick: () => setOnce(o, 'offset', -o.offset) }, '⇅ 반대쪽으로'),
+        H('button', { class: 'small-btn', title: '선분 가운데로', onclick: () => setOnce(o, 't', 0.5) }, '가운데로')),
+      field('글자 크기', slider({ min: 10, max: 48, value: o.size, onInput: v => setProp(o, 'size', v) })),
+      o.style === 'brace' ? widthField(o, 'lineWidth', '괄호선 굵기') : null,
+      colorField(o),
+      H('div', { class: 'info' }, '💡 글자를 드래그하면 위치를 바꿀 수 있어요.'),
+      visibleField(o),
+      deleteButton(o),
+    ];
+  },
+
+  angle(o) {
+    const G = angleGeom(o);
+    const custom = H('input', { type: 'text', value: o.label, maxlength: 12, placeholder: '예: x, 35°, ∠a',
+      oninput: e => setProp(o, 'label', e.target.value.trim()) });
+    const customWrap = H('div', { style: o.labelMode === 'custom' ? '' : 'display:none' }, custom,
+      H('div', { class: 'chips' }, ['x', 'y', 'a', '°', '∠', '•', '×'].map(c => H('button', { class: 'chip' + (/^[a-z]$/.test(c) ? ' it' : ''), onclick: () => insertAtCursor(custom, c) }, c))));
+    return [
+      G ? H('div', { class: 'info' }, `그림에서 잰 각도: 약 ${Math.round(G.deg)}°`) : null,
+      field('표시할 글자', segmented([['auto', '각도 숫자'], ['custom', '직접 입력'], ['none', '숨기기']], o.labelMode, v => {
+        customWrap.style.display = v === 'custom' ? '' : 'none';
+        setOnce(o, 'labelMode', v);
+        if (v === 'custom') custom.focus();
+      }), customWrap),
+      toggle('각의 호 보이기', o.showArc, v => setProp(o, 'showArc', v)),
+      field('호 개수 (같은 각 표시)', segmented([[1, '⌒'], [2, '⌒⌒'], [3, '⌒⌒⌒']], o.arcs, v => setOnce(o, 'arcs', v))),
+      field('호 크기 (드래그로도 조절)', slider({ min: 8, max: 120, value: o.radius, onInput: v => setProp(o, 'radius', v) })),
+      toggle('안쪽 색칠', o.fill, v => setProp(o, 'fill', v)),
+      widthField(o),
+      field('글자 크기', slider({ min: 10, max: 40, value: o.labelSize, onInput: v => setProp(o, 'labelSize', v) })),
+      colorField(o),
+      visibleField(o),
+      deleteButton(o),
+    ];
+  },
+
+  right(o) {
+    const G = angleGeom(o);
+    return [
+      G ? H('div', { class: 'info' }, `그림에서 잰 각도: 약 ${Math.round(G.deg)}°`) : null,
+      field('크기 (드래그로도 조절)', slider({ min: 4, max: 60, value: o.size, onInput: v => setProp(o, 'size', v) })),
+      widthField(o),
+      colorField(o),
+      visibleField(o),
+      deleteButton(o),
+    ];
+  },
+
+  perp(o) {
+    return [
+      H('div', { class: 'info' }, '두 선분(또는 연장선)이 만나는 곳에 표시돼요.'),
+      field('크기 (드래그로도 조절)', slider({ min: 4, max: 60, value: o.size, onInput: v => setProp(o, 'size', v) })),
+      widthField(o),
+      colorField(o),
+      visibleField(o),
+      deleteButton(o),
+    ];
+  },
+
+  parallel(o) {
+    return [
+      field('표시 개수', segmented([[1, '›  한 줄'], [2, '››  두 줄'], [3, '›››  세 줄']], o.count, v => setOnce(o, 'count', v))),
+      field('화살표 크기', slider({ min: 4, max: 24, value: o.size, onInput: v => setProp(o, 'size', v) })),
+      field('위치 (선분 위에서)', slider({ min: 15, max: 85, value: Math.round(o.t * 100), unit: '%', onInput: v => setProp(o, 't', v / 100) })),
+      widthField(o),
+      colorField(o),
+      visibleField(o),
+      deleteButton(o),
+    ];
+  },
+
+  image(o) {
+    const L = o.locked;
+    const lockBtn = H('button', { class: 'big-btn' + (L ? ' lock-on' : ''),
+      onclick: () => { record(); o.locked = !o.locked; renderAll();
+        toast(o.locked ? '🔒 그림을 잠갔어요. 이제 움직이거나 지워지지 않아요.' : '🔓 잠금을 풀었어요. 그림을 옮기거나 크기를 바꿀 수 있어요.', 'ok'); } },
+      icon(L ? 'lock' : 'unlock'), L ? '잠김 — 눌러서 잠금 해제' : '잠금 해제됨 — 눌러서 잠그기');
+
+    const wIn = H('input', { type: 'number', min: 10, step: 1, value: Math.round(o.w), disabled: L, onchange: e => setSize('w', +e.target.value) });
+    const hIn = H('input', { type: 'number', min: 10, step: 1, value: Math.round(o.h), disabled: L, onchange: e => setSize('h', +e.target.value) });
+    function setSize(which, v) {
+      if (!(v >= 10)) { toast('크기는 10 이상의 숫자로 입력해 주세요.', 'warn'); renderPanel(); return; }
+      record();
       const cx = o.x + o.w / 2, cy = o.y + o.h / 2, ratio = o.h / o.w;
-      o.w = round1(o.baseW * v / 100); o.h = round1(o.w * ratio);
+      if (which === 'w') { o.w = v; if (o.keepRatio) o.h = round1(v * ratio); }
+      else { o.h = v; if (o.keepRatio) o.w = round1(v / ratio); }
       o.x = round1(cx - o.w / 2); o.y = round1(cy - o.h / 2);
-      wIn.value = Math.round(o.w); hIn.value = Math.round(o.h);
-      renderCanvas();
-    } });
-  const act = (label, title, fn) => H('button', { class: 'small-btn', title, disabled: L, onclick: () => { record(); fn(); renderCanvas(); renderPanel(); } }, label);
-  return [
-    lockBtn,
-    L ? H('div', { class: 'note' }, '잠긴 동안에는 그림이 움직이지 않아요. 그 위에 점과 선분을 마음껏 그리세요. (투명도는 바꿀 수 있어요)') : null,
-    field('투명도 (낮출수록 흐려져요)', slider({ min: 0, max: 100, value: Math.round(o.opacity * 100), unit: '%', onInput: v => setProp(o, 'opacity', v / 100) })),
-    field('크기', scale),
-    field('너비 × 높이 (픽셀)', H('div', { class: 'wh' }, wIn, '×', hIn)),
-    L ? null : toggle('가로·세로 비율 유지', o.keepRatio, v => setProp(o, 'keepRatio', v)),
-    H('div', { class: 'btn-row' },
-      act('종이 맞춤', '종이 크기에 맞게 키우거나 줄여요', () => fitImage(o)),
-      act('가운데로', '종이 가운데로 옮겨요', () => { o.x = round1((CONFIG.paper.width - o.w) / 2); o.y = round1((CONFIG.paper.height - o.h) / 2); }),
-      act('원래 비율', '찌그러진 그림을 원래 비율로 되돌려요', () => { const a = assets[o.asset]; if (a) o.h = round1(o.w * a.h / a.w); })),
-    deleteButton(o),
-  ];
-}
+      renderCanvas(); renderPanel();
+    }
+    const scale = slider({ min: 10, max: 300, step: 1, value: Math.round(o.w / o.baseW * 100), unit: '%', disabled: L,
+      onInput: v => {
+        record('scale:' + o.id);
+        const cx = o.x + o.w / 2, cy = o.y + o.h / 2, ratio = o.h / o.w;
+        o.w = round1(o.baseW * v / 100); o.h = round1(o.w * ratio);
+        o.x = round1(cx - o.w / 2); o.y = round1(cy - o.h / 2);
+        wIn.value = Math.round(o.w); hIn.value = Math.round(o.h);
+        renderCanvas();
+      } });
+    const act = (label, title, fn) => H('button', { class: 'small-btn', title, disabled: L, onclick: () => { record(); fn(); renderCanvas(); renderPanel(); } }, label);
+    return [
+      lockBtn,
+      L ? H('div', { class: 'note' }, '잠긴 동안에는 그림이 움직이지 않아요. 그 위에 점과 선분을 마음껏 그리세요. (투명도는 바꿀 수 있어요)') : null,
+      field('투명도 (낮출수록 흐려져요)', slider({ min: 0, max: 100, value: Math.round(o.opacity * 100), unit: '%', onInput: v => setProp(o, 'opacity', v / 100) })),
+      field('크기', scale),
+      field('너비 × 높이 (픽셀)', H('div', { class: 'wh' }, wIn, '×', hIn)),
+      L ? null : toggle('가로·세로 비율 유지', o.keepRatio, v => setProp(o, 'keepRatio', v)),
+      H('div', { class: 'btn-row' },
+        act('종이 맞춤', '종이 크기에 맞게 키우거나 줄여요', () => fitImage(o)),
+        act('가운데로', '종이 가운데로 옮겨요', () => { o.x = round1((CONFIG.paper.width - o.w) / 2); o.y = round1((CONFIG.paper.height - o.h) / 2); }),
+        act('원래 비율', '찌그러진 그림을 원래 비율로 되돌려요', () => { const a = assets[o.asset]; if (a) o.h = round1(o.w * a.h / a.w); })),
+      deleteButton(o),
+    ];
+  },
+};
 
 /* 개체 목록 (숨긴 개체도 여기서 선택할 수 있어요) */
+const LIST_ORDER = ['image', 'point', 'segment', 'text', 'length', 'angle', 'right', 'parallel', 'perp'];
 function renderList() {
   const box = $('#objList'); box.replaceChildren();
   if (!doc.objects.length) { box.append(H('div', { class: 'list-empty' }, '아직 아무것도 없어요.')); return; }
-  const order = ['image', 'point', 'segment'];
-  const items = [...doc.objects].sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
+  const items = [...doc.objects].sort((a, b) => LIST_ORDER.indexOf(a.type) - LIST_ORDER.indexOf(b.type));
   for (const o of items) {
     const tags = [];
     if (o.type === 'image') tags.push(o.locked ? '🔒 잠김' : '잠금 해제');
     if (o.visible === false) tags.push('숨김');
-    box.append(H('div', { class: 'list-item' + (o.id === selectedId ? ' on' : ''), onclick: () => { if (tool === 'segment') setTool('select'); select(o.id); } },
+    box.append(H('div', { class: 'list-item' + (o.id === selectedId ? ' on' : ''), onclick: () => { if (tool !== 'select') setTool('select'); select(o.id); } },
       H('span', { class: 'li-ic' }, icon(o.type, 'ic')), objLabel(o), H('span', { class: 'tag' }, tags.join(' · '))));
   }
   const on = box.querySelector('.on'); if (on) on.scrollIntoView({ block: 'nearest' });
@@ -975,7 +1582,7 @@ function loadImageFile(file) {
         baseW: 1, baseH: 1, opacity: 1, locked: false, keepRatio: true };
       fitImage(o);
       o.baseW = o.w; o.baseH = o.h;
-      // 그림은 항상 점·선 뒤에 깔리도록 맨 앞에 넣습니다
+      // 그림은 항상 점·선 뒤에 깔리도록 그림들 바로 다음에 넣습니다
       const lastImg = doc.objects.map(x => x.type).lastIndexOf('image');
       doc.objects.splice(lastImg + 1, 0, o);
       if (tool !== 'select') setTool('select');
@@ -1007,25 +1614,25 @@ wrap.addEventListener('dragover', e => { e.preventDefault(); wrap.classList.add(
 wrap.addEventListener('dragleave', e => { if (e.target === wrap || !wrap.contains(e.relatedTarget)) wrap.classList.remove('dragover'); });
 wrap.addEventListener('drop', e => { e.preventDefault(); wrap.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
 document.addEventListener('paste', e => {
-  if (/INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+  if (modalEl || /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
   const item = [...(e.clipboardData ? e.clipboardData.items : [])].find(i => i.type.startsWith('image/'));
   if (item) { e.preventDefault(); loadImageFile(item.getAsFile()); }
 });
 
 /* ================================================================
    [새 작업 · 작업 저장 · 작업 열기]
-   저장 파일(.json)에는 그림과 점·선이 모두 들어 있어 나중에 다시 고칠 수 있어요.
+   저장 파일(.json)에는 그림과 점·선·표시가 모두 들어 있어 나중에 다시 고칠 수 있어요.
    ================================================================ */
 function newWork() {
   if (!doc.objects.length) { toast('이미 빈 작업이에요.'); return; }
   confirmBox('새 작업을 시작할까요?', '지금 그린 내용이 모두 지워져요. (실수했다면 실행 취소로 되돌릴 수 있어요)', '새로 시작', () => {
-    record(); doc = emptyDoc(); selectedId = null; segStartId = null; dirty = false;
+    record(); doc = emptyDoc(); selectedId = null; picks = []; dirty = false;
     renderAll(); toast('새 작업을 시작했어요.', 'ok');
   }, 'danger');
 }
 function saveProject() {
   const used = new Set(byType('image').map(o => o.asset));
-  const data = { app: 'math-geo-editor', version: 1, savedAt: new Date().toISOString(), paper: CONFIG.paper,
+  const data = { app: 'math-geo-editor', version: 2, savedAt: new Date().toISOString(), paper: CONFIG.paper,
     doc, assets: Object.fromEntries([...used].filter(k => assets[k]).map(k => [k, assets[k]])) };
   downloadBlob(new Blob([JSON.stringify(data)], { type: 'application/json' }), `도형작업_${stamp()}.json`);
   dirty = false;
@@ -1039,7 +1646,7 @@ function openProjectText(text) {
   }
   record();
   Object.assign(assets, data.assets || {});
-  doc = data.doc; selectedId = null; segStartId = null; dirty = false;
+  doc = data.doc; selectedId = null; picks = []; dirty = false;
   setTool('select'); renderAll();
   toast('작업을 열었어요.', 'ok');
 }
@@ -1077,7 +1684,7 @@ function buildExportSvg(opt) {
   return { svg: root, box };
 }
 async function makePNG(opt) {
-  const count = doc.objects.filter(o => o.type === 'image' ? opt.includeImages : o.visible).length;
+  const count = doc.objects.filter(o => o.type === 'image' ? opt.includeImages : o.visible !== false).length;
   if (!count) throw new UserError('저장할 내용이 없어요. 먼저 그림을 불러오거나 점과 선분을 그려 주세요.');
   const r = buildExportSvg(opt);
   if (!r) throw new UserError('저장할 내용이 없어요.');
@@ -1143,9 +1750,17 @@ $('#btnExport').onclick = openExportDialog;
    [단축키]
    ================================================================ */
 document.addEventListener('keydown', e => {
-  const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) && !['range', 'checkbox', 'color'].includes(document.activeElement.type);
+  const ae = document.activeElement;
+  const typing = /INPUT|TEXTAREA|SELECT/.test(ae.tagName) && !['range', 'checkbox', 'color'].includes(ae.type);
   const ctrl = e.ctrlKey || e.metaKey, key = e.key.toLowerCase();
-  if (modalEl) { if (e.key === 'Escape') closeModal(); return; }
+  if (modalEl) {
+    if (e.key === 'Escape') closeModal();
+    else if (e.key === 'Enter' && !e.isComposing && ae.tagName === 'INPUT') {   // 한글 조합 중 Enter는 무시
+      e.preventDefault();
+      const p = modalEl.querySelector('.m-btn.primary'); if (p) p.click();
+    }
+    return;
+  }
   if (ctrl && key === 's') { e.preventDefault(); saveProject(); return; }
   if (ctrl && key === 'o') { e.preventDefault(); $('#fileProject').click(); return; }
   if (typing) return;
@@ -1154,18 +1769,17 @@ document.addEventListener('keydown', e => {
   if (ctrl || e.altKey) return;
   if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteSelected(); return; }
   if (e.key === 'Escape') {
-    if (segStartId) { segStartId = null; renderOverlay(); updateHint(); toast('선분 만들기를 취소했어요.'); }
+    if (picks.length) { picks = []; renderAll(); toast('고르던 것을 취소했어요.'); }
     else if (tool !== 'select') setTool('select');
     else select(null);
     return;
   }
-  if (key === 'v') return setTool('select');
-  if (key === 'p') return setTool('point');
-  if (key === 'l') return setTool('segment');
+  const t = Object.keys(TOOLS).find(n => TOOLS[n].key === key);
+  if (t) { setTool(t); return; }
   const arrows = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
   if (arrows[e.key]) {
     const o = getObj(selectedId);
-    if (!o || o.type === 'segment') return;
+    if (!o || !('x' in o)) return;
     e.preventDefault();
     if (o.type === 'image' && o.locked) { toast('🔒 잠긴 그림은 움직이지 않아요.', 'warn'); return; }
     const step = e.shiftKey ? 10 : 1;
@@ -1178,7 +1792,7 @@ document.addEventListener('keydown', e => {
 /* ================================================================
    [시작]
    ================================================================ */
-document.querySelectorAll('.tool-btn').forEach(b => b.onclick = () => setTool(b.dataset.tool));
+buildToolbar();
 new ResizeObserver(() => renderCanvas()).observe(wrap);
 setupBoard();
 setTool('select');
