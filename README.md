@@ -38,7 +38,7 @@ AI는 Google의 **Gemini API 무료 등급**만 씁니다. 결제 정보는 필�
    (연결 시험은 그림을 보내지 않아서 무료 한도를 쓰지 않아요.)
 
 **무료 등급으로 쓰는 방법과 제한**
-- 이 편집기는 **무료 등급에서 이미지 입력을 지원하는 Gemini 모델**만 부릅니다. 기본은 `gemini-3.8-flash` 예요.
+- 이 편집기는 **무료 등급에서 이미지 입력을 지원하는 Gemini 모델**만 부릅니다. 기본은 `gemini-3.5-flash` 예요. (2026-10-07 실제 시험에서 가장 빠르고 안정적이었어요. 3.8 Flash는 그날 무료 등급에서 '수요 과다'로 응답이 오지 않았어요)
   (2026년 10월 Google 공식 가격 문서 기준. 정책이 바뀌면 `api/recognize.js` 의 `FREE_TIER_MODELS` 목록만 고치면 돼요.)
 - 무료 등급은 **무제한이 아니에요.** 1분에 보낼 수 있는 횟수와 하루에 보낼 수 있는 횟수가 정해져 있어요.
   지금 내 한도는 https://aistudio.google.com/rate-limit 에서 볼 수 있어요.
@@ -110,7 +110,7 @@ AI는 Google의 **Gemini API 무료 등급**만 씁니다. 결제 정보는 필�
 | 여러 개 선택·복사 | `[선택]` 구역(`selectMany`, `moversFor`), `[복사 · 붙여넣기 · 복제]` 구역 |
 | 저장·자동 저장·PNG 작업 정보 | `[새 작업 · 작업 저장 · 작업 열기]` 구역 (`saveProject`, `scheduleAutosave`, `pngWithProject`) |
 | PNG 저장 방식 | `[PNG 내보내기]` 구역 |
-| AI 모델 바꾸기 | Vercel 환경변수 `GEMINI_MODEL` (기본 `gemini-3.8-flash`, `FREE_TIER_MODELS` 안의 이름만 허용). 다른 AI로 바꾸려면 `api/recognize.js`의 `callModel()`만 |
+| AI 모델 바꾸기 | Vercel 환경변수 `GEMINI_MODEL` (기본 `gemini-3.5-flash`, `FREE_TIER_MODELS` 안의 이름만 허용). 다른 AI로 바꾸려면 `api/recognize.js`의 `callModel()`만 |
 | AI에게 주는 지시문·결과 형식 | `api/recognize.js`의 `SYSTEM_PROMPT`, `RESULT_SCHEMA` (서버에서 편집기 형식으로 바꿔 돌려줌: `toEditorFormat`) |
 | 무료 한도 보호(한도 초과 시 멈춤·연속 클릭 방지·횟수) | `aiBlocked`, `aiRememberQuota`, `aiBusy`, `aiCallCount`, `CONFIG.ai.clickGapSec` |
 | 편집기 쪽 AI 호출 흐름 | `[AI 도형 인식]` 구역: `aiStart` → `runRecognition` → `recognitionInput`(그림 준비) → `analyzeGeometryImage`(서버 호출) → `refineRecognition`(좌표 보정) → `normalizeRecognitionResult` → `reviewRecognitionDialog` → `applyRecognition` |

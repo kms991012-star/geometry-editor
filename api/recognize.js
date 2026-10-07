@@ -20,7 +20,9 @@ const crypto = require('crypto');
 /* 무료 등급에서 이미지 입력을 지원하는 모델 (공식 가격 문서 https://ai.google.dev/gemini-api/docs/pricing 기준, 2026-10-07 확인)
    정책이 바뀌면 이 목록만 고치면 됩니다. 목록에 없는 모델은 부르지 않아요. */
 const FREE_TIER_MODELS = ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'];
-const DEFAULT_MODEL = 'gemini-3.8-flash';
+/* 기본 모델: gemini-3.5-flash — 무료 등급·이미지 입력·구조화 출력 지원. 2026-10-07 실제 시험에서 그림 1장 약 4초.
+   (gemini-3.8-flash는 같은 날 무료 등급에서 '수요 과다(503)'·100초 넘는 지연이 반복돼 기본값에서 뺐어요) */
+const DEFAULT_MODEL = 'gemini-3.5-flash';
 const API = 'https://generativelanguage.googleapis.com/v1beta';
 const MAX_IMAGE_BASE64 = 4_000_000;   // 약 3MB 그림 (Vercel 요청 한도 4.5MB 안쪽)
 const MAX_SIDE = 3072;
@@ -189,6 +191,7 @@ function geminiError(status, body) {
   if (status === 404) return 'ai_model';
   if (status === 400) return 'ai_rejected';
   if (status === 504) return 'timeout';
+  if (status === 503 || st === 'UNAVAILABLE') return 'busy';   // Google 쪽 일시적 수요 과다
   return 'ai_down';
 }
 function retryAfterOf(body) {
