@@ -371,6 +371,7 @@ const CONFIG = {
     dashPattern: [3.5, 2.5],   // 점선 모양(선 굵기의 배수: 선 길이, 빈칸 길이)
     widthMin: 0.5, widthMax: 8,
     tickLen: 11, tickGap: 4.5, // 같은 길이 표시(|, ||)의 길이와 간격
+    headSize: 11,              // 끝 모양(화살촉) 크기 — 선이 굵으면 그만큼 커져요
   },
   line: { width: 1.6, color: INK },          // 직선·반직선·수선·평행선 등
   circle: { width: 2, color: INK, fillOpacity: 0.12 },   // 원·호·부채꼴
@@ -514,7 +515,7 @@ const TOOL_GROUPS = [
    ── 개체 구조 (모든 개체 공통: id, type, visible / 만드는 함수는 [개체 만들기]의 add…)
    point    { name, x, y, size, color, showLabel, labelAuto, labelDir, labelCoord, def? }  addPoint
             def가 있으면 따라 움직이는 점: {kind:'mid'|'inter'|'on'|'reg', …}             addDerivedPoint
-   segment  { p1, p2 (점 id), width, color, dashed, ticks }                                addSegment
+   segment  { p1, p2 (점 id), width, color, dashed, ticks, heads?:'end'|'start'|'both' (끝 모양) }  addSegment
    line     { def:{kind:'two'|'perp'|'par'|'pbis'|'abis', …}, ray, width, color, dashed }   addLine
    circle   { def:{kind:'cp'|'cr'|'three', …}, width, color, dashed, fill }                addCircle
    arc      { c, a, b (점 id), sector, flip, … }                                           addArc
@@ -1347,8 +1348,13 @@ const DRAW = {
     const e = segEnds(o); if (!e) return false;
     const [a, b] = e;
     if (edit) S('line', { class: 'hit', x1: a.x, y1: a.y, x2: b.x, y2: b.y, stroke: HIT, 'stroke-width': CONFIG.hitRadius * 2 * k, 'pointer-events': 'stroke' }, g);
-    S('line', { x1: a.x, y1: a.y, x2: b.x, y2: b.y, stroke: o.color, 'stroke-width': o.width,
+    // 끝 모양(화살촉): heads = 'end'(p2 쪽) | 'start'(p1 쪽) | 'both' | 없음
+    const st = o.heads === 'start' || o.heads === 'both', en = o.heads === 'end' || o.heads === 'both';
+    const hd = st || en ? headedLine(a, b, st ? pointGap(o.p1) : 0, en ? pointGap(o.p2) : 0, Math.max(CONFIG.segment.headSize, o.width * 4.5), st, en) : null;
+    const l1 = hd ? hd.L1 : a, l2 = hd ? hd.L2 : b;
+    S('line', { x1: l1.x, y1: l1.y, x2: l2.x, y2: l2.y, stroke: o.color, 'stroke-width': o.width,
       'stroke-linecap': o.dashed ? 'butt' : 'round', 'stroke-dasharray': dashFor(o) }, g);
+    if (hd) S('path', { d: hd.heads, fill: o.color, stroke: o.color, 'stroke-width': Math.min(o.width, 1.2), 'stroke-linejoin': 'round' }, g);
     if (o.ticks) {   // 같은 길이 표시 | || |||
       const d = V.norm(V.sub(b, a)), n = perpOf(d), m = V.lerp(a, b, .5), C = CONFIG.segment;
       let path = '';
@@ -1473,19 +1479,23 @@ function bakeArrow(o, keys = ['p1', 'p2']) {
   keys.forEach(k => { delete o[k]; });
 }
 function arrowGeom(o) {
-  let [A, B] = arrowEnds(o);
+  const [A, B] = arrowEnds(o);
+  return headedLine(A, B, pointGap(o.p1), pointGap(o.p2), o.headSize, o.heads === 'both', true);
+}
+/* 점에 붙은 끝은 점 바로 앞에서 멈춰서 점이 가려지지 않게 (숨긴 점이면 끝까지) */
+function pointGap(id) { const p = id && P(id); return p && p.visible !== false ? p.size + 3 : 0; }
+/* 화살촉 달린 선 (화살표·선분 끝 모양 공용): A→B, 양 끝에서 멈출 간격, 화살촉 크기, 시작·끝에 화살촉을 달지
+   → { A, B, d, heads(화살촉 모양), L1, L2(선을 그릴 범위: 화살촉 안쪽에서 끝나 뾰족한 끝이 뭉개지지 않게) } */
+function headedLine(A, B, gapA, gapB, size, atStart, atEnd) {
   if (V.dist(A, B) < 1) return null;
   const d = V.norm(V.sub(B, A)), n = perpOf(d);
-  // 점에 붙은 끝은 점 바로 앞에서 멈춰서 점이 가려지지 않게
-  const gap = id => { const p = id && P(id); return p ? p.size + 3 : 0; };
-  A = V.add(A, V.mul(d, gap(o.p1))); B = V.sub(B, V.mul(d, gap(o.p2)));
+  A = V.add(A, V.mul(d, gapA)); B = V.sub(B, V.mul(d, gapB));
   const L = V.dist(A, B); if (L < 1 || V.dot(V.sub(B, A), d) <= 0) return null;
-  const h = Math.min(o.headSize, L * (o.heads === 'both' ? 0.45 : 0.8)), w = h * 0.42;
+  const h = Math.min(size, L * (atStart && atEnd ? 0.45 : 0.8)), w = h * 0.42;
   const head = (tip, dir) => { const b = V.sub(tip, V.mul(dir, h)), p = V.add(b, V.mul(n, w)), q = V.sub(b, V.mul(n, w));
     return `M${tip.x} ${tip.y}L${p.x} ${p.y}L${q.x} ${q.y}Z`; };
-  const both = o.heads === 'both';
-  return { A, B, d, heads: head(B, d) + (both ? head(A, V.mul(d, -1)) : ''),
-    L1: both ? V.add(A, V.mul(d, h * 0.7)) : A, L2: V.sub(B, V.mul(d, h * 0.7)) };
+  return { A, B, d, heads: (atEnd ? head(B, d) : '') + (atStart ? head(A, V.mul(d, -1)) : ''),
+    L1: atStart ? V.add(A, V.mul(d, h * 0.7)) : A, L2: atEnd ? V.sub(B, V.mul(d, h * 0.7)) : B };
 }
 /* 그리는 순서(아래 → 위): 그림 → 선분 → 각·직각·평행·수직 → 문자·길이 → 점 (점은 항상 맨 위라 언제나 잡을 수 있어요) */
 const LAYER_OF = { image: 0, polygon: 1, segment: 2, line: 2, circle: 2, arc: 2, angle: 3, right: 3, parallel: 3, perp: 3, arrow: 3, text: 4, length: 4, point: 5 };
@@ -2784,6 +2794,8 @@ const PANELS = {
       colorField(o, '선 색'),
       field('선 모양', segmented([[false, '━━ 실선'], [true, '╍╍ 점선']], o.dashed, v => setOnce(o, 'dashed', v))),
       field('같은 길이 표시', segmented([[0, '없음'], [1, '|'], [2, '||'], [3, '|||']], o.ticks || 0, v => setOnce(o, 'ticks', v))),
+      field('끝 모양 (화살촉)', segmented([['none', '없음'], ['end', `${pname(o.p1)}→${pname(o.p2)}`], ['start', `${pname(o.p2)}→${pname(o.p1)}`], ['both', '↔ 양쪽']],
+        o.heads || 'none', v => setOnce(o, 'heads', v === 'none' ? undefined : v))),
       field('양 끝점 바꾸기', H('div', { class: 'wh' }, endpointSelect(o, 'p1'), '—', endpointSelect(o, 'p2'))),
       visibleField(o),
       deleteButton(o),
@@ -3080,7 +3092,7 @@ const AI_PROMPT = `첨부한 수학 문제 그림을 분석해서, 그림 속 �
   "image": { "width": 그림 너비, "height": 그림 높이 },
   "objects": [
     { "id": "A", "type": "point", "label": "A", "x": 120, "y": 340, "confidence": 0.95 },
-    { "type": "segment", "from": "A", "to": "B", "dashed": false },
+    { "type": "segment", "from": "A", "to": "B", "dashed": false, "heads": "none" },
     { "type": "line", "through": ["A", "B"] },
     { "type": "ray", "from": "A", "through": "B" },
     { "type": "triangle", "points": ["A", "B", "C"] },
@@ -3101,6 +3113,7 @@ const AI_PROMPT = `첨부한 수학 문제 그림을 분석해서, 그림 속 �
 - 점 이름을 모르면 label을 비워 두세요. 점과 떨어져 있는 이름 글자는 "label"로 적으면 가까운 점의 이름이 돼요.
 - 점선은 "dashed": true, 치수선(양쪽 화살표와 길이)은 "dimension"으로 적어 주세요.
 - 화살표는 "arrow"로, 꼬리(from)와 머리(to)를 적어요. 양쪽 화살표면 "heads": "both".
+- 두 점을 잇는 선분 끝에 화살촉이 있으면 segment에 "heads"를 적어요: "end"(to 쪽), "start"(from 쪽), "both".
 - 확실하지 않은 항목은 "confidence"를 0~1 사이로 낮게 적어 주세요.`;
 
 /* 인식기 목록: 지금은 '붙여넣기'만 쓸 수 있어요. 자동 인식 모델을 연결하면 auto를 ready: true로 */
@@ -3226,7 +3239,16 @@ const AI_PARSERS = {
   segment(o, conf, ctx) {
     const pts = o.points || o.endpoints;
     const s = ctx.seg(Array.isArray(pts) ? pts : { from: o.from ?? o.start ?? o.p1, to: o.to ?? o.end ?? o.p2 }, conf);
-    if (s) { s.conf = Math.min(s.conf, conf); if (o.dashed || /dash|dot/.test(String(o.style || ''))) s.data.dashed = true; }
+    if (s) {
+      s.conf = Math.min(s.conf, conf);
+      if (o.dashed || /dash|dot/.test(String(o.style || ''))) s.data.dashed = true;
+      if (['end', 'start', 'both'].includes(o.heads)) {   // 끝 모양: 같은 선분을 반대 순서로 적었으면 방향도 바꿔요
+        const fromRef = Array.isArray(pts) ? pts[0] : (o.from ?? o.start ?? o.p1);
+        const fc = typeof fromRef === 'string' ? ctx.point(fromRef, conf) : null;   // 좌표로 적었으면 방금 만든 순서 그대로
+        const flip = !!fc && s.data.a !== fc.key;
+        s.data.heads = flip && o.heads !== 'both' ? (o.heads === 'end' ? 'start' : 'end') : o.heads;
+      }
+    }
     return s;
   },
   line: (o, conf, ctx) => AI_PARSERS._line(o, conf, ctx, false),
@@ -3305,12 +3327,12 @@ const AI_KINDS = {
   },
   segment: {
     group: '선', order: 1,
-    title: (d, L) => (d.dashed ? '점선 ' : '선분 ') + L(d.a) + L(d.b),
+    title: (d, L) => (d.dashed ? '점선 ' : '선분 ') + L(d.a) + L(d.b) + ({ end: ` (${L(d.a)}→${L(d.b)})`, start: ` (${L(d.b)}→${L(d.a)})`, both: ' (↔)' }[d.heads] || ''),
     create(d, id) {
       const a = id(d.a), b = id(d.b); if (!a || !b || a === b) return null;
       const ex = byType('segment').find(s => (s.p1 === a && s.p2 === b) || (s.p1 === b && s.p2 === a));
       if (ex) return ex.id;
-      const s = addSegment(a, b); if (d.dashed) s.dashed = true;
+      const s = addSegment(a, b); if (d.dashed) s.dashed = true; if (d.heads) s.heads = d.heads;
       return s.id;
     },
   },
