@@ -6,7 +6,7 @@
 <title>도형 편집기 · 수학 문제 그림 만들기</title>
 <!--
   ┌──────────────────────────────────────────────────────────────┐
-  │  도형 편집기 (2단계)                                            │
+  │  도형 편집기 (3단계)                                            │
   │  이 파일 하나만 더블클릭하면 브라우저에서 바로 실행됩니다.          │
   │  인터넷 연결·서버·설치가 필요 없습니다.                            │
   │                                                              │
@@ -101,7 +101,18 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
 .empty-hint b{display:block;font-size:17px;color:var(--text);margin-bottom:4px}
 .drop-cover{position:absolute;inset:10px;border:3px dashed var(--accent);border-radius:16px;background:rgba(91,124,250,.08);display:none;place-items:center;font-size:18px;font-weight:800;color:var(--accent-dark);pointer-events:none}
 .canvas-wrap.dragover .drop-cover{display:grid}
-.statusbar{display:flex;align-items:center;gap:10px;padding:9px 14px;border-top:1px solid var(--line);font-size:13px;min-height:42px}
+.statusbar{display:flex;align-items:center;gap:10px;padding:7px 10px 7px 14px;border-top:1px solid var(--line);font-size:13px;min-height:44px}
+.zoom{flex:none;display:flex;align-items:center;gap:2px;padding:2px;background:#f0f3f9;border-radius:10px}
+.zoom button{border:none;background:transparent;border-radius:8px;padding:4px 9px;font-weight:700;color:#45506a;white-space:nowrap}
+.zoom button:hover{background:#fff;color:var(--accent-dark)}
+.zoom .pct{min-width:50px;text-align:center;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text)}
+.canvas-wrap.panning,.canvas-wrap.panning #board{cursor:grab !important}
+.tool-btn.wide{grid-column:span 2;flex-direction:row;justify-content:center;gap:5px;padding:9px 4px;white-space:nowrap;font-size:13.5px}
+.tool-btn.wide svg.ic{width:20px;height:20px}
+.tool-btn.wide .pill{font-size:10px;font-weight:800;padding:1px 6px;border-radius:99px;background:#e6eaf2;color:var(--muted)}
+.tool-btn.wide.on{border-color:var(--green);background:#ecf8f2;color:#1d7a52}
+.tool-btn.wide.on .pill{background:var(--green);color:#fff}
+.coord-xy{display:grid;grid-template-columns:auto 1fr auto 1fr;align-items:center;gap:6px 8px;font-family:"Times New Roman",serif;font-style:italic;font-size:17px}
 .tool-chip{flex:none;background:var(--accent);color:#fff;font-weight:700;padding:3px 11px;border-radius:999px}
 .hint{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hint.warn{color:#b86b00;font-weight:600}
@@ -238,7 +249,9 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
       <kbd>Esc</kbd> 취소<br>
       <kbd>Ctrl</kbd>+<kbd>Z</kbd> 되돌리기<br>
       <kbd>Ctrl</kbd>+<kbd>V</kbd> 그림 붙여넣기<br>
-      <kbd>←</kbd><kbd>→</kbd> 조금씩 이동
+      <kbd>←</kbd><kbd>→</kbd> 조금씩 이동<br>
+      휠 확대/축소<br>
+      <kbd>Space</kbd>+끌기 화면 이동
     </div>
   </aside>
 
@@ -260,6 +273,13 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
       <span class="tool-chip" id="toolChip">선택</span>
       <span class="hint" id="hint"></span>
       <span class="coords" id="coords"></span>
+      <div class="zoom" title="마우스 휠로도 확대/축소할 수 있어요">
+        <button id="zoomOut" title="축소 (Ctrl + -)">−</button>
+        <span class="pct" id="zoomPct">100%</span>
+        <button id="zoomIn" title="확대 (Ctrl + +)">＋</button>
+        <button id="zoom100" title="실제 크기">100%</button>
+        <button id="zoomFit" title="화면에 맞추기 (Ctrl + 0)">화면에 맞추기</button>
+      </div>
     </div>
   </section>
 
@@ -323,6 +343,15 @@ const CONFIG = {
   right: { size: 12, width: 1.6, color: INK },       // 직각 표시
   parallel: { size: 9, width: 1.8, color: INK, count: 1 },   // 평행 표시(화살표 크기, 개수)
   perp: { size: 12, width: 1.6, color: INK },        // 수직 표시
+  coord: {                     // 좌표평면
+    unit: 40,                  // 한 칸(=1) 크기(px)
+    unitMin: 15, unitMax: 100,
+    gridColor: '#d3d9e4', gridWidth: 1,
+    axisColor: INK, axisWidth: 1.5,
+    numberSize: 14,            // 좌표 숫자 크기
+    snap: 1,                   // 점을 격자에 맞추는 간격(1 = 한 칸, 0.5 = 반 칸, 0 = 맞추지 않음)
+  },
+  zoom: { min: 0.1, max: 8, step: 1.25 },   // 화면 확대/축소 범위(0.1 = 10%, 8 = 800%)
   image: { fitRatio: 0.9 },    // 그림을 불러올 때 종이의 90% 크기에 맞춤
   palette: ['#222b3c', '#7c879c', '#e5484d', '#f08c2e', '#2fa36b', '#3b6fe0', '#8b5cf6'],  // 색 고르기 버튼
   quickNames: ['A','B','C','D','E','O','P','Q','R','H','M'],  // 점 이름 빠른 선택 버튼
@@ -347,6 +376,7 @@ const ICONS = {
   parallel: '<path d="M3 8h18M3 16h18"/><path d="M10 5.5l2.5 2.5-2.5 2.5M10 13.5l2.5 2.5-2.5 2.5"/>',
   perp:     '<path d="M12 4v15M4 19h16"/><path d="M12 14h5v5"/>',
   image:    '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 8"/>',
+  coord:    '<path d="M12 21V3M3 12h18" stroke-width="2"/><path d="M10 5l2-2 2 2M19 10l2 2-2 2"/><path d="M7 3v18M17 3v18M3 7h18M3 17h18" stroke-width="1" opacity=".45"/>',
   lock:     '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
   unlock:   '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.6-1.8"/>',
   trash:    '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
@@ -392,7 +422,33 @@ let drag = null;            // 드래그 중인 정보
 let dirty = false;          // 저장하지 않은 변경이 있는지
 let tempHint = null;
 
-function emptyDoc() { return { nextId: 1, objects: [] }; }
+function emptyDoc() { return { nextId: 1, objects: [], coord: defaultCoord() }; }
+/* 좌표평면 설정 (작업 파일에 함께 저장되고, 실행 취소도 됩니다) */
+function defaultCoord() {
+  const C = CONFIG.coord;
+  return { on: false, unit: C.unit, ox: CONFIG.paper.width / 2, oy: CONFIG.paper.height / 2,
+    grid: true, xAxis: true, yAxis: true, ticks: true, numbers: true, origin: true, axisNames: true, snap: C.snap };
+}
+function normalizeDoc(d) { d.coord = { ...defaultCoord(), ...(d.coord || {}) }; return d; }
+const COORD_ID = '__coord';   // 오른쪽 속성창에 좌표평면 설정을 띄울 때 쓰는 표시
+
+/* ---------- [좌표 변환] 종이 위치(px) ↔ 수학 좌표 ---------- */
+const coordOn = () => doc.coord.on;
+const toMath = p => ({ x: (p.x - doc.coord.ox) / doc.coord.unit, y: (doc.coord.oy - p.y) / doc.coord.unit });
+const fromMath = m => ({ x: doc.coord.ox + m.x * doc.coord.unit, y: doc.coord.oy - m.y * doc.coord.unit });
+/* 좌표평면이 켜져 있고 '격자에 맞추기'가 켜져 있으면 가장 가까운 격자점으로 */
+function snapPt(p) {
+  if (!coordOn() || !doc.coord.snap) return { x: round1(p.x), y: round1(p.y) };
+  const s = doc.coord.snap, m = toMath(p);
+  const q = fromMath({ x: Math.round(m.x / s) * s, y: Math.round(m.y / s) * s });
+  return { x: round1(q.x), y: round1(q.y) };
+}
+/* 숫자를 보기 좋게: 3, -2.5, 0.33 (교과서식 빼기 기호 −) */
+function fmtNum(v, mathMinus = true) {
+  const r = Math.round(v * 100) / 100;
+  const s = String(Object.is(r, -0) ? 0 : r);
+  return mathMinus ? s.replace('-', '−') : s;
+}
 const newId = () => 'o' + (doc.nextId++);
 const getObj = id => (id ? doc.objects.find(o => o.id === id) : null) || null;
 const byType = t => doc.objects.filter(o => o.type === t);
@@ -557,7 +613,7 @@ function record(key) {
 }
 function restore(s) {
   const d = JSON.parse(s);
-  doc = d.doc; selectedId = getObj(d.selectedId) ? d.selectedId : null;
+  doc = normalizeDoc(d.doc); selectedId = (d.selectedId === COORD_ID || getObj(d.selectedId)) ? d.selectedId : null;
   picks = []; drag = null; dirty = true;
   renderAll();
 }
@@ -588,8 +644,8 @@ function nextPointName() {
 }
 function push(o) { doc.objects.push(o); return o; }
 function addPoint(x, y) {
-  const P = CONFIG.point;
-  return push({ id: newId(), type: 'point', name: nextPointName(), x: round1(x), y: round1(y),
+  const P = CONFIG.point, q = snapPt({ x, y });
+  return push({ id: newId(), type: 'point', name: nextPointName(), x: q.x, y: q.y, labelCoord: false,
     size: P.size, color: P.color, visible: true, showLabel: true, labelAuto: true, labelDx: P.labelDx, labelDy: P.labelDy });
 }
 function addSegment(p1, p2) {
@@ -753,8 +809,8 @@ function pointLabelPos(o) {
       const u = V.norm(V.sub(other, o));
       sum = V.add(sum, u); first = first || u;
     }
-    if (!first) return { x: o.x + P.labelDx, y: o.y + P.labelDy };
-    if (V.len(sum) < 0.2) {   // 일직선 한가운데 점: 선에 수직인 방향(위쪽)으로
+    if (!first) dir = V.norm({ x: P.labelDx, y: P.labelDy });   // 연결된 선분이 없으면 오른쪽 위
+    else if (V.len(sum) < 0.2) {   // 일직선 한가운데 점: 선에 수직인 방향(위쪽)으로
       dir = { x: first.y, y: -first.x };
       if (dir.y > 0) dir = V.mul(dir, -1);
     } else dir = V.norm(V.mul(sum, -1));
@@ -763,8 +819,61 @@ function pointLabelPos(o) {
   } else {
     return { x: o.x + o.labelDx, y: o.y + o.labelDy };
   }
-  const ext = Math.abs(dir.x) * textWidth(o.name, P.labelSize) / 2 + Math.abs(dir.y) * P.labelSize * 0.38;
+  const ext = Math.abs(dir.x) * textWidth(pointLabelText(o), P.labelSize) / 2 + Math.abs(dir.y) * P.labelSize * 0.38;
   return V.add(o, V.mul(dir, o.size + P.labelGap + ext));
+}
+/* 점 이름 글자: 'A' 또는 좌표 포함 'A(3, 5)' */
+function pointLabelText(o) {
+  if (!o.labelCoord || !coordOn()) return o.name;
+  const m = toMath(o);
+  return `${o.name}(${fmtNum(m.x)}, ${fmtNum(m.y)})`;
+}
+
+/* ================================================================
+   [좌표평면 그리기] 격자 · x축 · y축 · 눈금 · 숫자 · 원점 O
+   한 칸(unit px)이 수학 좌표 1입니다.
+   ================================================================ */
+function drawCoord(g) {
+  const c = doc.coord, C = CONFIG.coord, W = CONFIG.paper.width, Hh = CONFIG.paper.height, u = c.unit;
+  const xs = [], ys = [];   // 종이 안에 들어오는 정수 좌표들
+  for (let k = Math.ceil(-c.ox / u); k <= Math.floor((W - c.ox) / u); k++) xs.push(k);
+  for (let j = Math.ceil((c.oy - Hh) / u); j <= Math.floor(c.oy / u); j++) ys.push(j);
+  const X = k => c.ox + k * u, Y = j => c.oy - j * u;
+  const inX = c.ox >= 0 && c.ox <= W, inY = c.oy >= 0 && c.oy <= Hh;   // 축이 종이 안에 있는지
+  if (c.grid) {
+    let d = '';
+    for (const k of xs) d += `M${X(k)} 0V${Hh}`;
+    for (const j of ys) d += `M0 ${Y(j)}H${W}`;
+    S('path', { d, stroke: C.gridColor, 'stroke-width': C.gridWidth, fill: 'none' }, g);
+  }
+  const ax = { stroke: C.axisColor, 'stroke-width': C.axisWidth, fill: 'none', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' };
+  const a = 7;   // 화살촉 크기
+  if (c.xAxis && inY) S('path', { ...ax, d: `M0 ${c.oy}H${W} M${W - a} ${c.oy - a * .6}L${W} ${c.oy}L${W - a} ${c.oy + a * .6}` }, g);
+  if (c.yAxis && inX) S('path', { ...ax, d: `M${c.ox} ${Hh}V0 M${c.ox - a * .6} ${a}L${c.ox} 0L${c.ox + a * .6} ${a}` }, g);
+  if (c.ticks) {
+    let d = '';
+    if (inY) for (const k of xs) if (k && X(k) < W - a) d += `M${X(k)} ${c.oy - 4}V${c.oy + 4}`;
+    if (inX) for (const j of ys) if (j && Y(j) > a) d += `M${c.ox - 4} ${Y(j)}H${c.ox + 4}`;
+    if (d) S('path', { ...ax, 'stroke-width': C.axisWidth * 0.8, d }, g);
+  }
+  const every = u >= 28 ? 1 : u >= 18 ? 2 : 5;   // 칸이 작으면 숫자를 건너뛰며 씁니다
+  const num = (x, y, str, anchor) => {
+    const t = S('text', { x, y, fill: C.axisColor, 'font-size': C.numberSize, 'font-family': CONFIG.mathFont, 'text-anchor': anchor, 'dominant-baseline': 'central', ...HALO() }, g);
+    t.textContent = str;
+  };
+  if (c.numbers) {
+    if (inY) for (const k of xs) if (k && k % every === 0 && X(k) < W - 10) num(X(k), c.oy + 13, fmtNum(k), 'middle');
+    if (inX) for (const j of ys) if (j && j % every === 0 && Y(j) > 10) num(c.ox - 8, Y(j), fmtNum(j), 'end');
+  }
+  if (c.origin && inX && inY) {
+    const t = S('text', { x: c.ox - 7, y: c.oy + 13, fill: C.axisColor, 'font-size': C.numberSize + 3, 'font-family': CONFIG.mathFont, 'font-style': 'italic', 'text-anchor': 'end', 'dominant-baseline': 'central', ...HALO() }, g);
+    t.textContent = 'O';
+  }
+  if (c.axisNames) {
+    const it = { fill: C.axisColor, 'font-size': C.numberSize + 5, 'font-family': CONFIG.mathFont, 'font-style': 'italic', 'dominant-baseline': 'central', ...HALO() };
+    if (c.xAxis && inY) { const t = S('text', { ...it, x: W - 4, y: c.oy - 15, 'text-anchor': 'end' }, g); t.textContent = 'x'; }
+    if (c.yAxis && inX) { const t = S('text', { ...it, x: c.ox + 11, y: 8, 'text-anchor': 'start' }, g); t.textContent = 'y'; }
+  }
 }
 
 /* ================================================================
@@ -778,8 +887,10 @@ function toBoard(e) {
   return p.matrixTransform(board.getScreenCTM().inverse());
 }
 function dashFor(s) { return s.dashed ? CONFIG.segment.dashPattern.map(v => v * s.width).join(' ') : null; }
+/* 좌표평면이 켜져 있으면 글자 둘레에 흰 테두리를 둘러 격자선 위에서도 잘 읽히게 */
+const HALO = () => coordOn() ? { stroke: '#fff', 'stroke-width': 4, 'stroke-linejoin': 'round', 'paint-order': 'stroke' } : {};
 function mathText(g, x, y, str, size, color, extra = {}) {
-  const t = S('text', { x, y, fill: color, 'font-size': size, 'font-family': CONFIG.mathFont, 'text-anchor': 'middle', 'dominant-baseline': 'central', ...extra }, g);
+  const t = S('text', { x, y, fill: color, 'font-size': size, 'font-family': CONFIG.mathFont, 'text-anchor': 'middle', 'dominant-baseline': 'central', ...HALO(), ...extra }, g);
   t.textContent = str;
   return t;
 }
@@ -798,7 +909,7 @@ const DRAW = {
     S('circle', { cx: o.x, cy: o.y, r: o.size, fill: o.color }, g);
     if (o.showLabel && o.name) {
       const L = pointLabelPos(o);
-      mathText(g, L.x, L.y, o.name, CONFIG.point.labelSize, o.color, { 'font-style': CONFIG.point.labelItalic ? 'italic' : 'normal' });
+      mathText(g, L.x, L.y, pointLabelText(o), CONFIG.point.labelSize, o.color, { 'font-style': CONFIG.point.labelItalic ? 'italic' : 'normal' });
     }
   },
   text(g, o) {
@@ -874,6 +985,8 @@ function drawScene(root, mode, opt = {}) {
   const edit = mode === 'edit';
   const k = edit ? 1 / pxPerUnit() : 1;          // 화면 1px이 종이에서 몇 단위인지
   const layers = [0, 1, 2, 3, 4].map(() => S('g', {}, root));
+  // 좌표평면은 배경 그림 바로 위, 선분 아래에 그립니다
+  if (coordOn()) drawCoord(root.insertBefore(S('g', { class: 'coord-layer', 'pointer-events': 'none' }), layers[1]));
   for (const o of doc.objects) {
     if (o.type === 'image') {
       if (!edit && opt.includeImages === false) continue;
@@ -892,11 +1005,47 @@ function drawScene(root, mode, opt = {}) {
 
 let LAYER = null;
 function setupBoard() {
-  const { width: W, height: Hh, margin: M } = CONFIG.paper;
-  board.setAttribute('viewBox', `${-M} ${-M} ${W + 2 * M} ${Hh + 2 * M}`);
+  const { width: W, height: Hh } = CONFIG.paper;
   board.setAttribute('preserveAspectRatio', 'xMidYMid meet');
   S('rect', { class: 'paper', x: 0, y: 0, width: W, height: Hh }, board);
   LAYER = { content: S('g', { id: 'content' }, board), overlay: S('g', { class: 'overlay' }, board) };
+  applyView();
+}
+
+/* ================================================================
+   [화면 확대/축소] 보기만 바뀌고 그림 자체는 바뀌지 않습니다 (PNG 크기와 무관)
+   view.scale = 화면 1픽셀당 종이 몇 픽셀인지의 반대(1 = 100%)
+   ================================================================ */
+const view = { fit: true, scale: 1, cx: CONFIG.paper.width / 2, cy: CONFIG.paper.height / 2 };
+function fitScale() {
+  const r = wrap.getBoundingClientRect(), { width: W, height: Hh, margin: M } = CONFIG.paper;
+  return Math.min(r.width / (W + 2 * M), r.height / (Hh + 2 * M));
+}
+function applyView() {
+  const r = wrap.getBoundingClientRect();
+  if (!r.width || !r.height) return;
+  if (view.fit) { view.scale = fitScale(); view.cx = CONFIG.paper.width / 2; view.cy = CONFIG.paper.height / 2; }
+  const w = r.width / view.scale, h = r.height / view.scale;
+  board.setAttribute('viewBox', `${view.cx - w / 2} ${view.cy - h / 2} ${w} ${h}`);
+  $('#zoomPct').textContent = Math.round(view.scale * 100) + '%';
+}
+/* anchor(종이 위 한 점)를 화면에서 같은 자리에 둔 채로 확대/축소 */
+function zoomTo(scale, anchor) {
+  const Z = CONFIG.zoom;
+  scale = clamp(scale, Z.min, Z.max);
+  if (anchor) {
+    const k = view.scale / scale;
+    view.cx = anchor.x + (view.cx - anchor.x) * k;
+    view.cy = anchor.y + (view.cy - anchor.y) * k;
+  }
+  view.scale = scale; view.fit = false;
+  applyView(); renderCanvas();
+}
+function zoomFit() { view.fit = true; applyView(); renderCanvas(); }
+function panBy(dxScreen, dyScreen) {
+  view.fit = false;
+  view.cx -= dxScreen / view.scale; view.cy -= dyScreen / view.scale;
+  applyView(); renderOverlay();
 }
 
 function renderCanvas() {
@@ -954,7 +1103,7 @@ function renderOverlay() {
   if (!drag && (tool === 'point' || (T.pick === 'point'))) {
     const hp = getObj(hover.pointId);
     if (hp) S('circle', { cx: hp.x, cy: hp.y, r: hp.size + 6 * k, fill: 'none', stroke: accent, 'stroke-width': 2 * k }, ov);
-    else if (hover.pos) S('circle', { cx: hover.pos.x, cy: hover.pos.y, r: CONFIG.point.size, fill: accent, 'fill-opacity': .45 }, ov);
+    else if (hover.pos) { const q = snapPt(hover.pos); S('circle', { cx: q.x, cy: q.y, r: CONFIG.point.size, fill: accent, 'fill-opacity': .45 }, ov); }
   }
 }
 
@@ -971,6 +1120,24 @@ function buildToolbar() {
         T.key ? H('span', { class: 'key' }, T.key.toUpperCase()) : null, icon(T.icon), T.label);
     })), before);
   }
+  // 보기: 좌표평면 켜고 끄기 + 설정 열기
+  bar.insertBefore(H('div', { class: 'section-title' }, '보기'), before);
+  bar.insertBefore(H('div', { class: 'tool-grid' },
+    H('button', { class: 'tool-btn wide', id: 'btnCoord', title: '좌표평면 켜기/설정', onclick: openCoord },
+      icon('coord'), '좌표평면', H('span', { class: 'pill', id: 'coordPill' }, '꺼짐'))), before);
+}
+function updateCoordButton() {
+  $('#btnCoord').classList.toggle('on', coordOn());
+  $('#coordPill').textContent = coordOn() ? '켜짐' : '꺼짐';
+}
+function openCoord() {
+  if (!coordOn()) {
+    record();
+    doc.coord.on = true;
+    toast('좌표평면을 켰어요. 오른쪽에서 격자·축·한 칸 크기를 바꿀 수 있어요.', 'ok');
+  }
+  if (tool !== 'select') setTool('select');
+  select(COORD_ID);
 }
 function setTool(t) {
   tool = t; picks = []; tempHint = null;
@@ -1036,7 +1203,23 @@ function dragInfoFor(o, pt) {
   return null;
 }
 
+/* 클릭한 곳의 점: 가까운 점, 또는 격자에 맞췄을 때 같은 자리에 이미 있는 점 */
+function pointAt(pt) {
+  const near = nearestPoint(pt);
+  if (near) return near;
+  const q = snapPt(pt);
+  return byType('point').find(p => V.dist(p, q) < 0.5) || null;
+}
+let spaceDown = false;   // Space 키를 누르고 있는 동안 끌면 화면 이동
+
 board.addEventListener('pointerdown', e => {
+  // 화면 이동: Space+끌기 또는 마우스 가운데 버튼
+  if (e.button === 1 || (e.button === 0 && spaceDown)) {
+    e.preventDefault();
+    drag = { kind: 'pan', sx: e.clientX, sy: e.clientY, moved: true };
+    try { board.setPointerCapture(e.pointerId); } catch (_) {}
+    return;
+  }
   if (e.button !== 0) return;
   blurInputs();
   const pt = toBoard(e);
@@ -1062,7 +1245,7 @@ board.addEventListener('pointerdown', e => {
 
   // ── 점 도구: 그림·선분 위를 눌러도 점이 생깁니다
   if (tool === 'point') {
-    const p0 = nearestPoint(pt);
+    const p0 = pointAt(pt);
     if (p0) { select(p0.id); beginDrag(e, { kind: 'move', id: p0.id, start: pt, orig: { x: p0.x, y: p0.y } }); return; }
     record();
     select(addPoint(pt.x, pt.y).id);
@@ -1084,7 +1267,7 @@ function handlePick(pt) {
   const T = TOOLS[tool];
   let target, created = false;
   if (T.pick === 'point') {
-    target = nearestPoint(pt);
+    target = pointAt(pt);
     if (!target) { record(); target = addPoint(pt.x, pt.y); created = true; }
     if (picks.includes(target.id)) { toast('이미 고른 점이에요. 다른 점을 클릭하세요.', 'warn'); return; }
   } else {
@@ -1155,8 +1338,14 @@ function finishPick(ids, alreadyRecorded) {
 }
 
 board.addEventListener('pointermove', e => {
+  if (drag && drag.kind === 'pan') {
+    panBy(e.clientX - drag.sx, e.clientY - drag.sy);
+    drag.sx = e.clientX; drag.sy = e.clientY;
+    return;
+  }
   const pt = toBoard(e);
-  $('#coords').textContent = `x ${Math.round(pt.x)} · y ${Math.round(pt.y)}`;
+  if (coordOn()) { const m = toMath(pt); $('#coords').textContent = `좌표 (${fmtNum(Math.round(m.x * 10) / 10)}, ${fmtNum(Math.round(m.y * 10) / 10)})`; }
+  else $('#coords').textContent = `x ${Math.round(pt.x)} · y ${Math.round(pt.y)}`;
   if (drag) {
     const dx = pt.x - drag.start.x, dy = pt.y - drag.start.y;
     if (!drag.moved) {
@@ -1164,7 +1353,12 @@ board.addEventListener('pointermove', e => {
       drag.moved = true; record();
     }
     const o = getObj(drag.id); if (!o) return;
-    if (drag.kind === 'move') { o.x = round1(drag.orig.x + dx); o.y = round1(drag.orig.y + dy); }
+    if (drag.kind === 'move') {
+      const q = { x: drag.orig.x + dx, y: drag.orig.y + dy };
+      const s = o.type === 'point' ? snapPt(q) : { x: round1(q.x), y: round1(q.y) };   // 점은 격자에 맞춰 움직여요
+      o.x = s.x; o.y = s.y;
+      if (o.type === 'point') syncCoordInputs(o);
+    }
     else if (drag.kind === 'resize') resizeImage(o, drag, dx, dy);
     else if (drag.kind === 'length') dragLengthLabel(o, pt);
     else if (drag.kind === 'radius') o.radius = round1(clamp(drag.orig.radius + V.dist(pt, drag.center) - drag.d0, 8, 200));
@@ -1174,7 +1368,7 @@ board.addEventListener('pointermove', e => {
   }
   hover.pos = pt;
   const T = TOOLS[tool];
-  hover.pointId = (tool === 'point' || T.pick === 'point') ? (nearestPoint(pt) || {}).id || null : null;
+  hover.pointId = (tool === 'point' || T.pick === 'point') ? (pointAt(pt) || {}).id || null : null;
   hover.segId = T.pick === 'segment' ? (nearestSegment(pt) || {}).id || null : null;
   if (tool === 'point' || T.pick) renderOverlay();
 });
@@ -1194,8 +1388,8 @@ function dragLengthLabel(o, pt) {
 
 function endDrag() {
   if (!drag) return;
-  const moved = drag.moved; drag = null;
-  if (moved) { renderPanel(); renderCanvas(); }
+  const moved = drag.moved, kind = drag.kind; drag = null;
+  if (moved && kind !== 'pan') { renderPanel(); renderCanvas(); }
 }
 board.addEventListener('pointerup', endDrag);
 board.addEventListener('pointercancel', endDrag);
@@ -1337,6 +1531,11 @@ function labelDirPicker(o) {
 function renderPanel() {
   const head = $('#propsHead'), body = $('#propsBody');
   head.replaceChildren(); body.replaceChildren();
+  if (selectedId === COORD_ID) {
+    head.append(H('div', { class: 'badge' }, icon('coord')), H('div', {}, H('div', { class: 't1' }, '좌표평면'), H('div', { class: 't2' }, '좌표평면 설정')));
+    body.append(...coordPanel().filter(Boolean));
+    return;
+  }
   const o = getObj(selectedId);
   if (!o) {
     head.append(H('div', { class: 'badge' }, icon('info')), H('div', {}, H('div', { class: 't1' }, '속성'), H('div', { class: 't2' }, '선택된 개체가 없어요')));
@@ -1358,6 +1557,75 @@ function renderPanel() {
 }
 function refreshTitle(o) { const t = $('#propsTitle'); if (t) t.textContent = objLabel(o); renderList(); }
 
+/* 점의 실제 좌표 칸 (직접 입력하면 점이 그 좌표로 이동) */
+function pointCoordField(o) {
+  const m = toMath(o);
+  const box = (axis) => H('input', { type: 'number', step: doc.coord.snap || 0.1, id: 'coord' + axis.toUpperCase(), value: fmtNum(m[axis], false),
+    onchange: e => {
+      const v = parseFloat(e.target.value);
+      if (!isFinite(v)) { toast('좌표는 숫자로 입력해 주세요.', 'warn'); syncCoordInputs(o); return; }
+      const cur = toMath(o); cur[axis] = v;
+      const p = fromMath(cur);
+      hist.lastKey = null; record();
+      o.x = round1(p.x); o.y = round1(p.y);
+      renderCanvas(); syncCoordInputs(o);
+    } });
+  return field('좌표', H('div', { class: 'coord-xy' }, 'x =', box('x'), 'y =', box('y')));
+}
+/* 점을 끌거나 화살표로 옮길 때 좌표 칸 숫자도 바로 바뀌게 */
+function syncCoordInputs(o) {
+  if (o.id !== selectedId || !coordOn()) return;
+  const m = toMath(o), x = $('#coordX'), y = $('#coordY');
+  if (x && document.activeElement !== x) x.value = fmtNum(m.x, false);
+  if (y && document.activeElement !== y) y.value = fmtNum(m.y, false);
+}
+
+/* 좌표평면의 한 칸 크기·원점을 바꿀 때: 점과 문자는 수학 좌표를 그대로 유지하며 함께 움직입니다 */
+function setCoordFrame(unit, ox, oy) {
+  const movers = doc.objects.filter(o => o.type === 'point' || o.type === 'text');
+  const ms = movers.map(o => toMath(o));
+  Object.assign(doc.coord, { unit, ox, oy });
+  movers.forEach((o, i) => { const p = fromMath(ms[i]); o.x = round1(p.x); o.y = round1(p.y); });
+}
+function coordPanel() {
+  const c = doc.coord, W = CONFIG.paper.width, Hh = CONFIG.paper.height;
+  const flag = (label, key) => toggle(label, c[key], v => { record('coord:' + key); c[key] = v; renderCanvas(); });
+  const originBtn = (label, title, ox, oy) => H('button', { class: 'small-btn', title, onclick: () => {
+    hist.lastKey = null; record(); setCoordFrame(c.unit, ox, oy); renderAll(); } }, label);
+  const u0 = Math.round(c.unit);
+  return [
+    toggle('좌표평면 보이기', c.on, v => { hist.lastKey = null; record(); c.on = v; renderAll(); }),
+    c.on ? null : H('div', { class: 'note' }, '좌표평면이 꺼져 있어요. 위 스위치를 켜면 다시 보여요.'),
+    field('한 칸(=1) 크기 — 크게 하면 좌표평면이 확대돼요', slider({ min: CONFIG.coord.unitMin, max: CONFIG.coord.unitMax, value: u0, unit: 'px',
+      onInput: v => {
+        record('coord:unit');
+        // 원점을 기준으로 늘리거나 줄입니다
+        setCoordFrame(v, c.ox, c.oy);
+        renderCanvas();
+        $('#coordRange').textContent = rangeText();
+      } })),
+    H('div', { class: 'info', id: 'coordRange' }, rangeText()),
+    field('원점 O 위치', H('div', { class: 'btn-row', style: 'margin:0' },
+      originBtn('가운데', '원점을 종이 가운데로 (네 사분면 모두)', W / 2, Hh / 2),
+      originBtn('왼쪽 아래', '1사분면을 크게 쓸 때', c.unit * 2, Hh - c.unit * 2),
+      originBtn('아래 가운데', '1·2사분면을 쓸 때', W / 2, Hh - c.unit * 2))),
+    field('점을 격자에 맞추기', segmented([[1, '한 칸'], [0.5, '반 칸'], [0, '맞추지 않음']], c.snap,
+      v => { hist.lastKey = null; record(); c.snap = v; renderAll(); })),
+    flag('격자 (모눈)', 'grid'),
+    flag('x축', 'xAxis'),
+    flag('y축', 'yAxis'),
+    flag('눈금', 'ticks'),
+    flag('좌표 숫자', 'numbers'),
+    flag('원점 O 표시', 'origin'),
+    flag('축 이름 (x, y)', 'axisNames'),
+    H('div', { class: 'info' }, '💡 점과 문자는 좌표를 그대로 유지한 채 함께 움직여요. 배경 그림은 움직이지 않아요.'),
+  ];
+  function rangeText() {
+    const a = toMath({ x: 0, y: Hh }), b = toMath({ x: W, y: 0 });
+    return `보이는 범위: x는 ${fmtNum(Math.ceil(a.x))} ~ ${fmtNum(Math.floor(b.x))}, y는 ${fmtNum(Math.ceil(a.y))} ~ ${fmtNum(Math.floor(b.y))}`;
+  }
+}
+
 const PANELS = {
   point(o) {
     const nameInput = H('input', { type: 'text', value: o.name, maxlength: 12, placeholder: '예: A, P, Q',
@@ -1369,12 +1637,14 @@ const PANELS = {
       H('button', { class: 'chip it', title: `이름을 ${n}(으)로`, onclick: () => { nameInput.value = n; setOnce(o, 'name', n, () => refreshTitle(o)); } }, n)));
     return [
       field('이름', nameInput, chips),
+      coordOn() ? pointCoordField(o) : null,
+      coordOn() ? toggle(`이름 옆에 좌표 쓰기  ${pointLabelText({ ...o, labelCoord: true })}`, o.labelCoord, v => setProp(o, 'labelCoord', v)) : null,
       toggle('이름 보이기', o.showLabel, v => setProp(o, 'showLabel', v)),
       field('이름 위치 (가운데 = 자동)', labelDirPicker(o)),
       field('점 크기', slider({ min: CONFIG.point.sizeMin, max: CONFIG.point.sizeMax, step: 0.5, value: o.size, onInput: v => setProp(o, 'size', v) })),
       colorField(o),
       visibleField(o),
-      H('div', { class: 'info' }, `위치: x ${Math.round(o.x)}, y ${Math.round(o.y)}  ·  키보드 화살표로 조금씩 옮길 수 있어요.`),
+      coordOn() ? null : H('div', { class: 'info' }, '💡 왼쪽 [좌표평면]을 켜면 이 점의 실제 좌표(x, y)를 볼 수 있어요.'),
       deleteButton(o),
     ];
   },
@@ -1559,7 +1829,7 @@ function renderList() {
 }
 
 function renderAll() {
-  renderCanvas(); renderPanel(); renderList(); updateUndoButtons(); updateHint();
+  renderCanvas(); renderPanel(); renderList(); updateUndoButtons(); updateHint(); updateCoordButton();
 }
 
 /* ================================================================
@@ -1646,7 +1916,7 @@ function openProjectText(text) {
   }
   record();
   Object.assign(assets, data.assets || {});
-  doc = data.doc; selectedId = null; picks = []; dirty = false;
+  doc = normalizeDoc(data.doc); selectedId = null; picks = []; dirty = false;
   setTool('select'); renderAll();
   toast('작업을 열었어요.', 'ok');
 }
@@ -1672,7 +1942,11 @@ function buildExportSvg(opt) {
     // 그려진 내용의 범위를 재기 위해 잠깐 화면 밖에 붙였다 뗍니다
     root.setAttribute('style', 'position:absolute;left:-99999px;top:0;visibility:hidden');
     document.body.appendChild(root);
+    // 좌표평면은 종이 전체를 덮으므로 범위를 잴 때는 빼고, 도형 주변만 잘라냅니다
+    const cl = content.querySelector('.coord-layer'), next = cl && cl.nextSibling;
+    if (cl && doc.objects.length) cl.remove();
     const b = content.getBBox();
+    if (cl && !cl.parentNode) content.insertBefore(cl, next);
     root.remove(); root.removeAttribute('style');
     if (!b.width && !b.height) return null;
     const pad = CONFIG.export.padding;
@@ -1684,7 +1958,8 @@ function buildExportSvg(opt) {
   return { svg: root, box };
 }
 async function makePNG(opt) {
-  const count = doc.objects.filter(o => o.type === 'image' ? opt.includeImages : o.visible !== false).length;
+  // 좌표평면만 있어도(빈 모눈) 저장할 수 있어요
+  const count = doc.objects.filter(o => o.type === 'image' ? opt.includeImages : o.visible !== false).length + (coordOn() ? 1 : 0);
   if (!count) throw new UserError('저장할 내용이 없어요. 먼저 그림을 불러오거나 점과 선분을 그려 주세요.');
   const r = buildExportSvg(opt);
   if (!r) throw new UserError('저장할 내용이 없어요.');
@@ -1766,7 +2041,11 @@ document.addEventListener('keydown', e => {
   if (typing) return;
   if (ctrl && key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
   if (ctrl && (key === 'y' || (key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); return; }
+  if (ctrl && (key === '=' || key === '+')) { e.preventDefault(); zoomTo(view.scale * CONFIG.zoom.step); return; }
+  if (ctrl && key === '-') { e.preventDefault(); zoomTo(view.scale / CONFIG.zoom.step); return; }
+  if (ctrl && key === '0') { e.preventDefault(); zoomFit(); return; }
   if (ctrl || e.altKey) return;
+  if (e.key === ' ') { e.preventDefault(); if (!spaceDown) { spaceDown = true; wrap.classList.add('panning'); } return; }
   if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteSelected(); return; }
   if (e.key === 'Escape') {
     if (picks.length) { picks = []; renderAll(); toast('고르던 것을 취소했어요.'); }
@@ -1782,18 +2061,33 @@ document.addEventListener('keydown', e => {
     if (!o || !('x' in o)) return;
     e.preventDefault();
     if (o.type === 'image' && o.locked) { toast('🔒 잠긴 그림은 움직이지 않아요.', 'warn'); return; }
-    const step = e.shiftKey ? 10 : 1;
+    // 격자에 맞추는 중이면 점은 한 칸(또는 반 칸)씩 움직입니다
+    const gridStep = o.type === 'point' && coordOn() && doc.coord.snap ? doc.coord.unit * doc.coord.snap : 0;
+    const step = gridStep || (e.shiftKey ? 10 : 1);
     record('nudge:' + o.id);
     o.x = round1(o.x + arrows[e.key][0] * step); o.y = round1(o.y + arrows[e.key][1] * step);
     renderCanvas();
+    if (o.type === 'point') syncCoordInputs(o);
   }
 });
+document.addEventListener('keyup', e => { if (e.key === ' ') { spaceDown = false; wrap.classList.remove('panning'); } });
+window.addEventListener('blur', () => { spaceDown = false; wrap.classList.remove('panning'); });
+
+/* 마우스 휠: 마우스가 있는 곳을 중심으로 확대/축소 */
+wrap.addEventListener('wheel', e => {
+  e.preventDefault();
+  zoomTo(view.scale * Math.pow(1.0015, -e.deltaY), toBoard(e));
+}, { passive: false });
+$('#zoomIn').onclick = () => zoomTo(view.scale * CONFIG.zoom.step);
+$('#zoomOut').onclick = () => zoomTo(view.scale / CONFIG.zoom.step);
+$('#zoom100').onclick = () => zoomTo(1);
+$('#zoomFit').onclick = zoomFit;
 
 /* ================================================================
    [시작]
    ================================================================ */
 buildToolbar();
-new ResizeObserver(() => renderCanvas()).observe(wrap);
+new ResizeObserver(() => { if (LAYER) { applyView(); renderCanvas(); } }).observe(wrap);
 setupBoard();
 setTool('select');
 renderAll();
