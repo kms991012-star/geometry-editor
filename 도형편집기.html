@@ -378,8 +378,8 @@ const CONFIG = {
     size: 3.5,                 // 점 반지름 (작아도 잡는 범위는 hitRadius라서 옮기기 쉬워요)
     color: INK,                // 점 색
     labelSize: 22,             // 점 이름 글자 크기
-    labelItalic: true,         // 점 이름 기울임
-    labelFont: 'math',         // 점 이름 글꼴: 'math' = 수식체(Times, 교과서 느낌), 'batang' = 바탕, 'gothic' = 고딕
+    labelItalic: false,        // 점 이름 기울임
+    labelFont: 'hwpeq',        // 점 이름 글꼴: 'hwpeq' = 한글 수식 글꼴(HYhwpEQ, 똑바른 시험지 글씨), 'math' = Times 기울임, 'gothic' = 고딕
     labelGap: 5,               // 점과 이름 사이 간격
     labelDx: 13, labelDy: -14, // 연결된 선분이 없을 때 이름 위치(점 기준 오른쪽 위)
     sizeMin: 2, sizeMax: 12,
@@ -832,16 +832,19 @@ function nextPointName() {
   }
 }
 /* ---------- [내 기본값] 속성창의 "이 모양을 기본값으로" 버튼으로 저장 (이 컴퓨터 브라우저에 기억) ---------- */
-/* 점 이름 글꼴 목록 (속성창·[전체 모양]에서 골라요) */
+/* 점 이름 글꼴 목록 (속성창·[전체 모양]에서 골라요)
+   HYhwpEQ는 한글(HWP)을 설치하면 함께 깔리는 수식 글꼴이에요. 없는 컴퓨터에서는 바탕으로 보여요.
+   italic: 그 글꼴을 고르면 기울임을 함께 맞춰요 */
 const LABEL_FONTS = {
-  math:   { name: '수식체', family: "'Times New Roman', Batang, serif" },
-  batang: { name: '바탕',   family: "Batang, '바탕', BatangChe, 'Nanum Myeongjo', AppleMyungjo, serif" },
-  gothic: { name: '고딕',   family: "'Malgun Gothic', '맑은 고딕', 'Apple SD Gothic Neo', sans-serif" },
+  hwpeq:  { name: 'HY수식(한글)', family: "HYhwpEQ, 'HY수식', Batang, '바탕', serif", italic: false },
+  math:   { name: 'Times 기울임', family: "'Times New Roman', Batang, serif", italic: true },
+  gothic: { name: '고딕', family: "'Malgun Gothic', '맑은 고딕', 'Apple SD Gothic Neo', sans-serif", italic: false },
 };
 /* 점 이름의 글꼴·크기·기울임 (예전 작업 파일처럼 값이 없으면 기본값) */
 function labelStyle(o) {
-  const P = CONFIG.point, f = LABEL_FONTS[o.labelFont] || LABEL_FONTS[P.labelFont];
-  return { size: o.labelSize || P.labelSize, family: f.family, italic: o.labelItalic ?? P.labelItalic };
+  const P = CONFIG.point, known = !!LABEL_FONTS[o.labelFont], f = LABEL_FONTS[known ? o.labelFont : P.labelFont];
+  // 지금은 없는 글꼴(예전의 '바탕')이면 기본 글꼴의 모양 그대로 (기울임도 기본값)
+  return { size: o.labelSize || P.labelSize, family: f.family, italic: known ? (o.labelItalic ?? f.italic) : P.labelItalic };
 }
 const STYLE_KEYS = {
   point: ['size', 'color', 'labelFont', 'labelItalic', 'labelSize'], segment: ['width', 'color', 'dashed'], text: ['size', 'color', 'bold', 'italic'],
@@ -2771,7 +2774,8 @@ const PANELS = {
       coordOn() ? toggle(`이름 옆에 좌표 쓰기  ${pointLabelText({ ...o, labelCoord: true })}`, o.labelCoord, v => setProp(o, 'labelCoord', v)) : null,
       groupTitle('이름표'),
       toggle('이름 보이기', o.showLabel, v => setProp(o, 'showLabel', v)),
-      field('이름 글꼴', segmented(Object.entries(LABEL_FONTS).map(([k, f]) => [k, f.name]), o.labelFont || CONFIG.point.labelFont, v => setOnce(o, 'labelFont', v))),
+      field('이름 글꼴', segmented(Object.entries(LABEL_FONTS).map(([k, f]) => [k, f.name]), LABEL_FONTS[o.labelFont] ? o.labelFont : CONFIG.point.labelFont,
+        v => { hist.lastKey = null; record(); o.labelFont = v; o.labelItalic = LABEL_FONTS[v].italic; renderCanvas(); renderPanel(); })),
       toggle('이름 기울임', labelStyle(o).italic, v => setProp(o, 'labelItalic', v)),
       field('이름 크기', slider({ min: 10, max: 44, value: labelStyle(o).size, onInput: v => setProp(o, 'labelSize', v) })),
       field('이름 위치 (가운데 = 자동)', labelDirPicker(o)),
@@ -4134,14 +4138,15 @@ function styleDialog() {
     renderCanvas();
   };
   const P = CONFIG.point;
+  const italicT = toggle('기울임', cur(['point'], 'labelItalic', P.labelItalic), v => { hist.lastKey = null; apply(['point'], 'labelItalic', v, 'italic'); });
   openModal({
     title: '🎨 전체 모양', width: 460, side: true,
     body: H('div', {},
       H('p', { class: 'ai-sub', style: 'margin:0 0 12px' }, '그림 전체에 바로 적용돼요. 앞으로 새로 만드는 점·선도 이 모양으로 만들어져요. (하나만 바꾸려면 그 개체를 클릭해서 오른쪽에서)'),
       groupTitle('점 이름'),
-      field('글꼴', segmented(Object.entries(LABEL_FONTS).map(([k, f]) => [k, f.name]), cur(['point'], 'labelFont', P.labelFont),
-        v => { hist.lastKey = null; apply(['point'], 'labelFont', v, 'font'); })),
-      toggle('기울임', cur(['point'], 'labelItalic', P.labelItalic), v => { hist.lastKey = null; apply(['point'], 'labelItalic', v, 'italic'); }),
+      field('글꼴', segmented(Object.entries(LABEL_FONTS).map(([k, f]) => [k, f.name]), LABEL_FONTS[cur(['point'], 'labelFont', P.labelFont)] ? cur(['point'], 'labelFont', P.labelFont) : P.labelFont,
+        v => { hist.lastKey = null; apply(['point'], 'labelFont', v, 'font'); hist.lastKey = 'style:font'; apply(['point'], 'labelItalic', LABEL_FONTS[v].italic, 'font'); italicT.querySelector('input').checked = LABEL_FONTS[v].italic; })),
+      italicT,
       field('이름 크기', slider({ min: 10, max: 44, value: cur(['point'], 'labelSize', P.labelSize), onInput: v => apply(['point'], 'labelSize', v, 'labelSize') })),
       groupTitle('점'),
       field('점 크기', slider({ min: P.sizeMin, max: 8, step: 0.5, value: cur(['point'], 'size', P.size), onInput: v => apply(['point'], 'size', v, 'pointSize') })),
