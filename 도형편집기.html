@@ -227,12 +227,13 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
 /* ---------- 대화상자(모달) ---------- */
 .modal-back{position:fixed;inset:0;background:rgba(30,38,60,.35);display:grid;place-items:center;z-index:40}
 .modal-back.side{place-items:center end;padding-right:16px;background:rgba(30,38,60,.12)}
-.modal{width:440px;max-width:calc(100vw - 32px);background:#fff;border-radius:18px;padding:22px 22px 18px;box-shadow:0 20px 50px rgba(20,30,60,.3)}
+.modal{width:440px;max-width:calc(100vw - 32px);max-height:calc(100vh - 24px);display:flex;flex-direction:column;background:#fff;border-radius:18px;padding:22px 22px 18px;box-shadow:0 20px 50px rgba(20,30,60,.3)}
+.modal-body{flex:1 1 auto;min-height:0;overflow:auto;margin:0 -6px;padding:0 6px}   /* 창이 화면보다 길면 내용만 스크롤 — 아래 버튼은 항상 보이게 */
 .modal h3{margin:0 0 14px;font-size:18px}
 .modal p{margin:0 0 12px;color:#45506a}
 .modal .field-label{display:block;font-size:12.5px;font-weight:700;color:var(--muted);margin-bottom:6px}
 .modal .field{margin:12px 0 0}
-.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.modal-actions{flex:none;display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
 .m-btn{padding:9px 16px;border-radius:10px;border:1.5px solid var(--line-strong);background:#fff;font-weight:700}
 .m-btn:hover{border-color:var(--accent);color:var(--accent-dark)}
 .m-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -249,7 +250,7 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
 .modal textarea{width:100%;min-height:150px;padding:9px 11px;border:1.5px solid var(--line-strong);border-radius:9px;font:12.5px/1.5 Consolas,"D2Coding",monospace;color:var(--text);resize:vertical}
 .modal textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 .ai-steps{margin:0 0 12px;padding-left:20px;color:#45506a;line-height:1.8;font-size:13px}
-.ai-list{max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:4px 6px;margin:10px 0 12px}
+.ai-list{max-height:min(300px,34vh);overflow:auto;border:1px solid var(--line);border-radius:12px;padding:4px 6px;margin:10px 0 12px}
 .ai-group{font-size:12px;font-weight:800;color:var(--muted);padding:8px 6px 2px}
 .ai-row{display:flex;align-items:center;gap:9px;padding:5px 6px;border-radius:8px;cursor:pointer}
 .ai-row:hover{background:#f4f6fb}
@@ -285,6 +286,9 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
   <div class="tb-group">
     <button class="tb-btn" id="btnUndo" title="실행 취소 (Ctrl+Z)"><svg class="ic" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>실행 취소</button>
     <button class="tb-btn" id="btnRedo" title="다시 실행 (Ctrl+Y)"><svg class="ic" viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg>다시 실행</button>
+  </div>
+  <div class="tb-group">
+    <button class="tb-btn" id="btnStyle" title="점 이름 글꼴·크기, 점 크기, 선 굵기, 직각 표시 크기를 그림 전체에 한꺼번에"><svg class="ic" viewBox="0 0 24 24"><path d="M4 20l6-6M14 4l6 6-8 8-6-6z"/><path d="M4 20h5"/></svg>전체 모양</button>
   </div>
   <div class="tb-group">
     <button class="tb-btn" id="btnOpen" title="저장해 둔 작업 파일 열기 (Ctrl+O)"><svg class="ic" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>작업 열기</button>
@@ -375,6 +379,7 @@ const CONFIG = {
     color: INK,                // 점 색
     labelSize: 22,             // 점 이름 글자 크기
     labelItalic: true,         // 점 이름 기울임
+    labelFont: 'math',         // 점 이름 글꼴: 'math' = 수식체(Times, 교과서 느낌), 'batang' = 바탕, 'gothic' = 고딕
     labelGap: 5,               // 점과 이름 사이 간격
     labelDx: 13, labelDy: -14, // 연결된 선분이 없을 때 이름 위치(점 기준 오른쪽 위)
     sizeMin: 2, sizeMax: 12,
@@ -716,7 +721,7 @@ function openModal({ title, body, buttons = [], width, side = false, onClose = n
     },
   }, b.label));
   back.appendChild(H('div', { class: 'modal', style: width ? `width:${width}px` : null },
-    H('h3', {}, title), body, H('div', { class: 'modal-actions' }, actions)));
+    H('h3', {}, title), H('div', { class: 'modal-body' }, body), H('div', { class: 'modal-actions' }, actions)));
   document.body.appendChild(back);
   modalEl = back; modalOnClose = onClose;
   const focusEl = back.querySelector('input[type=text]') || back.querySelector('.m-btn.primary, .m-btn.danger');
@@ -827,8 +832,19 @@ function nextPointName() {
   }
 }
 /* ---------- [내 기본값] 속성창의 "이 모양을 기본값으로" 버튼으로 저장 (이 컴퓨터 브라우저에 기억) ---------- */
+/* 점 이름 글꼴 목록 (속성창·[전체 모양]에서 골라요) */
+const LABEL_FONTS = {
+  math:   { name: '수식체', family: "'Times New Roman', Batang, serif" },
+  batang: { name: '바탕',   family: "Batang, '바탕', BatangChe, 'Nanum Myeongjo', AppleMyungjo, serif" },
+  gothic: { name: '고딕',   family: "'Malgun Gothic', '맑은 고딕', 'Apple SD Gothic Neo', sans-serif" },
+};
+/* 점 이름의 글꼴·크기·기울임 (예전 작업 파일처럼 값이 없으면 기본값) */
+function labelStyle(o) {
+  const P = CONFIG.point, f = LABEL_FONTS[o.labelFont] || LABEL_FONTS[P.labelFont];
+  return { size: o.labelSize || P.labelSize, family: f.family, italic: o.labelItalic ?? P.labelItalic };
+}
 const STYLE_KEYS = {
-  point: ['size', 'color'], segment: ['width', 'color', 'dashed'], text: ['size', 'color', 'bold', 'italic'],
+  point: ['size', 'color', 'labelFont', 'labelItalic', 'labelSize'], segment: ['width', 'color', 'dashed'], text: ['size', 'color', 'bold', 'italic'],
   length: ['size', 'color', 'format', 'style', 'lineWidth'], angle: ['radius', 'width', 'color', 'labelSize', 'labelMode', 'fill', 'showArc'],
   right: ['size', 'width', 'color'], parallel: ['size', 'width', 'color', 'count'], perp: ['size', 'width', 'color'],
   line: ['width', 'color', 'dashed'], circle: ['width', 'color', 'dashed', 'fill'], arc: ['width', 'color', 'dashed', 'fill'],
@@ -855,7 +871,8 @@ function push(o) { Object.assign(o, userDefaults[o.type] || {}); doc.objects.pus
 function addPoint(x, y) {
   const P = CONFIG.point, q = snapPt({ x, y });
   return push({ id: newId(), type: 'point', name: nextPointName(), x: q.x, y: q.y, labelCoord: false,
-    size: P.size, color: P.color, visible: true, showLabel: true, labelAuto: true, labelDx: P.labelDx, labelDy: P.labelDy });
+    size: P.size, color: P.color, visible: true, showLabel: true, labelAuto: true, labelDx: P.labelDx, labelDy: P.labelDy,
+    labelFont: P.labelFont, labelItalic: P.labelItalic, labelSize: P.labelSize });
 }
 function addSegment(p1, p2) {
   return push({ id: newId(), type: 'segment', p1, p2, width: CONFIG.segment.width, color: CONFIG.segment.color, dashed: false, visible: true });
@@ -1288,7 +1305,8 @@ function pointLabelPos(o) {
   } else {
     return { x: o.x + o.labelDx, y: o.y + o.labelDy };
   }
-  const ext = Math.abs(dir.x) * textWidth(pointLabelText(o), P.labelSize) / 2 + Math.abs(dir.y) * P.labelSize * 0.38;
+  const ls = labelStyle(o).size;
+  const ext = Math.abs(dir.x) * textWidth(pointLabelText(o), ls) / 2 + Math.abs(dir.y) * ls * 0.38;
   return V.add(o, V.mul(dir, o.size + P.labelGap + ext));
 }
 /* 점 이름 글자: 'A' 또는 좌표 포함 'A(3, 5)' */
@@ -1393,7 +1411,8 @@ const DRAW = {
     S('circle', { cx: o.x, cy: o.y, r: o.size, fill: o.color }, g);
     if (o.showLabel && o.name) {
       const L = pointLabelPos(o);
-      mathText(g, L.x, L.y, pointLabelText(o), CONFIG.point.labelSize, o.color, { 'font-style': CONFIG.point.labelItalic ? 'italic' : 'normal' });
+      const ls = labelStyle(o);
+      mathText(g, L.x, L.y, pointLabelText(o), ls.size, o.color, { 'font-family': ls.family, 'font-style': ls.italic ? 'italic' : 'normal' });
     }
   },
   line(g, o, { edit, k }) {
@@ -2752,6 +2771,9 @@ const PANELS = {
       coordOn() ? toggle(`이름 옆에 좌표 쓰기  ${pointLabelText({ ...o, labelCoord: true })}`, o.labelCoord, v => setProp(o, 'labelCoord', v)) : null,
       groupTitle('이름표'),
       toggle('이름 보이기', o.showLabel, v => setProp(o, 'showLabel', v)),
+      field('이름 글꼴', segmented(Object.entries(LABEL_FONTS).map(([k, f]) => [k, f.name]), o.labelFont || CONFIG.point.labelFont, v => setOnce(o, 'labelFont', v))),
+      toggle('이름 기울임', labelStyle(o).italic, v => setProp(o, 'labelItalic', v)),
+      field('이름 크기', slider({ min: 10, max: 44, value: labelStyle(o).size, onInput: v => setProp(o, 'labelSize', v) })),
       field('이름 위치 (가운데 = 자동)', labelDirPicker(o)),
       groupTitle('모양'),
       field('점 크기', slider({ min: CONFIG.point.sizeMin, max: CONFIG.point.sizeMax, step: 0.5, value: o.size, onInput: v => setProp(o, 'size', v) })),
@@ -4091,6 +4113,47 @@ function drawAiPreview(ov, k) {
     }
   }
 }
+
+/* ================================================================
+   [전체 모양] 점 이름 글꼴·크기, 점 크기, 선 굵기, 직각 표시 크기를 그림 전체에 한꺼번에
+   바꾼 값은 지금 있는 개체에 바로 적용되고, 앞으로 새로 만드는 개체의 기본값(userDefaults)도 돼요.
+   ================================================================ */
+const STYLE_GROUPS = {
+  figure: ['segment', 'line', 'circle', 'arc', 'arrow', 'polygon'],   // 도형 선
+  marks: ['angle', 'right', 'parallel', 'perp'],                      // 표시 선
+  corner: ['right', 'perp'],                                          // 직각·수직 표시 크기
+};
+function styleDialog() {
+  const of = types => doc.objects.filter(o => types.includes(o.type));
+  const cur = (types, key, def) => { const o = of(types).find(x => x[key] != null); return o ? o[key] : ((userDefaults[types[0]] || {})[key] ?? def); };
+  const apply = (types, key, value, recKey) => {
+    record('style:' + recKey);
+    for (const o of of(types)) o[key] = value;
+    for (const t of types) userDefaults[t] = { ...(userDefaults[t] || {}), [key]: value };
+    store.set('defaults', userDefaults);
+    renderCanvas();
+  };
+  const P = CONFIG.point;
+  openModal({
+    title: '🎨 전체 모양', width: 460, side: true,
+    body: H('div', {},
+      H('p', { class: 'ai-sub', style: 'margin:0 0 12px' }, '그림 전체에 바로 적용돼요. 앞으로 새로 만드는 점·선도 이 모양으로 만들어져요. (하나만 바꾸려면 그 개체를 클릭해서 오른쪽에서)'),
+      groupTitle('점 이름'),
+      field('글꼴', segmented(Object.entries(LABEL_FONTS).map(([k, f]) => [k, f.name]), cur(['point'], 'labelFont', P.labelFont),
+        v => { hist.lastKey = null; apply(['point'], 'labelFont', v, 'font'); })),
+      toggle('기울임', cur(['point'], 'labelItalic', P.labelItalic), v => { hist.lastKey = null; apply(['point'], 'labelItalic', v, 'italic'); }),
+      field('이름 크기', slider({ min: 10, max: 44, value: cur(['point'], 'labelSize', P.labelSize), onInput: v => apply(['point'], 'labelSize', v, 'labelSize') })),
+      groupTitle('점'),
+      field('점 크기', slider({ min: P.sizeMin, max: 8, step: 0.5, value: cur(['point'], 'size', P.size), onInput: v => apply(['point'], 'size', v, 'pointSize') })),
+      groupTitle('선 굵기'),
+      field('도형 선 (선분·직선·원·호·화살표·다각형 테두리)', slider({ min: 0.5, max: 6, step: 0.25, value: cur(STYLE_GROUPS.figure, 'width', CONFIG.segment.width), onInput: v => apply(STYLE_GROUPS.figure, 'width', v, 'figureWidth') })),
+      field('표시 선 (각·직각·평행·수직 표시)', slider({ min: 0.5, max: 4, step: 0.25, value: cur(STYLE_GROUPS.marks, 'width', CONFIG.angle.width), onInput: v => apply(STYLE_GROUPS.marks, 'width', v, 'markWidth') })),
+      groupTitle('직각 표시'),
+      field('직각·수직 표시 크기', slider({ min: 4, max: 40, value: cur(STYLE_GROUPS.corner, 'size', CONFIG.right.size), onInput: v => apply(STYLE_GROUPS.corner, 'size', v, 'cornerSize') }))),
+    buttons: [{ label: '닫기', kind: 'primary' }],
+  });
+}
+$('#btnStyle').onclick = styleDialog;
 
 /* ================================================================
    [작업 이름 · 저장 상태 표시]
