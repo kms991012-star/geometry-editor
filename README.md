@@ -31,6 +31,7 @@
 - [x] 6단계 (AI 도형 인식 기반): 원본 그림 숨기기(그림 속성 + 왼쪽 [원본 그림] 버튼), 선분 양 끝점 바꾸기,
   AI 인식 결과 붙여넣기 → 검토 창(체크·확신도·그림 위 미리보기, 전체 적용/선택 항목만 적용/취소)
   → 직접 만든 것과 똑같은 개체로 추가, "이 그림에서 인식한 개체 선택", 다른 AI에게 보낼 요청문 복사
+- [x] 화살표 도구([선] 묶음): 끌어서 그리기, 점에 붙이기, 한쪽/양쪽 화살촉, 방향 뒤집기, 양 끝 손잡이, 점선 — AI 결과의 "arrow"도 화살표로 만듦
   - [ ] 다음: 그림을 AI 모델에 바로 보내는 자동 인식(`AI_RECOGNIZERS.auto`), 일부 영역만 다시 인식하는 화면
 
 ## 수정할 때 참고 (Claude Code용)
@@ -53,7 +54,7 @@
 | AI 검토 창 기준(확신도·점 합치기 거리) | `CONFIG.ai` |
 
 - 모든 개체는 `doc.objects` 배열에 `{ id, type, ... }` 형태로 따로 저장됩니다.
-  type: `point`, `segment`, `line`, `circle`, `arc`, `polygon`, `text`, `length`, `angle`, `right`, `parallel`, `perp`, `image`
+  type: `point`, `segment`, `line`, `circle`, `arc`, `polygon`, `text`, `length`, `angle`, `right`, `parallel`, `perp`, `arrow`, `image`
 - 중점·교점 등 "따라 움직이는 점"은 점의 `def`에 만드는 방법을 적어 두고 그릴 때마다 `updateDerived()`로 다시 계산합니다.
 - 표시들은 점/선분의 id를 참조하므로 점을 옮기면 자동으로 따라갑니다. 점을 지우면 `refsOf`를 따라 연결된 것도 함께 지워집니다.
 - 좌표평면 설정은 `doc.coord`에 저장됩니다(작업 파일·실행 취소에 포함). 수학 좌표 변환은 `toMath()` / `fromMath()`.
