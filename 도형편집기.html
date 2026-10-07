@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>도형 편집기 · 수학 문제 그림 만들기</title>
+<!--
+  ┌──────────────────────────────────────────────────────────────┐
+  │  도형 편집기 (1단계)                                            │
+  │  이 파일 하나만 더블클릭하면 브라우저에서 바로 실행됩니다.          │
+  │  인터넷 연결·서버·설치가 필요 없습니다.                            │
+  │                                                              │
+  │  파일 구성 (Claude Code가 수정할 때 찾기 쉽도록 구역을 나눴습니다)  │
+  │   1. <style>  : 화면 디자인(색, 크기, 버튼 모양)                   │
+  │   2. <body>   : 화면 뼈대(상단 바, 도구 모음, 작업 영역, 속성창)      │
+  │   3. <script> : 동작. [설정] 구역의 CONFIG 값만 바꿔도               │
+  │                 점 크기·선 굵기·기본 색 등이 전체에 적용됩니다.       │
+  └──────────────────────────────────────────────────────────────┘
+-->
+<style>
+/* ================================================================
+   [디자인] 색상 테마 — 여기 색을 바꾸면 전체 분위기가 바뀝니다.
+   ================================================================ */
+:root{
+  --bg:#eef1f7;          /* 바탕 */
+  --panel:#ffffff;       /* 패널 */
+  --line:#e2e7f0;        /* 테두리 */
+  --line-strong:#cfd6e4;
+  --text:#28324a;        /* 글자 */
+  --muted:#7c879c;       /* 흐린 글자 */
+  --accent:#5b7cfa;      /* 강조(파랑) */
+  --accent-dark:#3f5fe0;
+  --accent-soft:#eaefff;
+  --orange:#f59f3a;
+  --orange-soft:#fff5e8;
+  --danger:#e5484d;
+  --danger-soft:#fdeeee;
+  --green:#2fa36b;
+  --r:14px;
+  --shadow:0 1px 2px rgba(30,40,70,.06),0 4px 14px rgba(30,40,70,.06);
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{
+  display:flex;flex-direction:column;overflow:hidden;min-width:980px;
+  background:var(--bg);color:var(--text);
+  font:14px/1.45 "Pretendard","Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",system-ui,sans-serif;
+}
+button{font:inherit;color:inherit;cursor:pointer}
+button:disabled{cursor:not-allowed}
+svg.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* ---------- 상단 바 ---------- */
+.topbar{display:flex;align-items:center;gap:6px;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line);box-shadow:var(--shadow);z-index:5}
+.brand{display:flex;align-items:center;gap:9px;font-weight:800;font-size:16px;margin-right:6px;white-space:nowrap}
+.brand .logo{width:34px;height:34px;border-radius:11px;background:linear-gradient(135deg,#86a0ff,#5b7cfa);display:grid;place-items:center;color:#fff;box-shadow:0 2px 6px rgba(91,124,250,.35)}
+.brand small{display:block;font-size:11px;font-weight:600;color:var(--muted);margin-top:-2px}
+.tb-group{display:flex;gap:3px;padding:0 8px;border-left:1px solid var(--line)}
+.tb-btn{display:flex;align-items:center;gap:6px;padding:8px 11px;border:none;border-radius:10px;background:transparent;white-space:nowrap;font-weight:600}
+.tb-btn:hover:not(:disabled){background:var(--accent-soft);color:var(--accent-dark)}
+.tb-btn:disabled{opacity:.35}
+.tb-btn.primary{background:var(--accent);color:#fff;padding:9px 15px;box-shadow:0 2px 6px rgba(91,124,250,.35)}
+.tb-btn.primary:hover{background:var(--accent-dark);color:#fff}
+.spacer{flex:1}
+
+/* ---------- 3단 레이아웃 ---------- */
+.main{flex:1;display:grid;grid-template-columns:128px 1fr 296px;gap:12px;padding:12px;min-height:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);min-height:0}
+
+/* ---------- 왼쪽: 도구 모음 ---------- */
+.tools{display:flex;flex-direction:column;gap:8px;padding:10px;overflow:auto}
+.section-title{font-size:12px;font-weight:700;color:var(--muted);padding:2px 4px}
+.tool-btn{position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;padding:13px 6px 11px;border:2px solid var(--line);border-radius:13px;background:#fafbfe;font-weight:700;font-size:14.5px;transition:background .12s,border-color .12s}
+.tool-btn svg.ic{width:30px;height:30px}
+.tool-btn .key{position:absolute;top:5px;right:8px;font-size:10.5px;font-weight:700;color:#a3adc0}
+.tool-btn:hover{border-color:#b9c7fb;background:var(--accent-soft)}
+.tool-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 3px 10px rgba(91,124,250,.42)}
+.tool-btn.active .key{color:#dbe3ff}
+.shortcuts{margin-top:auto;padding:10px 4px 2px;border-top:1px dashed var(--line);font-size:11.5px;color:var(--muted);line-height:1.9}
+kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:5px;background:#fff;font:11px/16px inherit;text-align:center;color:var(--text)}
+
+/* ---------- 가운데: 작업 영역 ---------- */
+.stage{display:flex;flex-direction:column;overflow:hidden}
+.canvas-wrap{position:relative;flex:1;min-height:0;background-color:#f4f6fb;background-image:radial-gradient(#d9dfeb 1px,transparent 1px);background-size:18px 18px;border-radius:var(--r) var(--r) 0 0}
+#board{position:absolute;inset:0;width:100%;height:100%;display:block;user-select:none;-webkit-user-select:none;touch-action:none}
+#board .paper{fill:#fff;filter:drop-shadow(0 2px 8px rgba(30,40,70,.16))}
+#board.tool-select .obj.point,
+#board.tool-select .obj.image.unlocked{cursor:move}
+#board.tool-select .obj.segment{cursor:pointer}
+#board.tool-point,#board.tool-segment{cursor:crosshair}
+#board.tool-point .obj.point,#board.tool-segment .obj.point{cursor:pointer}
+#board .is-hidden{opacity:.28}
+#board .overlay{pointer-events:none}
+#board .overlay .handle{pointer-events:all}
+.empty-hint{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;color:var(--muted);pointer-events:none;line-height:1.8}
+.empty-hint b{display:block;font-size:17px;color:var(--text);margin-bottom:4px}
+.drop-cover{position:absolute;inset:10px;border:3px dashed var(--accent);border-radius:16px;background:rgba(91,124,250,.08);display:none;place-items:center;font-size:18px;font-weight:800;color:var(--accent-dark);pointer-events:none}
+.canvas-wrap.dragover .drop-cover{display:grid}
+.statusbar{display:flex;align-items:center;gap:10px;padding:9px 14px;border-top:1px solid var(--line);font-size:13px;min-height:42px}
+.tool-chip{flex:none;background:var(--accent);color:#fff;font-weight:700;padding:3px 11px;border-radius:999px}
+.hint{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hint.warn{color:#b86b00;font-weight:600}
+.coords{flex:none;color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* ---------- 오른쪽: 속성창 ---------- */
+.props{display:flex;flex-direction:column;overflow:hidden}
+.props-head{display:flex;align-items:center;gap:9px;padding:13px 15px;border-bottom:1px solid var(--line)}
+.props-head .badge{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent-dark);flex:none}
+.props-head .t1{font-weight:800;font-size:15px}
+.props-head .t2{font-size:12px;color:var(--muted)}
+.props-body{flex:1;overflow:auto;padding:14px 15px}
+.field{margin-bottom:15px}
+.field-label{display:block;font-size:12.5px;font-weight:700;color:var(--muted);margin-bottom:6px}
+.props input[type=text],.props input[type=number],.modal input[type=text]{width:100%;padding:8px 10px;border:1.5px solid var(--line-strong);border-radius:9px;font:inherit;background:#fff;color:var(--text)}
+.props input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.props input:disabled{background:#f3f5f9;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.chip{border:1px solid var(--line-strong);background:#fff;border-radius:7px;padding:1px 8px;font-family:"Times New Roman",serif;font-style:italic;font-size:15px}
+.chip:hover{border-color:var(--accent);color:var(--accent-dark)}
+.slider{display:flex;align-items:center;gap:10px}
+.slider input{flex:1;accent-color:var(--accent)}
+.slider-val{min-width:46px;text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+.swatches{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.sw{width:25px;height:25px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1.5px var(--line-strong);padding:0}
+.sw.on{box-shadow:0 0 0 2.5px var(--accent)}
+.swatches input[type=color]{width:32px;height:28px;padding:0;border:none;background:none;cursor:pointer}
+.seg{display:flex;gap:2px;padding:3px;background:#f0f3f9;border-radius:10px}
+.seg button{flex:1;padding:7px 6px;border:none;border-radius:8px;background:transparent;font-weight:600;color:var(--muted)}
+.seg button.on{background:#fff;color:var(--accent-dark);box-shadow:0 1px 4px rgba(30,40,70,.14)}
+.switch-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;margin-bottom:6px;cursor:pointer;font-weight:600}
+.switch{position:relative;width:42px;height:24px;flex:none}
+.switch input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer}
+.switch i{position:absolute;inset:0;border-radius:99px;background:#cfd6e4;transition:.15s;pointer-events:none}
+.switch i::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:.15s}
+.switch input:checked+i{background:var(--accent)}
+.switch input:checked+i::after{left:21px}
+.big-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;margin-bottom:14px;border:1.5px solid var(--line-strong);border-radius:12px;background:#fff;font-weight:700}
+.big-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent-dark)}
+.big-btn.lock-on{background:var(--orange-soft);border-color:#f8c98c;color:#a35d00}
+.big-btn.danger{background:var(--danger-soft);border-color:#f3c3c4;color:var(--danger);margin:6px 0 0}
+.big-btn:disabled{opacity:.45}
+.btn-row{display:flex;gap:6px;margin-bottom:15px}
+.small-btn{flex:1;padding:8px 4px;border:1.5px solid var(--line-strong);border-radius:9px;background:#fff;font-size:12.5px;font-weight:600}
+.small-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent-dark)}
+.small-btn:disabled{opacity:.45}
+.wh{display:flex;align-items:center;gap:6px;color:var(--muted)}
+.note{font-size:12.5px;color:#a35d00;background:var(--orange-soft);border-radius:9px;padding:8px 10px;margin:-6px 0 14px}
+.info{font-size:12.5px;color:var(--muted);background:#f5f7fb;border-radius:9px;padding:8px 10px;margin-bottom:15px}
+.guide h4{margin:2px 0 10px;font-size:14px}
+.guide ol{margin:0;padding-left:20px;line-height:1.85;color:#45506a}
+.guide .tip{margin-top:14px;padding:10px 12px;border-radius:10px;background:var(--accent-soft);color:var(--accent-dark);font-size:12.5px;line-height:1.7}
+.list-wrap{border-top:1px solid var(--line);max-height:40%;display:flex;flex-direction:column}
+.list-wrap .section-title{padding:10px 15px 4px}
+.obj-list{overflow:auto;padding:2px 8px 10px}
+.list-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:9px;cursor:pointer}
+.list-item:hover{background:#f4f6fb}
+.list-item.on{background:var(--accent-soft);color:var(--accent-dark);font-weight:700}
+.list-item .li-ic{width:20px;text-align:center;color:var(--muted)}
+.list-item .tag{margin-left:auto;font-size:11px;color:var(--muted);font-weight:500}
+.list-empty{padding:6px 10px;color:var(--muted);font-size:12.5px}
+
+/* ---------- 알림(토스트) ---------- */
+#toasts{position:fixed;left:50%;bottom:70px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;z-index:50;pointer-events:none}
+.toast{padding:10px 18px;border-radius:12px;background:#28324a;color:#fff;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.18);transition:opacity .3s,transform .3s;max-width:560px;text-align:center}
+.toast.ok{background:#23875a}
+.toast.warn{background:#c27311}
+.toast.error{background:var(--danger)}
+.toast.out{opacity:0;transform:translateY(8px)}
+
+/* ---------- 대화상자(모달) ---------- */
+.modal-back{position:fixed;inset:0;background:rgba(30,38,60,.35);display:grid;place-items:center;z-index:40}
+.modal{width:440px;max-width:calc(100vw - 32px);background:#fff;border-radius:18px;padding:22px 22px 18px;box-shadow:0 20px 50px rgba(20,30,60,.3)}
+.modal h3{margin:0 0 14px;font-size:18px}
+.modal p{margin:0 0 12px;color:#45506a}
+.modal .field-label{display:block;font-size:12.5px;font-weight:700;color:var(--muted);margin-bottom:6px}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.m-btn{padding:9px 16px;border-radius:10px;border:1.5px solid var(--line-strong);background:#fff;font-weight:700}
+.m-btn:hover{border-color:var(--accent);color:var(--accent-dark)}
+.m-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.m-btn.primary:hover{background:var(--accent-dark);color:#fff}
+.m-btn.danger{background:var(--danger);border-color:var(--danger);color:#fff}
+.preview{height:170px;border-radius:12px;border:1px solid var(--line);margin-bottom:6px;display:grid;place-items:center;overflow:hidden;
+  background-color:#fff;background-image:linear-gradient(45deg,#eef1f6 25%,transparent 25%,transparent 75%,#eef1f6 75%),linear-gradient(45deg,#eef1f6 25%,transparent 25%,transparent 75%,#eef1f6 75%);background-size:16px 16px;background-position:0 0,8px 8px}
+.preview img{max-width:100%;max-height:100%;box-shadow:0 0 0 1px rgba(0,0,0,.08)}
+.preview-size{font-size:12px;color:var(--muted);text-align:right;margin-bottom:12px}
+</style>
+</head>
+<body>
+
+<!-- ================================================================
+     [화면 뼈대] 상단 바
+     ================================================================ -->
+<header class="topbar">
+  <div class="brand">
+    <div class="logo"><svg class="ic" viewBox="0 0 24 24"><path d="M12 4L20.5 19H3.5z"/><circle cx="12" cy="4" r="1.2" fill="currentColor"/></svg></div>
+    <div>도형 편집기<small>수학 문제 그림 만들기</small></div>
+  </div>
+  <div class="tb-group">
+    <button class="tb-btn" id="btnNew" title="새 작업 시작"><svg class="ic" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M12 11v6M9 14h6"/></svg>새 작업</button>
+    <button class="tb-btn" id="btnImage" title="PNG·JPG 그림 불러오기"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 8"/></svg>그림 불러오기</button>
+  </div>
+  <div class="tb-group">
+    <button class="tb-btn" id="btnUndo" title="실행 취소 (Ctrl+Z)"><svg class="ic" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>실행 취소</button>
+    <button class="tb-btn" id="btnRedo" title="다시 실행 (Ctrl+Y)"><svg class="ic" viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg>다시 실행</button>
+  </div>
+  <div class="tb-group">
+    <button class="tb-btn" id="btnOpen" title="저장해 둔 작업 파일 열기 (Ctrl+O)"><svg class="ic" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>작업 열기</button>
+    <button class="tb-btn" id="btnSave" title="작업을 파일로 저장 (Ctrl+S)"><svg class="ic" viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v5h7V3"/><rect x="8" y="13" width="8" height="6"/></svg>저장</button>
+  </div>
+  <div class="spacer"></div>
+  <button class="tb-btn primary" id="btnExport" title="완성한 그림을 PNG 이미지로 저장"><svg class="ic" viewBox="0 0 24 24"><path d="M12 4v11"/><path d="M7 10l5 5 5-5"/><path d="M5 20h14"/></svg>PNG로 내보내기</button>
+</header>
+
+<main class="main">
+  <!-- ================================================================
+       [화면 뼈대] 왼쪽 — 도구 모음
+       ================================================================ -->
+  <aside class="card tools">
+    <div class="section-title">도구</div>
+    <button class="tool-btn" data-tool="select" title="선택 도구 (V)"><span class="key">V</span>
+      <svg class="ic" viewBox="0 0 24 24"><path d="M6 3.5l12 7.2-5.3 1.4L9.8 17z" fill="currentColor" fill-opacity=".15"/><path d="M12.7 12.1l3.6 5.4"/></svg>선택</button>
+    <button class="tool-btn" data-tool="point" title="점 도구 (P)"><span class="key">P</span>
+      <svg class="ic" viewBox="0 0 24 24"><circle cx="9" cy="15" r="3.4" fill="currentColor"/><path d="M15 3.5l-3 7M15 3.5l3 7M13 8h4"/></svg>점</button>
+    <button class="tool-btn" data-tool="segment" title="선분 도구 (L)"><span class="key">L</span>
+      <svg class="ic" viewBox="0 0 24 24"><path d="M5.5 18.5L18.5 5.5"/><circle cx="5.5" cy="18.5" r="2.6" fill="currentColor"/><circle cx="18.5" cy="5.5" r="2.6" fill="currentColor"/></svg>선분</button>
+    <div class="shortcuts">
+      <kbd>Del</kbd> 지우기<br>
+      <kbd>Esc</kbd> 취소<br>
+      <kbd>Ctrl</kbd>+<kbd>Z</kbd> 되돌리기<br>
+      <kbd>Ctrl</kbd>+<kbd>V</kbd> 그림 붙여넣기<br>
+      <kbd>←</kbd><kbd>→</kbd> 조금씩 이동
+    </div>
+  </aside>
+
+  <!-- ================================================================
+       [화면 뼈대] 가운데 — 작업 영역
+       ================================================================ -->
+  <section class="card stage">
+    <div class="canvas-wrap" id="canvasWrap">
+      <svg id="board" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div class="empty-hint" id="emptyHint">
+        <b>여기에 그림을 그려요 ✏️</b>
+        위쪽 <b style="display:inline;font-size:inherit">[그림 불러오기]</b>를 누르거나<br>
+        그림 파일을 이 곳으로 끌어다 놓으세요. (캡처 후 <kbd>Ctrl</kbd>+<kbd>V</kbd>도 돼요)<br>
+        왼쪽 <b style="display:inline;font-size:inherit">[점]</b> 도구로 바로 그려도 좋아요.
+      </div>
+      <div class="drop-cover">여기에 놓으면 그림을 불러와요</div>
+    </div>
+    <div class="statusbar">
+      <span class="tool-chip" id="toolChip">선택</span>
+      <span class="hint" id="hint"></span>
+      <span class="coords" id="coords"></span>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       [화면 뼈대] 오른쪽 — 속성창 + 개체 목록
+       ================================================================ -->
+  <aside class="card props">
+    <div class="props-head" id="propsHead"></div>
+    <div class="props-body" id="propsBody"></div>
+    <div class="list-wrap">
+      <div class="section-title">개체 목록 <span style="font-weight:500">(클릭해서 선택)</span></div>
+      <div class="obj-list" id="objList"></div>
+    </div>
+  </aside>
+</main>
+
+<input type="file" id="fileImage" accept="image/png,image/jpeg,image/gif,image/webp,image/bmp" hidden>
+<input type="file" id="fileProject" accept=".json,application/json" hidden>
+<div id="toasts"></div>
+
+<script>
+'use strict';
+
+/* ================================================================
+   [설정] 기본값
+   여기 숫자와 색을 바꾸면 새로 만드는 점·선분에 적용됩니다.
+   예) "점의 크기를 조금 작게 해줘" → point.size 값을 줄이면 됩니다.
+   ================================================================ */
+const CONFIG = {
+  paper: { width: 800, height: 600, margin: 40 },   // 작업 종이 크기(px)와 바깥 여백
+  point: {
+    size: 4.5,                 // 점 반지름
+    color: '#222b3c',          // 점 색
+    labelSize: 22,             // 점 이름 글자 크기
+    labelFont: "'Times New Roman', Batang, serif",   // 점 이름 글꼴(교과서 느낌)
+    labelItalic: true,         // 점 이름 기울임
+    labelDx: 7, labelDy: -9,   // 점 이름 위치(점 기준 오른쪽 위)
+    sizeMin: 2, sizeMax: 12,
+  },
+  segment: {
+    width: 2,                  // 선 굵기
+    color: '#222b3c',          // 선 색
+    dashPattern: [3.5, 2.5],   // 점선 모양(선 굵기의 배수: 선 길이, 빈칸 길이)
+    widthMin: 0.5, widthMax: 8,
+  },
+  image: { fitRatio: 0.9 },    // 그림을 불러올 때 종이의 90% 크기에 맞춤
+  palette: ['#222b3c', '#7c879c', '#e5484d', '#f08c2e', '#2fa36b', '#3b6fe0', '#8b5cf6'],  // 색 고르기 버튼
+  quickNames: ['A','B','C','D','E','O','P','Q','R','H','M'],  // 이름 빠른 선택 버튼
+  hitRadius: 11,               // 점·선을 클릭하기 쉬운 범위(화면 픽셀)
+  historyLimit: 150,           // 실행 취소 가능한 횟수
+  export: { padding: 24, scale: 2 },   // PNG: 도형 부분만 저장할 때 여백, 기본 선명도
+};
+
+/* ================================================================
+   [아이콘] 화면에 쓰는 작은 그림들
+   ================================================================ */
+const ICONS = {
+  point:   '<circle cx="12" cy="12" r="4" fill="currentColor"/>',
+  segment: '<path d="M5.5 18.5L18.5 5.5"/><circle cx="5.5" cy="18.5" r="2.2" fill="currentColor"/><circle cx="18.5" cy="5.5" r="2.2" fill="currentColor"/>',
+  image:   '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 8"/>',
+  lock:    '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  unlock:  '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.6-1.8"/>',
+  trash:   '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+  info:    '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>',
+};
+const TOOL_INFO = {
+  select:  { label: '선택', hint: '개체를 클릭해 선택하고, 드래그해서 옮겨요. 지우려면 Delete 키를 누르세요.' },
+  point:   { label: '점',   hint: '원하는 곳을 클릭하면 점이 생겨요. 그림 위에서도 찍을 수 있어요. 기존 점은 드래그해서 옮겨요.' },
+  segment: { label: '선분', hint: '선분의 첫 번째 점을 클릭하세요. 빈 곳을 클릭하면 새 점이 생기면서 시작해요.' },
+};
+
+/* ================================================================
+   [상태] 프로그램이 기억하는 내용
+   doc.objects 에 점·선분·그림이 각각 따로 저장됩니다.
+   ================================================================ */
+const SVGNS = 'http://www.w3.org/2000/svg';
+const $ = sel => document.querySelector(sel);
+const board = $('#board');
+
+let doc = emptyDoc();       // 현재 작업 { nextId, objects: [...] }
+const assets = {};          // 불러온 그림 원본 { 그림ID: { src, w, h } } — 실행 취소 기록에 중복 저장하지 않으려고 따로 보관
+let selectedId = null;      // 선택된 개체
+let tool = 'select';        // 현재 도구
+let segStartId = null;      // 선분 도구: 첫 번째로 고른 점
+let hover = { pos: null, pointId: null };
+let drag = null;            // 드래그 중인 정보
+let dirty = false;          // 저장하지 않은 변경이 있는지
+let tempHint = null;
+
+function emptyDoc() { return { nextId: 1, objects: [] }; }
+const newId = () => 'o' + (doc.nextId++);
+const getObj = id => (id ? doc.objects.find(o => o.id === id) : null) || null;
+const byType = t => doc.objects.filter(o => o.type === t);
+const round1 = v => Math.round(v * 10) / 10;
+class UserError extends Error {}   // 사용자에게 그대로 보여줄 안내 메시지
+
+/* ================================================================
+   [도우미] 화면 요소 만들기
+   ================================================================ */
+function S(tag, attrs = {}, parent) {
+  const e = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) if (attrs[k] != null && attrs[k] !== false) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function H(tag, props = {}, ...children) {
+  const e = document.createElement(tag);
+  for (const k in props) {
+    const v = props[k];
+    if (v == null || v === false) continue;
+    if (k === 'class') e.className = v;
+    else if (k === 'style') e.style.cssText = v;
+    else if (k === 'html') e.innerHTML = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (k === 'value' || k === 'checked' || k === 'disabled') e[k] = v;
+    else e.setAttribute(k, v === true ? '' : v);
+  }
+  for (const c of children.flat()) {
+    if (c == null || c === false) continue;
+    e.appendChild(typeof c === 'object' ? c : document.createTextNode(String(c)));
+  }
+  return e;
+}
+function icon(name, cls = 'ic') {
+  const s = document.createElementNS(SVGNS, 'svg');
+  s.setAttribute('class', cls); s.setAttribute('viewBox', '0 0 24 24'); s.innerHTML = ICONS[name];
+  return s;
+}
+function stamp() {
+  const d = new Date(), p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`;
+}
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = H('a', { href: url, download: filename, style: 'display:none' });
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+function loadImg(src) {
+  return new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = src; });
+}
+
+/* ================================================================
+   [알림] 토스트 메시지 · 오류 안내 · 대화상자
+   ================================================================ */
+function toast(msg, kind = 'info') {
+  const t = H('div', { class: 'toast ' + kind }, msg);
+  $('#toasts').appendChild(t);
+  setTimeout(() => t.classList.add('out'), kind === 'error' ? 4200 : 2600);
+  setTimeout(() => t.remove(), kind === 'error' ? 4600 : 3000);
+}
+function showError(err) {
+  console.error(err);
+  if (err instanceof UserError) toast(err.message, 'error');
+  else toast('앗, 예상하지 못한 문제가 생겼어요. 실행 취소(Ctrl+Z)를 해 보시고, 계속되면 Claude에게 알려 주세요.', 'error');
+}
+window.addEventListener('error', e => showError(e.error || e.message));
+window.addEventListener('unhandledrejection', e => showError(e.reason));
+
+let modalEl = null;
+function openModal({ title, body, buttons = [], width }) {
+  closeModal();
+  const back = H('div', { class: 'modal-back', onmousedown: e => { if (e.target === back) closeModal(); } });
+  const actions = buttons.map(b => H('button', {
+    class: 'm-btn ' + (b.kind || ''),
+    onclick: async () => {
+      try { if (b.onClick && (await b.onClick()) === false) return; closeModal(); }
+      catch (err) { showError(err); }
+    },
+  }, b.label));
+  back.appendChild(H('div', { class: 'modal', style: width ? `width:${width}px` : null },
+    H('h3', {}, title), body, H('div', { class: 'modal-actions' }, actions)));
+  document.body.appendChild(back);
+  modalEl = back;
+  const primary = back.querySelector('.m-btn.primary, .m-btn.danger');
+  if (primary) primary.focus();
+}
+function closeModal() { if (modalEl) { modalEl.remove(); modalEl = null; } }
+function confirmBox(title, message, okLabel, onOk, kind = 'primary') {
+  openModal({ title, body: H('p', {}, message), buttons: [{ label: '취소' }, { label: okLabel, kind, onClick: onOk }] });
+}
+
+/* ================================================================
+   [실행 취소 / 다시 실행]
+   변경하기 "직전"에 record()를 부르면 그 시점이 저장됩니다.
+   같은 key로 연속 호출(슬라이더 드래그 등)하면 한 번으로 묶습니다.
+   ================================================================ */
+const hist = { undo: [], redo: [], lastKey: null, lastTime: 0 };
+function snapshot() { return JSON.stringify({ doc, selectedId }); }
+function record(key) {
+  const now = Date.now();
+  dirty = true;
+  if (key && key === hist.lastKey && now - hist.lastTime < 1500) { hist.lastTime = now; return; }
+  hist.undo.push(snapshot());
+  if (hist.undo.length > CONFIG.historyLimit) hist.undo.shift();
+  hist.redo = [];
+  hist.lastKey = key || null; hist.lastTime = now;
+  updateUndoButtons();
+}
+function restore(s) {
+  const d = JSON.parse(s);
+  doc = d.doc; selectedId = getObj(d.selectedId) ? d.selectedId : null;
+  segStartId = null; drag = null; dirty = true;
+  renderAll();
+}
+function undo() {
+  if (!hist.undo.length) { toast('더 이상 되돌릴 작업이 없어요.'); return; }
+  hist.redo.push(snapshot()); restore(hist.undo.pop()); hist.lastKey = null;
+}
+function redo() {
+  if (!hist.redo.length) { toast('다시 실행할 작업이 없어요.'); return; }
+  hist.undo.push(snapshot()); restore(hist.redo.pop()); hist.lastKey = null;
+}
+function updateUndoButtons() {
+  $('#btnUndo').disabled = !hist.undo.length;
+  $('#btnRedo').disabled = !hist.redo.length;
+}
+
+/* ================================================================
+   [개체 만들기] 점 · 선분 · 그림
+   ================================================================ */
+function nextPointName() {
+  const used = new Set(byType('point').map(p => p.name));
+  for (let round = 0; ; round++) {
+    for (const c of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ') {
+      const n = round ? c + round : c;
+      if (!used.has(n)) return n;
+    }
+  }
+}
+function addPoint(x, y) {
+  const P = CONFIG.point;
+  const p = { id: newId(), type: 'point', name: nextPointName(), x: round1(x), y: round1(y),
+    size: P.size, color: P.color, visible: true, showLabel: true, labelDx: P.labelDx, labelDy: P.labelDy };
+  doc.objects.push(p);
+  return p;
+}
+function addSegment(p1, p2) {
+  const s = { id: newId(), type: 'segment', p1, p2, width: CONFIG.segment.width, color: CONFIG.segment.color,
+    dashed: false, visible: true };
+  doc.objects.push(s);
+  return s;
+}
+function segmentName(s) {
+  const a = getObj(s.p1), b = getObj(s.p2);
+  return (a ? a.name || '?' : '?') + (b ? b.name || '?' : '?');
+}
+function objLabel(o) {
+  if (o.type === 'point') return '점 ' + (o.name || '(이름 없음)');
+  if (o.type === 'segment') return '선분 ' + segmentName(o);
+  if (o.type === 'image') return '그림 ' + (byType('image').indexOf(o) + 1);
+  return o.type;
+}
+
+/* ================================================================
+   [그리기] 작업 영역(SVG)에 개체를 그립니다.
+   drawScene은 화면용('edit')과 PNG 저장용('export') 모두에 쓰입니다.
+   ================================================================ */
+function pxPerUnit() { const m = board.getScreenCTM(); return m && m.a ? m.a : 1; }
+function toBoard(e) {
+  const p = board.createSVGPoint(); p.x = e.clientX; p.y = e.clientY;
+  return p.matrixTransform(board.getScreenCTM().inverse());
+}
+function dashFor(s) { return s.dashed ? CONFIG.segment.dashPattern.map(v => v * s.width).join(' ') : null; }
+
+function drawScene(root, mode, opt = {}) {
+  const edit = mode === 'edit';
+  const k = edit ? 1 / pxPerUnit() : 1;          // 화면 1px이 종이에서 몇 단위인지
+  const gImg = S('g', { class: 'layer-images' }, root);
+  const gSeg = S('g', { class: 'layer-segments' }, root);
+  const gPt  = S('g', { class: 'layer-points' }, root);
+
+  for (const o of doc.objects) {
+    if (o.type === 'image') {
+      if (!edit && opt.includeImages === false) continue;
+      const a = assets[o.asset]; if (!a) continue;
+      const g = S('g', edit ? { 'data-id': o.id, class: 'obj image ' + (o.locked ? 'locked' : 'unlocked') } : {}, gImg);
+      S('image', { href: a.src, x: o.x, y: o.y, width: o.w, height: o.h, preserveAspectRatio: 'none', opacity: o.opacity }, g);
+    }
+    else if (o.type === 'segment') {
+      const a = getObj(o.p1), b = getObj(o.p2);
+      if (!a || !b || (!edit && !o.visible)) continue;
+      const g = S('g', edit ? { 'data-id': o.id, class: 'obj segment' + (o.visible ? '' : ' is-hidden') } : {}, gSeg);
+      if (edit) S('line', { x1: a.x, y1: a.y, x2: b.x, y2: b.y, stroke: 'transparent', 'stroke-width': CONFIG.hitRadius * 2 * k, 'pointer-events': 'stroke' }, g);
+      S('line', { x1: a.x, y1: a.y, x2: b.x, y2: b.y, stroke: o.color, 'stroke-width': o.width,
+        'stroke-linecap': o.dashed ? 'butt' : 'round', 'stroke-dasharray': dashFor(o) }, g);
+    }
+    else if (o.type === 'point') {
+      if (!edit && !o.visible) continue;
+      const g = S('g', edit ? { 'data-id': o.id, class: 'obj point' + (o.visible ? '' : ' is-hidden') } : {}, gPt);
+      if (edit) S('circle', { cx: o.x, cy: o.y, r: Math.max(o.size + 3 * k, CONFIG.hitRadius * k), fill: 'transparent', 'pointer-events': 'all' }, g);
+      S('circle', { cx: o.x, cy: o.y, r: o.size, fill: o.color }, g);
+      if (o.showLabel && o.name) {
+        const t = S('text', { x: o.x + o.labelDx, y: o.y + o.labelDy, fill: o.color,
+          'font-size': CONFIG.point.labelSize, 'font-family': CONFIG.point.labelFont,
+          'font-style': CONFIG.point.labelItalic ? 'italic' : 'normal' }, g);
+        t.textContent = o.name;
+      }
+    }
+  }
+}
+
+let LAYER = null;
+function setupBoard() {
+  const { width: W, height: Hh, margin: M } = CONFIG.paper;
+  board.setAttribute('viewBox', `${-M} ${-M} ${W + 2 * M} ${Hh + 2 * M}`);
+  board.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  S('rect', { class: 'paper', x: 0, y: 0, width: W, height: Hh }, board);
+  LAYER = { content: S('g', { id: 'content' }, board), overlay: S('g', { class: 'overlay' }, board) };
+}
+
+function renderCanvas() {
+  LAYER.content.replaceChildren();
+  drawScene(LAYER.content, 'edit');
+  board.setAttribute('class', 'tool-' + tool);
+  $('#emptyHint').style.display = doc.objects.length ? 'none' : '';
+  renderOverlay();
+}
+
+/* 선택 표시, 크기 조절 손잡이, 선분 미리보기 등 (PNG에는 저장되지 않음) */
+const HANDLES = { nw: 'nwse-resize', n: 'ns-resize', ne: 'nesw-resize', e: 'ew-resize', se: 'nwse-resize', s: 'ns-resize', sw: 'nesw-resize', w: 'ew-resize' };
+function renderOverlay() {
+  const ov = LAYER.overlay; ov.replaceChildren();
+  const k = 1 / pxPerUnit();
+  const accent = '#5b7cfa', orange = '#f59f3a';
+  const sel = getObj(selectedId);
+
+  if (sel && sel.type === 'point') {
+    S('circle', { cx: sel.x, cy: sel.y, r: sel.size + 6 * k, fill: accent, 'fill-opacity': .15, stroke: accent, 'stroke-width': 2 * k }, ov);
+  }
+  if (sel && sel.type === 'segment') {
+    const a = getObj(sel.p1), b = getObj(sel.p2);
+    if (a && b) S('line', { x1: a.x, y1: a.y, x2: b.x, y2: b.y, stroke: accent, 'stroke-opacity': .35, 'stroke-width': sel.width + 9 * k, 'stroke-linecap': 'round' }, ov);
+  }
+  if (sel && sel.type === 'image') {
+    S('rect', { x: sel.x, y: sel.y, width: sel.w, height: sel.h, fill: 'none', stroke: sel.locked ? orange : accent, 'stroke-width': 2 * k, 'stroke-dasharray': `${6 * k} ${4 * k}` }, ov);
+    if (sel.locked) {
+      const g = S('g', { transform: `translate(${sel.x + 6 * k},${sel.y + 6 * k}) scale(${k})` }, ov);
+      S('rect', { width: 64, height: 24, rx: 12, fill: orange }, g);
+      const t = S('text', { x: 32, y: 16.5, 'text-anchor': 'middle', 'font-size': 12.5, 'font-weight': 700, fill: '#fff', 'font-family': 'Malgun Gothic, sans-serif' }, g);
+      t.textContent = '🔒 잠김';
+    } else {
+      const pos = { nw: [0, 0], n: [.5, 0], ne: [1, 0], e: [1, .5], se: [1, 1], s: [.5, 1], sw: [0, 1], w: [0, .5] };
+      const hs = 11 * k;
+      for (const h in pos) {
+        S('rect', { class: 'handle', 'data-handle': h, x: sel.x + sel.w * pos[h][0] - hs / 2, y: sel.y + sel.h * pos[h][1] - hs / 2,
+          width: hs, height: hs, rx: 2.5 * k, fill: '#fff', stroke: accent, 'stroke-width': 2 * k, style: `cursor:${HANDLES[h]}` }, ov);
+      }
+    }
+  }
+  // 선분 도구: 첫 점 표시 + 마우스까지 미리보기 선
+  if (tool === 'segment' && segStartId) {
+    const a = getObj(segStartId);
+    if (a) {
+      const target = getObj(hover.pointId) || hover.pos;
+      if (target) S('line', { x1: a.x, y1: a.y, x2: target.x, y2: target.y, stroke: accent, 'stroke-width': 2 * k, 'stroke-dasharray': `${6 * k} ${5 * k}` }, ov);
+      S('circle', { cx: a.x, cy: a.y, r: a.size + 7 * k, fill: 'none', stroke: orange, 'stroke-width': 2.5 * k }, ov);
+    }
+  }
+  // 점/선분 도구: 마우스 위치 미리보기 (기존 점 위면 그 점을 강조)
+  if (!drag && (tool === 'point' || tool === 'segment')) {
+    const hp = getObj(hover.pointId);
+    if (hp) S('circle', { cx: hp.x, cy: hp.y, r: hp.size + 6 * k, fill: 'none', stroke: accent, 'stroke-width': 2 * k }, ov);
+    else if (hover.pos) S('circle', { cx: hover.pos.x, cy: hover.pos.y, r: CONFIG.point.size, fill: accent, 'fill-opacity': .45 }, ov);
+  }
+}
+
+/* ================================================================
+   [도구 선택]
+   ================================================================ */
+function setTool(t) {
+  tool = t; segStartId = null; tempHint = null;
+  document.querySelectorAll('.tool-btn').forEach(b => b.classList.toggle('active', b.dataset.tool === t));
+  $('#toolChip').textContent = '현재 도구: ' + TOOL_INFO[t].label;
+  renderCanvas(); updateHint();
+}
+function updateHint() {
+  const el = $('#hint');
+  if (tempHint) { el.textContent = tempHint; el.classList.add('warn'); return; }
+  el.classList.remove('warn');
+  if (tool === 'segment' && segStartId) {
+    const a = getObj(segStartId);
+    el.textContent = `점 ${a ? a.name : ''}에서 시작해요. 이어질 두 번째 점을 클릭하세요. (취소: Esc)`;
+  } else el.textContent = TOOL_INFO[tool].hint;
+}
+function setTempHint(msg) { tempHint = msg; updateHint(); }
+
+function select(id) {
+  selectedId = id;
+  tempHint = null;
+  renderAll();
+}
+
+/* ================================================================
+   [마우스 조작] 클릭 · 드래그
+   ================================================================ */
+function blurInputs() {
+  const a = document.activeElement;
+  if (a && /INPUT|TEXTAREA|SELECT/.test(a.tagName)) a.blur();
+}
+function beginDrag(e, info) {
+  drag = { ...info, moved: false };
+  try { board.setPointerCapture(e.pointerId); } catch (_) {}
+}
+
+board.addEventListener('pointerdown', e => {
+  if (e.button !== 0) return;
+  blurInputs();
+  const pt = toBoard(e);
+  const handleEl = e.target.closest('[data-handle]');
+  const objEl = e.target.closest('[data-id]');
+  const hit = objEl ? getObj(objEl.dataset.id) : null;
+  const hitPoint = hit && hit.type === 'point' ? hit : null;
+
+  // ── 선택 도구
+  if (tool === 'select') {
+    if (handleEl) {
+      const img = getObj(selectedId);
+      if (img && img.type === 'image' && !img.locked)
+        beginDrag(e, { kind: 'resize', id: img.id, handle: handleEl.dataset.handle, start: pt, orig: { x: img.x, y: img.y, w: img.w, h: img.h } });
+      return;
+    }
+    if (!hit) { select(null); return; }
+    select(hit.id);
+    if (hit.type === 'point') beginDrag(e, { kind: 'move', id: hit.id, start: pt, orig: { x: hit.x, y: hit.y } });
+    else if (hit.type === 'image') {
+      if (hit.locked) setTempHint('🔒 잠긴 그림이라 움직이지 않아요. 옮기려면 오른쪽 속성창에서 잠금을 해제하세요.');
+      else beginDrag(e, { kind: 'move', id: hit.id, start: pt, orig: { x: hit.x, y: hit.y } });
+    }
+    return;
+  }
+
+  // ── 점 도구: 그림·선분 위를 눌러도 점이 생깁니다 (점만 따로 인식)
+  if (tool === 'point') {
+    if (hitPoint) { select(hitPoint.id); beginDrag(e, { kind: 'move', id: hitPoint.id, start: pt, orig: { x: hitPoint.x, y: hitPoint.y } }); return; }
+    record();
+    const p = addPoint(pt.x, pt.y);
+    select(p.id);
+    return;
+  }
+
+  // ── 선분 도구: 두 점을 차례로 클릭
+  if (tool === 'segment') {
+    let target = hitPoint;
+    if (!target) { record(); target = addPoint(pt.x, pt.y); }
+    if (!segStartId) { segStartId = target.id; selectedId = target.id; renderAll(); return; }
+    if (target.id === segStartId) { toast('같은 점이에요. 다른 점을 클릭해 주세요.', 'warn'); return; }
+    const exists = byType('segment').find(s => (s.p1 === segStartId && s.p2 === target.id) || (s.p1 === target.id && s.p2 === segStartId));
+    if (exists) { toast(`선분 ${segmentName(exists)}은(는) 이미 있어요.`, 'warn'); segStartId = null; select(exists.id); return; }
+    if (hitPoint) record();
+    const s = addSegment(segStartId, target.id);
+    segStartId = null;
+    select(s.id);
+  }
+});
+
+board.addEventListener('pointermove', e => {
+  const pt = toBoard(e);
+  $('#coords').textContent = `x ${Math.round(pt.x)} · y ${Math.round(pt.y)}`;
+  if (drag) {
+    const dx = pt.x - drag.start.x, dy = pt.y - drag.start.y;
+    if (!drag.moved) {
+      if (Math.hypot(dx, dy) * pxPerUnit() < 3) return;   // 살짝 떨린 클릭은 이동으로 보지 않음
+      drag.moved = true; record();
+    }
+    const o = getObj(drag.id); if (!o) return;
+    if (drag.kind === 'move') { o.x = round1(drag.orig.x + dx); o.y = round1(drag.orig.y + dy); }
+    else resizeImage(o, drag, dx, dy);
+    renderCanvas();
+    return;
+  }
+  const el = e.target.closest('[data-id]');
+  const o = el ? getObj(el.dataset.id) : null;
+  hover.pos = pt; hover.pointId = o && o.type === 'point' ? o.id : null;
+  if (tool !== 'select') renderOverlay();
+});
+
+function endDrag() {
+  if (!drag) return;
+  const moved = drag.moved; drag = null;
+  if (moved) { renderPanel(); renderCanvas(); }
+}
+board.addEventListener('pointerup', endDrag);
+board.addEventListener('pointercancel', endDrag);
+board.addEventListener('pointerleave', () => {
+  if (drag) return;
+  hover.pos = null; hover.pointId = null; $('#coords').textContent = '';
+  renderOverlay();
+});
+
+/* 그림 크기 조절 (모서리 손잡이: 비율 유지 가능 / 변 손잡이: 가로 또는 세로만) */
+function resizeImage(o, d, dx, dy) {
+  const MIN = 10, h = d.handle, g = d.orig;
+  let left = g.x, top = g.y, right = g.x + g.w, bottom = g.y + g.h;
+  if (h.includes('w')) left += dx;
+  if (h.includes('e')) right += dx;
+  if (h.includes('n')) top += dy;
+  if (h.includes('s')) bottom += dy;
+  let w = right - left, hh = bottom - top;
+  if (o.keepRatio && h.length === 2) {
+    const s = Math.max(MIN / Math.min(g.w, g.h), (w * g.w + hh * g.h) / (g.w * g.w + g.h * g.h));
+    w = g.w * s; hh = g.h * s;
+    if (h.includes('w')) left = right - w; else right = left + w;
+    if (h.includes('n')) top = bottom - hh; else bottom = top + hh;
+  } else {
+    if (w < MIN) { if (h.includes('w')) left = right - MIN; w = MIN; }
+    if (hh < MIN) { if (h.includes('n')) top = bottom - MIN; hh = MIN; }
+  }
+  o.x = round1(left); o.y = round1(top); o.w = round1(w); o.h = round1(hh);
+}
+
+/* ================================================================
+   [삭제]
+   ================================================================ */
+function deleteSelected() {
+  const o = getObj(selectedId);
+  if (!o) { toast('지울 개체를 먼저 클릭해서 선택하세요.'); return; }
+  if (o.type === 'image' && o.locked) { toast('🔒 잠긴 그림은 지울 수 없어요. 먼저 잠금을 해제하세요.', 'warn'); return; }
+  record();
+  let extra = 0;
+  if (o.type === 'point') {
+    const before = doc.objects.length;
+    doc.objects = doc.objects.filter(x => !(x.type === 'segment' && (x.p1 === o.id || x.p2 === o.id)));
+    extra = before - doc.objects.length;
+  }
+  doc.objects = doc.objects.filter(x => x.id !== o.id);
+  if (segStartId === o.id) segStartId = null;
+  toast(extra ? `${objLabel(o)}와(과) 연결된 선분 ${extra}개를 함께 지웠어요. (되돌리기: Ctrl+Z)` : `${objLabel(o)}을(를) 지웠어요. (되돌리기: Ctrl+Z)`);
+  select(null);
+}
+
+/* ================================================================
+   [속성창] 오른쪽 패널
+   ================================================================ */
+function field(label, ...controls) { return H('div', { class: 'field' }, H('span', { class: 'field-label' }, label), ...controls); }
+function slider({ min, max, step = 1, value, unit = '', disabled, onInput }) {
+  const fmt = v => (Number.isInteger(+step) ? Math.round(v) : (+v).toFixed(1)) + unit;
+  const out = H('span', { class: 'slider-val' }, fmt(value));
+  const inp = H('input', { type: 'range', min, max, step, value, disabled,
+    oninput: e => { const v = +e.target.value; out.textContent = fmt(v); onInput(v); } });
+  const wrap = H('div', { class: 'slider' }, inp, out);
+  wrap.setValue = v => { inp.value = v; out.textContent = fmt(v); };
+  return wrap;
+}
+function toggle(label, value, onChange) {
+  return H('label', { class: 'switch-row' }, H('span', {}, label),
+    H('span', { class: 'switch' }, H('input', { type: 'checkbox', checked: !!value, onchange: e => onChange(e.target.checked) }), H('i')));
+}
+function segmented(options, value, onChange) {
+  const wrap = H('div', { class: 'seg' });
+  for (const [v, label] of options) {
+    wrap.appendChild(H('button', { class: v === value ? 'on' : '', onclick: () => {
+      wrap.querySelectorAll('button').forEach(b => b.classList.remove('on'));
+      wrap.querySelectorAll('button')[options.findIndex(x => x[0] === v)].classList.add('on');
+      onChange(v);
+    } }, label));
+  }
+  return wrap;
+}
+function colorPicker(value, onPick) {
+  const wrap = H('div', { class: 'swatches' });
+  const custom = H('input', { type: 'color', value, title: '다른 색 고르기', oninput: e => { onPick(e.target.value); mark(e.target.value); } });
+  function mark(c) {
+    wrap.querySelectorAll('.sw').forEach(b => b.classList.toggle('on', b.dataset.c.toLowerCase() === c.toLowerCase()));
+    custom.value = c;
+  }
+  for (const c of CONFIG.palette)
+    wrap.appendChild(H('button', { class: 'sw', 'data-c': c, title: c, style: `background:${c}`, onclick: () => { onPick(c); mark(c); } }));
+  wrap.appendChild(custom);
+  mark(value);
+  return wrap;
+}
+function deleteButton(o) {
+  const locked = o.type === 'image' && o.locked;
+  return H('button', { class: 'big-btn danger', disabled: locked, title: locked ? '잠금을 해제해야 지울 수 있어요' : '삭제 (Delete 키)',
+    onclick: deleteSelected }, icon('trash'), '이 개체 지우기');
+}
+/* 속성 하나를 바꾸는 공통 함수 (실행 취소 기록 + 다시 그리기) */
+function setProp(o, key, value, after) {
+  record('prop:' + o.id + ':' + key);
+  o[key] = value;
+  renderCanvas();
+  if (after) after();
+}
+
+function renderPanel() {
+  const head = $('#propsHead'), body = $('#propsBody');
+  head.replaceChildren(); body.replaceChildren();
+  const o = getObj(selectedId);
+  if (!o) {
+    head.append(H('div', { class: 'badge' }, icon('info')), H('div', {}, H('div', { class: 't1' }, '속성'), H('div', { class: 't2' }, '선택된 개체가 없어요')));
+    body.append(H('div', { class: 'guide' },
+      H('h4', {}, '이렇게 시작해 보세요 😊'),
+      H('ol', {},
+        H('li', {}, '위쪽 [그림 불러오기]로 문제 그림을 넣어요.'),
+        H('li', {}, '그림 위치·크기를 맞춘 뒤 🔒 잠금을 눌러요.'),
+        H('li', {}, '왼쪽 [점] 도구로 꼭짓점을 찍어요.'),
+        H('li', {}, '[선분] 도구로 두 점을 차례로 클릭해요.'),
+        H('li', {}, '[PNG로 내보내기]로 저장해요.')),
+      H('div', { class: 'tip' }, '💡 개체를 클릭하면 여기에서 이름·크기·색을 바꿀 수 있어요. 실수했다면 Ctrl+Z로 되돌리세요.')));
+    return;
+  }
+  const kind = { point: '점', segment: '선분', image: '그림' }[o.type];
+  const t1 = H('div', { class: 't1', id: 'propsTitle' }, objLabel(o));
+  head.append(H('div', { class: 'badge' }, icon(o.type)), H('div', {}, t1, H('div', { class: 't2' }, kind + ' 속성')));
+
+  const parts = o.type === 'point' ? pointPanel(o) : o.type === 'segment' ? segmentPanel(o) : imagePanel(o);
+  body.append(...parts.filter(Boolean));
+}
+function refreshTitle(o) { const t = $('#propsTitle'); if (t) t.textContent = objLabel(o); renderList(); }
+
+function pointPanel(o) {
+  const nameInput = H('input', { type: 'text', value: o.name, maxlength: 12, placeholder: '예: A, P, Q',
+    oninput: e => setProp(o, 'name', e.target.value.trim(), () => refreshTitle(o)),
+    onchange: () => {
+      if (o.name && byType('point').some(p => p !== o && p.name === o.name)) toast(`'${o.name}' 이름의 점이 이미 있어요. 그대로 써도 되지만 헷갈릴 수 있어요.`, 'warn');
+    } });
+  const chips = H('div', { class: 'chips' }, CONFIG.quickNames.map(n =>
+    H('button', { class: 'chip', title: `이름을 ${n}(으)로`, onclick: () => { nameInput.value = n; setProp(o, 'name', n, () => refreshTitle(o)); hist.lastKey = null; } }, n)));
+  return [
+    field('이름', nameInput, chips),
+    toggle('이름 보이기', o.showLabel, v => setProp(o, 'showLabel', v)),
+    field('점 크기', slider({ min: CONFIG.point.sizeMin, max: CONFIG.point.sizeMax, step: 0.5, value: o.size, onInput: v => setProp(o, 'size', v) })),
+    field('색', colorPicker(o.color, c => setProp(o, 'color', c))),
+    toggle('그림에 보이기 (끄면 숨김)', o.visible, v => setProp(o, 'visible', v, renderList)),
+    H('div', { class: 'info' }, `위치: x ${Math.round(o.x)}, y ${Math.round(o.y)}  ·  키보드 화살표로 조금씩 옮길 수 있어요.`),
+    deleteButton(o),
+  ];
+}
+
+function segmentPanel(o) {
+  const a = getObj(o.p1), b = getObj(o.p2);
+  return [
+    H('div', { class: 'info' }, `연결된 점: ${a ? a.name : '?'} — ${b ? b.name : '?'}`),
+    field('선 굵기', slider({ min: CONFIG.segment.widthMin, max: CONFIG.segment.widthMax, step: 0.5, value: o.width, onInput: v => setProp(o, 'width', v) })),
+    field('선 색', colorPicker(o.color, c => setProp(o, 'color', c))),
+    field('선 모양', segmented([[false, '━━ 실선'], [true, '╍╍ 점선']], o.dashed, v => { setProp(o, 'dashed', v); hist.lastKey = null; })),
+    toggle('그림에 보이기 (끄면 숨김)', o.visible, v => setProp(o, 'visible', v, renderList)),
+    deleteButton(o),
+  ];
+}
+
+function imagePanel(o) {
+  const L = o.locked;
+  const lockBtn = H('button', { class: 'big-btn' + (L ? ' lock-on' : ''),
+    onclick: () => { record(); o.locked = !o.locked; renderAll();
+      toast(o.locked ? '🔒 그림을 잠갔어요. 이제 움직이거나 지워지지 않아요.' : '🔓 잠금을 풀었어요. 그림을 옮기거나 크기를 바꿀 수 있어요.', 'ok'); } },
+    icon(L ? 'lock' : 'unlock'), L ? '잠김 — 눌러서 잠금 해제' : '잠금 해제됨 — 눌러서 잠그기');
+
+  const wIn = H('input', { type: 'number', min: 10, step: 1, value: Math.round(o.w), disabled: L, onchange: e => setSize('w', +e.target.value) });
+  const hIn = H('input', { type: 'number', min: 10, step: 1, value: Math.round(o.h), disabled: L, onchange: e => setSize('h', +e.target.value) });
+  function setSize(which, v) {
+    if (!(v >= 10)) { toast('크기는 10 이상의 숫자로 입력해 주세요.', 'warn'); renderPanel(); return; }
+    record();
+    const cx = o.x + o.w / 2, cy = o.y + o.h / 2, ratio = o.h / o.w;
+    if (which === 'w') { o.w = v; if (o.keepRatio) o.h = round1(v * ratio); }
+    else { o.h = v; if (o.keepRatio) o.w = round1(v / ratio); }
+    o.x = round1(cx - o.w / 2); o.y = round1(cy - o.h / 2);
+    renderCanvas(); renderPanel();
+  }
+  const scale = slider({ min: 10, max: 300, step: 1, value: Math.round(o.w / o.baseW * 100), unit: '%', disabled: L,
+    onInput: v => {
+      record('scale:' + o.id);
+      const cx = o.x + o.w / 2, cy = o.y + o.h / 2, ratio = o.h / o.w;
+      o.w = round1(o.baseW * v / 100); o.h = round1(o.w * ratio);
+      o.x = round1(cx - o.w / 2); o.y = round1(cy - o.h / 2);
+      wIn.value = Math.round(o.w); hIn.value = Math.round(o.h);
+      renderCanvas();
+    } });
+  const act = (label, title, fn) => H('button', { class: 'small-btn', title, disabled: L, onclick: () => { record(); fn(); renderCanvas(); renderPanel(); } }, label);
+  return [
+    lockBtn,
+    L ? H('div', { class: 'note' }, '잠긴 동안에는 그림이 움직이지 않아요. 그 위에 점과 선분을 마음껏 그리세요. (투명도는 바꿀 수 있어요)') : null,
+    field('투명도 (낮출수록 흐려져요)', slider({ min: 0, max: 100, value: Math.round(o.opacity * 100), unit: '%', onInput: v => setProp(o, 'opacity', v / 100) })),
+    field('크기', scale),
+    field('너비 × 높이 (픽셀)', H('div', { class: 'wh' }, wIn, '×', hIn)),
+    L ? null : toggle('가로·세로 비율 유지', o.keepRatio, v => setProp(o, 'keepRatio', v)),
+    H('div', { class: 'btn-row' },
+      act('종이 맞춤', '종이 크기에 맞게 키우거나 줄여요', () => fitImage(o)),
+      act('가운데로', '종이 가운데로 옮겨요', () => { o.x = round1((CONFIG.paper.width - o.w) / 2); o.y = round1((CONFIG.paper.height - o.h) / 2); }),
+      act('원래 비율', '찌그러진 그림을 원래 비율로 되돌려요', () => { const a = assets[o.asset]; if (a) o.h = round1(o.w * a.h / a.w); })),
+    deleteButton(o),
+  ];
+}
+
+/* 개체 목록 (숨긴 개체도 여기서 선택할 수 있어요) */
+function renderList() {
+  const box = $('#objList'); box.replaceChildren();
+  if (!doc.objects.length) { box.append(H('div', { class: 'list-empty' }, '아직 아무것도 없어요.')); return; }
+  const order = ['image', 'point', 'segment'];
+  const items = [...doc.objects].sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
+  for (const o of items) {
+    const tags = [];
+    if (o.type === 'image') tags.push(o.locked ? '🔒 잠김' : '잠금 해제');
+    if (o.visible === false) tags.push('숨김');
+    box.append(H('div', { class: 'list-item' + (o.id === selectedId ? ' on' : ''), onclick: () => { if (tool === 'segment') setTool('select'); select(o.id); } },
+      H('span', { class: 'li-ic' }, icon(o.type, 'ic')), objLabel(o), H('span', { class: 'tag' }, tags.join(' · '))));
+  }
+  const on = box.querySelector('.on'); if (on) on.scrollIntoView({ block: 'nearest' });
+}
+
+function renderAll() {
+  renderCanvas(); renderPanel(); renderList(); updateUndoButtons(); updateHint();
+}
+
+/* ================================================================
+   [그림 불러오기] 파일 선택 · 끌어다 놓기 · 붙여넣기(Ctrl+V)
+   ================================================================ */
+const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/bmp'];
+function loadImageFile(file) {
+  if (!file) return;
+  if (!IMAGE_TYPES.includes(file.type)) { toast('PNG 또는 JPG 그림 파일만 불러올 수 있어요.', 'error'); return; }
+  const reader = new FileReader();
+  reader.onerror = () => toast('파일을 읽지 못했어요. 다른 그림으로 다시 시도해 주세요.', 'error');
+  reader.onload = async () => {
+    try {
+      const src = reader.result;
+      const im = await loadImg(src).catch(() => { throw new UserError('그림을 열 수 없어요. 파일이 손상되었거나 지원하지 않는 형식이에요.'); });
+      const assetId = 'img' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      assets[assetId] = { src, w: im.naturalWidth, h: im.naturalHeight };
+      record();
+      const o = { id: newId(), type: 'image', asset: assetId, x: 0, y: 0, w: im.naturalWidth, h: im.naturalHeight,
+        baseW: 1, baseH: 1, opacity: 1, locked: false, keepRatio: true };
+      fitImage(o);
+      o.baseW = o.w; o.baseH = o.h;
+      // 그림은 항상 점·선 뒤에 깔리도록 맨 앞에 넣습니다
+      const lastImg = doc.objects.map(x => x.type).lastIndexOf('image');
+      doc.objects.splice(lastImg + 1, 0, o);
+      if (tool !== 'select') setTool('select');
+      select(o.id);
+      toast('그림을 불러왔어요! 위치·크기를 맞춘 뒤 오른쪽의 🔒 잠금을 누르면 편해요.', 'ok');
+    } catch (err) { showError(err); }
+  };
+  reader.readAsDataURL(file);
+}
+function fitImage(o) {
+  const a = assets[o.asset]; if (!a) return;
+  const { width: W, height: Hh } = CONFIG.paper, r = CONFIG.image.fitRatio;
+  const s = Math.min(W * r / a.w, Hh * r / a.h);
+  o.w = round1(a.w * s); o.h = round1(a.h * s);
+  o.x = round1((W - o.w) / 2); o.y = round1((Hh - o.h) / 2);
+}
+function handleFiles(files) {
+  const f = files && files[0]; if (!f) return;
+  if (f.name.toLowerCase().endsWith('.json')) { f.text().then(openProjectText); return; }
+  loadImageFile(f);
+}
+
+$('#btnImage').onclick = () => $('#fileImage').click();
+$('#fileImage').onchange = e => { handleFiles(e.target.files); e.target.value = ''; };
+$('#fileProject').onchange = e => { handleFiles(e.target.files); e.target.value = ''; };
+
+const wrap = $('#canvasWrap');
+wrap.addEventListener('dragover', e => { e.preventDefault(); wrap.classList.add('dragover'); });
+wrap.addEventListener('dragleave', e => { if (e.target === wrap || !wrap.contains(e.relatedTarget)) wrap.classList.remove('dragover'); });
+wrap.addEventListener('drop', e => { e.preventDefault(); wrap.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
+document.addEventListener('paste', e => {
+  if (/INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+  const item = [...(e.clipboardData ? e.clipboardData.items : [])].find(i => i.type.startsWith('image/'));
+  if (item) { e.preventDefault(); loadImageFile(item.getAsFile()); }
+});
+
+/* ================================================================
+   [새 작업 · 작업 저장 · 작업 열기]
+   저장 파일(.json)에는 그림과 점·선이 모두 들어 있어 나중에 다시 고칠 수 있어요.
+   ================================================================ */
+function newWork() {
+  if (!doc.objects.length) { toast('이미 빈 작업이에요.'); return; }
+  confirmBox('새 작업을 시작할까요?', '지금 그린 내용이 모두 지워져요. (실수했다면 실행 취소로 되돌릴 수 있어요)', '새로 시작', () => {
+    record(); doc = emptyDoc(); selectedId = null; segStartId = null; dirty = false;
+    renderAll(); toast('새 작업을 시작했어요.', 'ok');
+  }, 'danger');
+}
+function saveProject() {
+  const used = new Set(byType('image').map(o => o.asset));
+  const data = { app: 'math-geo-editor', version: 1, savedAt: new Date().toISOString(), paper: CONFIG.paper,
+    doc, assets: Object.fromEntries([...used].filter(k => assets[k]).map(k => [k, assets[k]])) };
+  downloadBlob(new Blob([JSON.stringify(data)], { type: 'application/json' }), `도형작업_${stamp()}.json`);
+  dirty = false;
+  toast('작업을 파일로 저장했어요. 나중에 [작업 열기]로 다시 고칠 수 있어요.', 'ok');
+}
+function openProjectText(text) {
+  let data;
+  try { data = JSON.parse(text); } catch (_) { toast('작업 파일을 읽을 수 없어요. 파일이 손상되었을 수 있어요.', 'error'); return; }
+  if (!data || data.app !== 'math-geo-editor' || !data.doc || !Array.isArray(data.doc.objects)) {
+    toast('이 프로그램에서 저장한 작업 파일(.json)이 아니에요.', 'error'); return;
+  }
+  record();
+  Object.assign(assets, data.assets || {});
+  doc = data.doc; selectedId = null; segStartId = null; dirty = false;
+  setTool('select'); renderAll();
+  toast('작업을 열었어요.', 'ok');
+}
+$('#btnNew').onclick = newWork;
+$('#btnSave').onclick = saveProject;
+$('#btnOpen').onclick = () => $('#fileProject').click();
+$('#btnUndo').onclick = undo;
+$('#btnRedo').onclick = redo;
+window.addEventListener('beforeunload', e => { if (dirty && doc.objects.length) { e.preventDefault(); e.returnValue = ''; } });
+
+/* ================================================================
+   [PNG 내보내기]
+   화면의 선택 표시·손잡이는 빼고, 숨긴 개체도 빼고 저장합니다.
+   ================================================================ */
+const exportOpt = { area: 'full', includeImages: true, background: 'white', scale: CONFIG.export.scale };
+
+function buildExportSvg(opt) {
+  const root = S('svg', { xmlns: SVGNS });
+  const content = S('g', {}, root);
+  drawScene(content, 'export', opt);
+  let box = { x: 0, y: 0, width: CONFIG.paper.width, height: CONFIG.paper.height };
+  if (opt.area === 'fit') {
+    // 그려진 내용의 범위를 재기 위해 잠깐 화면 밖에 붙였다 뗍니다
+    root.setAttribute('style', 'position:absolute;left:-99999px;top:0;visibility:hidden');
+    document.body.appendChild(root);
+    const b = content.getBBox();
+    root.remove(); root.removeAttribute('style');
+    if (!b.width && !b.height) return null;
+    const pad = CONFIG.export.padding;
+    box = { x: Math.floor(b.x - pad), y: Math.floor(b.y - pad), width: Math.ceil(b.width + pad * 2), height: Math.ceil(b.height + pad * 2) };
+  }
+  root.setAttribute('viewBox', `${box.x} ${box.y} ${box.width} ${box.height}`);
+  root.setAttribute('width', box.width); root.setAttribute('height', box.height);
+  if (opt.background === 'white') root.insertBefore(S('rect', { x: box.x, y: box.y, width: box.width, height: box.height, fill: '#fff' }), content);
+  return { svg: root, box };
+}
+async function makePNG(opt) {
+  const count = doc.objects.filter(o => o.type === 'image' ? opt.includeImages : o.visible).length;
+  if (!count) throw new UserError('저장할 내용이 없어요. 먼저 그림을 불러오거나 점과 선분을 그려 주세요.');
+  const r = buildExportSvg(opt);
+  if (!r) throw new UserError('저장할 내용이 없어요.');
+  const str = new XMLSerializer().serializeToString(r.svg);
+  const url = URL.createObjectURL(new Blob([str], { type: 'image/svg+xml;charset=utf-8' }));
+  try {
+    const im = await loadImg(url);
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(r.box.width * opt.scale));
+    c.height = Math.max(1, Math.round(r.box.height * opt.scale));
+    c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+    const blob = await new Promise(res => c.toBlob(res, 'image/png'));
+    if (!blob) throw new Error('toBlob failed');
+    return { blob, width: c.width, height: c.height };
+  } finally { URL.revokeObjectURL(url); }
+}
+
+function openExportDialog() {
+  const opt = exportOpt;
+  const previewImg = H('img', { alt: '미리보기' });
+  const previewBox = H('div', { class: 'preview' }, previewImg);
+  const sizeText = H('div', { class: 'preview-size' }, '');
+  let lastUrl = null;
+  async function refresh() {
+    try {
+      const { blob, width, height } = await makePNG(opt);
+      if (lastUrl) URL.revokeObjectURL(lastUrl);
+      lastUrl = URL.createObjectURL(blob);
+      previewImg.src = lastUrl; previewImg.style.display = '';
+      sizeText.textContent = `저장될 크기: ${width} × ${height} 픽셀`;
+    } catch (err) {
+      previewImg.style.display = 'none';
+      sizeText.textContent = err instanceof UserError ? err.message : '미리보기를 만들 수 없어요.';
+    }
+  }
+  const upd = (k) => v => { opt[k] = v; refresh(); };
+  const body = H('div', {},
+    previewBox, sizeText,
+    field('저장 범위', segmented([['full', '전체 작업 영역'], ['fit', '도형 부분만']], opt.area, upd('area'))),
+    toggle('배경 그림 포함', opt.includeImages, upd('includeImages')),
+    field('바탕', segmented([['white', '흰색'], ['transparent', '투명']], opt.background, upd('background'))),
+    field('선명도', segmented([[1, '보통'], [2, '선명 (추천)'], [3, '아주 선명']], opt.scale, upd('scale'))),
+    H('p', { style: 'font-size:12.5px;color:var(--muted);margin:4px 0 0' }, '💡 한글(HWP)·PPT에 바로 넣으려면 [클립보드에 복사] 후 Ctrl+V 하세요.'));
+  openModal({ title: 'PNG 이미지로 내보내기', body, width: 470, buttons: [
+    { label: '취소' },
+    { label: '클립보드에 복사', onClick: async () => {
+      const { blob } = await makePNG(opt);
+      try { await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); }
+      catch (_) { throw new UserError('이 브라우저에서는 클립보드 복사가 막혀 있어요. [PNG 파일 저장]을 이용해 주세요.'); }
+      toast('그림을 복사했어요. 한글·PPT에서 Ctrl+V로 붙여 넣으세요.', 'ok');
+    } },
+    { label: 'PNG 파일 저장', kind: 'primary', onClick: async () => {
+      const { blob } = await makePNG(opt);
+      downloadBlob(blob, `도형_${stamp()}.png`);
+      toast('PNG 파일로 저장했어요. (다운로드 폴더를 확인하세요)', 'ok');
+    } },
+  ] });
+  refresh();
+}
+$('#btnExport').onclick = openExportDialog;
+
+/* ================================================================
+   [단축키]
+   ================================================================ */
+document.addEventListener('keydown', e => {
+  const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) && !['range', 'checkbox', 'color'].includes(document.activeElement.type);
+  const ctrl = e.ctrlKey || e.metaKey, key = e.key.toLowerCase();
+  if (modalEl) { if (e.key === 'Escape') closeModal(); return; }
+  if (ctrl && key === 's') { e.preventDefault(); saveProject(); return; }
+  if (ctrl && key === 'o') { e.preventDefault(); $('#fileProject').click(); return; }
+  if (typing) return;
+  if (ctrl && key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
+  if (ctrl && (key === 'y' || (key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); return; }
+  if (ctrl || e.altKey) return;
+  if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteSelected(); return; }
+  if (e.key === 'Escape') {
+    if (segStartId) { segStartId = null; renderOverlay(); updateHint(); toast('선분 만들기를 취소했어요.'); }
+    else if (tool !== 'select') setTool('select');
+    else select(null);
+    return;
+  }
+  if (key === 'v') return setTool('select');
+  if (key === 'p') return setTool('point');
+  if (key === 'l') return setTool('segment');
+  const arrows = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+  if (arrows[e.key]) {
+    const o = getObj(selectedId);
+    if (!o || o.type === 'segment') return;
+    e.preventDefault();
+    if (o.type === 'image' && o.locked) { toast('🔒 잠긴 그림은 움직이지 않아요.', 'warn'); return; }
+    const step = e.shiftKey ? 10 : 1;
+    record('nudge:' + o.id);
+    o.x = round1(o.x + arrows[e.key][0] * step); o.y = round1(o.y + arrows[e.key][1] * step);
+    renderCanvas();
+  }
+});
+
+/* ================================================================
+   [시작]
+   ================================================================ */
+document.querySelectorAll('.tool-btn').forEach(b => b.onclick = () => setTool(b.dataset.tool));
+new ResizeObserver(() => renderCanvas()).observe(wrap);
+setupBoard();
+setTool('select');
+renderAll();
+</script>
+</body>
+</html>
