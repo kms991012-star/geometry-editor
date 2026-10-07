@@ -48,3 +48,5 @@
 - AI 기능 시험: `node tools/dev-server.js`(키는 `.env.local`의 `GEMINI_API_KEY` 또는 환경변수, 설치할 것 없음). 키가 없으면
   `/api/recognize`와 같은 약속(`{ ok, result: { objects } }`)으로 답하는 가짜 서버를 임시 폴더에 만들어
   편집기의 [⚙ AI 설정] → 고급: AI 서버 주소에 넣고 시험합니다. 실제 인식 품질은 실제 키로만 확인할 수 있습니다.
+- 실제 AI 정확도 시험: `node tests/ai-accuracy.js` (시험 그림 8장 `tests/ai-figures/`와 정답 비교, 그림마다 AI 1회 호출 — 무료 한도를 쓰니 꼭 필요할 때만).
+  배포 서버에 `GEMINI_API_KEY`가 등록되어 있어야 하고, `AI_ACCESS_CODE`를 정했다면 같은 이름의 환경변수로 넘깁니다.

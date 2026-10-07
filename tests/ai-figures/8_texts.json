@@ -1,0 +1,98 @@
+{
+ "image": {
+  "width": 700,
+  "height": 500
+ },
+ "objects": [
+  {
+   "type": "point",
+   "id": "A",
+   "label": "A",
+   "x": 160,
+   "y": 420
+  },
+  {
+   "type": "point",
+   "id": "B",
+   "label": "B",
+   "x": 560,
+   "y": 420
+  },
+  {
+   "type": "point",
+   "id": "C",
+   "label": "C",
+   "x": 300,
+   "y": 120
+  },
+  {
+   "type": "segment",
+   "from": "A",
+   "to": "B",
+   "dashed": false
+  },
+  {
+   "type": "segment",
+   "from": "B",
+   "to": "C",
+   "dashed": false
+  },
+  {
+   "type": "segment",
+   "from": "C",
+   "to": "A",
+   "dashed": false
+  },
+  {
+   "type": "length",
+   "segment": [
+    "A",
+    "B"
+   ],
+   "value": "8 cm"
+  },
+  {
+   "type": "length",
+   "segment": [
+    "B",
+    "C"
+   ],
+   "value": "x"
+  },
+  {
+   "type": "length",
+   "segment": [
+    "C",
+    "A"
+   ],
+   "value": "5 cm"
+  },
+  {
+   "type": "angle",
+   "points": [
+    "C",
+    "A",
+    "B"
+   ],
+   "value": "60°"
+  },
+  {
+   "type": "text",
+   "text": "S",
+   "x": 340,
+   "y": 330
+  },
+  {
+   "type": "text",
+   "text": "y",
+   "x": 620,
+   "y": 200
+  },
+  {
+   "type": "text",
+   "text": "(가)",
+   "x": 90,
+   "y": 80
+  }
+ ]
+}

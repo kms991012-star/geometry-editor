@@ -1,0 +1,78 @@
+{
+ "image": {
+  "width": 680,
+  "height": 460
+ },
+ "objects": [
+  {
+   "type": "point",
+   "id": "A",
+   "label": "A",
+   "x": 340,
+   "y": 70
+  },
+  {
+   "type": "point",
+   "id": "B",
+   "label": "B",
+   "x": 502,
+   "y": 187
+  },
+  {
+   "type": "point",
+   "id": "C",
+   "label": "C",
+   "x": 440,
+   "y": 378
+  },
+  {
+   "type": "point",
+   "id": "D",
+   "label": "D",
+   "x": 240,
+   "y": 378
+  },
+  {
+   "type": "point",
+   "id": "E",
+   "label": "E",
+   "x": 178,
+   "y": 187
+  },
+  {
+   "type": "segment",
+   "from": "A",
+   "to": "B",
+   "dashed": false,
+   "ticks": 1
+  },
+  {
+   "type": "segment",
+   "from": "B",
+   "to": "C",
+   "dashed": false,
+   "ticks": 1
+  },
+  {
+   "type": "segment",
+   "from": "C",
+   "to": "D",
+   "dashed": false,
+   "ticks": 1
+  },
+  {
+   "type": "segment",
+   "from": "D",
+   "to": "E",
+   "dashed": false,
+   "ticks": 1
+  },
+  {
+   "type": "segment",
+   "from": "E",
+   "to": "A",
+   "dashed": false,
+   "ticks": 1
+  }
+ ]
+}

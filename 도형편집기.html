@@ -3024,7 +3024,7 @@ const PANELS = {
       H('button', { class: 'big-btn accent', disabled: aiBusy, title: '그림 속 점·선·표시를 고칠 수 있는 개체로 바꿔요', onclick: () => aiStart(o) },
         aiBusy ? '⏳ AI가 분석하는 중…' : aiMade.length ? '🔄 AI로 다시 인식하기' : '🤖 AI로 도형 인식하기'),
       H('div', { class: 'btn-row' },
-        H('button', { class: 'small-btn', disabled: aiBusy, title: '그림 위를 끌어서 고른 부분만 AI가 인식해요', onclick: () => aiRegionStart(o) }, '✂ 영역 골라서 인식'),
+        H('button', { class: 'small-btn', disabled: aiBusy, title: '그림 위를 끌어서 고른 부분만 AI가 인식해요', onclick: () => aiRegionStart(o) }, '✂ 선택 영역 AI 인식'),
         H('button', { class: 'small-btn', title: '접속 비밀번호·좌표 보정·연결 시험', onclick: () => aiSettingsDialog() }, '⚙ AI 설정')),
       aiMade.length ? H('button', { class: 'big-btn', title: '이 그림에서 인식해 만든 개체만 골라요', onclick: () => { selectMany(aiMade.map(x => x.id)); } },
         `이 그림에서 인식한 개체 ${aiMade.length}개 선택`) : null,
@@ -3199,15 +3199,15 @@ const AI_ERRORS = {
   quota_day: '오늘 쓸 수 있는 Gemini 무료 등급 한도를 다 썼어요. 내일 다시 쓸 수 있어요. (유료로 바뀌지 않으니 요금은 들지 않아요)',
   free_unavailable: 'Google이 이 계정·지역에서는 Gemini 무료 등급을 쓸 수 없다고 해요. 결제 설정은 하지 않았으니 요금은 들지 않아요. README의 "자주 묻는 질문"을 봐 주세요.',
   model_not_free: '서버에 정한 모델(GEMINI_MODEL)이 무료 등급 목록에 없어서 부르지 않았어요. Vercel 설정에서 GEMINI_MODEL을 지워 주세요.',
-  too_large: '그림이 너무 커요. [영역 골라서 인식]으로 필요한 부분만 골라 주세요.',
+  too_large: '그림이 너무 커요. [✂ 선택 영역 AI 인식]으로 필요한 부분만 골라 주세요.',
   busy: 'AI 사용량이 많아요. 1분쯤 뒤에 다시 시도해 주세요.',
-  timeout: 'AI 분석이 너무 오래 걸려서 멈췄어요. [영역 골라서 인식]으로 작은 부분만 골라 보세요.',
+  timeout: 'AI 분석이 너무 오래 걸려서 멈췄어요. [✂ 선택 영역 AI 인식]으로 작은 부분만 골라 보세요.',
   refused: 'AI가 이 그림을 분석하지 않았어요. 다른 그림이나 일부 영역으로 시도해 주세요.',
-  too_long: '그림 속 개체가 너무 많아요. [영역 골라서 인식]으로 나눠서 인식해 보세요.',
+  too_long: '그림 속 개체가 너무 많아요. [✂ 선택 영역 AI 인식]으로 나눠서 인식해 보세요.',
   bad_output: 'AI 응답을 이해하지 못했어요. 다시 인식해 주세요.',
   ai_auth: 'Gemini API 키가 올바르지 않아요. Vercel 설정의 GEMINI_API_KEY를 확인하고 다시 배포(Redeploy)해 주세요.',
   ai_model: '이 Gemini 모델을 지금 쓸 수 없어요. Vercel 설정의 GEMINI_MODEL을 지우거나 README의 무료 모델 목록에서 골라 주세요.',
-  ai_rejected: 'Gemini가 요청을 받아들이지 않았어요. 잠시 후 다시 시도하거나 [영역 골라서 인식]으로 작게 골라 보세요.',
+  ai_rejected: 'Gemini가 요청을 받아들이지 않았어요. 잠시 후 다시 시도하거나 [✂ 선택 영역 AI 인식]으로 작게 골라 보세요.',
   ai_down: 'Gemini 서버가 지금 바빠요. 잠시 후 다시 시도해 주세요.',
   network: 'AI 인식에 실패했어요. 인터넷 연결이나 AI 설정을 확인해 주세요.',
   not_found: 'AI 서버를 찾을 수 없어요. [⚙ AI 설정]의 서버 주소를 확인해 주세요.',
@@ -3367,7 +3367,7 @@ async function runRecognition(img, recognizerId = 'auto', region = null, opt = {
     const norm = normalizeRecognitionResult(raw, img);
     finished = true;
     if (modalEl !== loading) return;   // 기다리다 창을 닫았으면 아무것도 하지 않아요
-    if (!norm.cands.length) { closeModal(); throw new UserError('그림에서 도형을 찾지 못했어요. 그림이 흐리거나 작다면 [영역 골라서 인식]으로 도형 부분만 골라 보세요.'); }
+    if (!norm.cands.length) { closeModal(); throw new UserError('그림에서 도형을 찾지 못했어요. 그림이 흐리거나 작다면 [✂ 선택 영역 AI 인식]으로 도형 부분만 골라 보세요.'); }
     Object.assign(norm, { refined: fixed, replaceAi: !!opt.replace });
     reviewRecognitionDialog(norm);
   } catch (err) {
@@ -3876,7 +3876,7 @@ function reviewRecognitionDialog(norm) {
         onmouseenter: () => { if (aiPreview) { aiPreview.hot = c.key; renderOverlay(); } },
         onmouseleave: () => { if (aiPreview) { aiPreview.hot = null; renderOverlay(); } } },
         cb, H('span', {}, aiCandTitle(c, norm)),
-        H('span', { class: 'conf' + (low ? ' low' : ''), title: 'AI가 얼마나 확신하는지' }, (low ? '⚠ ' : '') + Math.round(c.conf * 100) + '%'));
+        H('span', { class: 'conf' + (low ? ' low' : ''), title: 'AI가 스스로 매긴 확신도예요. 실제로 맞을 확률을 보장하지 않아요.' }, (low ? '⚠ ' : '') + Math.round(c.conf * 100) + '%'));
     }),
   ]));
   const setAll = v => { for (const [k, cb] of boxes) { cb.checked = v; v ? on.add(k) : on.delete(k); } renderOverlay(); };
@@ -3885,6 +3885,7 @@ function reviewRecognitionDialog(norm) {
     title: '🤖 AI 인식 결과', width: 470, side: true,
     body: H('div', {},
       H('p', {}, `${norm.cands.length}개를 찾았어요. 체크한 것만 고칠 수 있는 개체로 만들어요. 그림 위 주황 점선이 미리보기예요.`),
+      H('div', { class: 'ai-sub', style: 'margin:-6px 0 10px' }, '% 는 AI가 스스로 매긴 확신도예요. 실제 정확도를 보장하지 않으니 ⚠ 표시 항목은 특히 그림과 비교해 보세요.'),
       norm.refined ? H('div', { class: 'info', style: 'margin:0 0 8px' }, `📐 좌표 자동 보정: 점 ${norm.refined}개를 그림 속 선이 만나는 곳에 맞췄어요.`) : null,
       norm.replaceAi ? H('div', { class: 'note', style: 'margin:0 0 8px' }, '🔄 적용하면 이 그림의 기존 AI 개체는 지우고 새 결과로 바꿔요.') : null,
       norm.warnings.length ? H('div', { class: 'note', style: 'margin:0 0 8px' }, norm.warnings.slice(0, 4).join(' ') + (norm.warnings.length > 4 ? ` 외 ${norm.warnings.length - 4}개` : '')) : null,

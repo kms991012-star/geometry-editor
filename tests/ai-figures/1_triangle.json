@@ -1,0 +1,47 @@
+{
+ "image": {
+  "width": 600,
+  "height": 450
+ },
+ "objects": [
+  {
+   "type": "point",
+   "id": "A",
+   "label": "A",
+   "x": 300,
+   "y": 70
+  },
+  {
+   "type": "point",
+   "id": "B",
+   "label": "B",
+   "x": 110,
+   "y": 380
+  },
+  {
+   "type": "point",
+   "id": "C",
+   "label": "C",
+   "x": 500,
+   "y": 380
+  },
+  {
+   "type": "segment",
+   "from": "A",
+   "to": "B",
+   "dashed": false
+  },
+  {
+   "type": "segment",
+   "from": "B",
+   "to": "C",
+   "dashed": false
+  },
+  {
+   "type": "segment",
+   "from": "C",
+   "to": "A",
+   "dashed": false
+  }
+ ]
+}

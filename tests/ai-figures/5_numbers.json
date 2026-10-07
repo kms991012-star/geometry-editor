@@ -1,0 +1,90 @@
+{
+ "image": {
+  "width": 660,
+  "height": 440
+ },
+ "objects": [
+  {
+   "type": "point",
+   "id": "A",
+   "label": "A",
+   "x": 120,
+   "y": 90
+  },
+  {
+   "type": "point",
+   "id": "B",
+   "label": "B",
+   "x": 120,
+   "y": 340
+  },
+  {
+   "type": "point",
+   "id": "C",
+   "label": "C",
+   "x": 540,
+   "y": 340
+  },
+  {
+   "type": "point",
+   "id": "D",
+   "label": "D",
+   "x": 540,
+   "y": 90
+  },
+  {
+   "type": "segment",
+   "from": "A",
+   "to": "B",
+   "dashed": false
+  },
+  {
+   "type": "segment",
+   "from": "B",
+   "to": "C",
+   "dashed": false
+  },
+  {
+   "type": "segment",
+   "from": "C",
+   "to": "D",
+   "dashed": false
+  },
+  {
+   "type": "segment",
+   "from": "D",
+   "to": "A",
+   "dashed": false
+  },
+  {
+   "type": "segment",
+   "from": "A",
+   "to": "C",
+   "dashed": false
+  },
+  {
+   "type": "length",
+   "segment": [
+    "B",
+    "C"
+   ],
+   "value": "12 cm"
+  },
+  {
+   "type": "length",
+   "segment": [
+    "A",
+    "B"
+   ],
+   "value": "5 cm"
+  },
+  {
+   "type": "length",
+   "segment": [
+    "A",
+    "C"
+   ],
+   "value": "13 cm"
+  }
+ ]
+}

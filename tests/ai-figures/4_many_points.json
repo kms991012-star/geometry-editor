@@ -1,0 +1,93 @@
+{
+ "image": {
+  "width": 620,
+  "height": 480
+ },
+ "objects": [
+  {
+   "type": "point",
+   "id": "A",
+   "label": "A",
+   "x": 250,
+   "y": 70
+  },
+  {
+   "type": "point",
+   "id": "B",
+   "label": "B",
+   "x": 80,
+   "y": 400
+  },
+  {
+   "type": "point",
+   "id": "C",
+   "label": "C",
+   "x": 540,
+   "y": 400
+  },
+  {
+   "type": "point",
+   "id": "M",
+   "label": "M",
+   "x": 310,
+   "y": 400
+  },
+  {
+   "type": "point",
+   "id": "H",
+   "label": "H",
+   "x": 250,
+   "y": 400
+  },
+  {
+   "type": "segment",
+   "from": "A",
+   "to": "B",
+   "dashed": false
+  },
+  {
+   "type": "segment",
+   "from": "B",
+   "to": "H",
+   "dashed": false
+  },
+  {
+   "type": "segment",
+   "from": "H",
+   "to": "M",
+   "dashed": false
+  },
+  {
+   "type": "segment",
+   "from": "M",
+   "to": "C",
+   "dashed": false
+  },
+  {
+   "type": "segment",
+   "from": "C",
+   "to": "A",
+   "dashed": false
+  },
+  {
+   "type": "segment",
+   "from": "A",
+   "to": "M",
+   "dashed": false
+  },
+  {
+   "type": "segment",
+   "from": "A",
+   "to": "H",
+   "dashed": true
+  },
+  {
+   "type": "rightAngle",
+   "points": [
+    "A",
+    "H",
+    "C"
+   ]
+  }
+ ]
+}
