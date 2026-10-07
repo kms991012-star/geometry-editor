@@ -371,7 +371,7 @@ const CONFIG = {
   paper: { width: 800, height: 600, margin: 40 },   // 작업 종이 크기(px)와 바깥 여백
   mathFont: "'Times New Roman', Batang, serif",     // 수학 글자 글꼴(교과서 느낌)
   point: {
-    size: 4.5,                 // 점 반지름
+    size: 3.5,                 // 점 반지름 (작아도 잡는 범위는 hitRadius라서 옮기기 쉬워요)
     color: INK,                // 점 색
     labelSize: 22,             // 점 이름 글자 크기
     labelItalic: true,         // 점 이름 기울임
@@ -420,7 +420,7 @@ const CONFIG = {
   palette: ['#222b3c', '#7c879c', '#e5484d', '#f08c2e', '#2fa36b', '#3b6fe0', '#8b5cf6'],  // 색 고르기 버튼
   quickNames: ['A','B','C','D','E','O','P','Q','R','H','M'],  // 점 이름 빠른 선택 버튼
   symbols: ['∠','△','°','⊥','∥','≡','∽','π','√','²','³','½','□','x','y','a','b','cm'],  // 문자 입력 기호 버튼
-  hitRadius: 11,               // 점·선을 클릭하기 쉬운 범위(화면 픽셀)
+  hitRadius: 14,               // 점·선을 클릭하기 쉬운 범위(화면 픽셀)
   historyLimit: 150,           // 실행 취소 가능한 횟수
   export: { padding: 24, scale: 2 },   // PNG: 도형 부분만 저장할 때 여백, 기본 선명도
   ai: {                        // AI 도형 인식
@@ -3141,38 +3141,42 @@ document.addEventListener('paste', e => {
    - 일부만 다시 인식: recognitionInput(img, region)으로 잘라 보내고, 결과의 region으로 제자리에 놓여요
    ================================================================ */
 /* 다른 AI 채팅(Gemini 앱 등)에 그림과 함께 보낼 요청문 = 인식 결과 형식 설명서 */
-const AI_PROMPT = `첨부한 수학 문제 그림을 분석해서, 그림 속 도형을 아래 형식의 JSON으로만 알려 주세요. (설명 문장 없이 JSON만)
-좌표는 그림 왼쪽 위가 (0, 0)인 픽셀 좌표이고, 오른쪽이 +x, 아래쪽이 +y예요.
-픽셀 크기를 정확히 모르면 "units": "ratio"로 적고 0~1 사이 비율로 적어도 돼요.
+const AI_PROMPT = `첨부한 수학 문제 그림을 분석해서, 그림 속 도형을 아래 형식의 JSON으로만 알려 주세요. 설명 문장 없이 JSON 코드 블록 하나만 주세요.
+
+위치는 모두 "point": [y, x] 형식이고, 그림 크기와 상관없이 0~1000으로 나타낸 값이에요.
+(y: 0 = 그림 맨 위, 1000 = 맨 아래 / x: 0 = 맨 왼쪽, 1000 = 맨 오른쪽)
+
 {
-  "image": { "width": 그림 너비, "height": 그림 높이 },
+  "format": "yx1000",
   "objects": [
-    { "id": "A", "type": "point", "label": "A", "x": 120, "y": 340, "confidence": 0.95 },
-    { "type": "segment", "from": "A", "to": "B", "dashed": false, "heads": "none" },
-    { "type": "line", "through": ["A", "B"] },
-    { "type": "ray", "from": "A", "through": "B" },
-    { "type": "triangle", "points": ["A", "B", "C"] },
-    { "type": "circle", "center": "O", "through": "A" },
-    { "type": "arc", "center": "O", "from": "A", "to": "B" },
-    { "type": "angle", "points": ["A", "B", "C"], "value": "60°" },
-    { "type": "rightAngle", "points": ["A", "B", "C"] },
-    { "type": "parallel", "segments": [["A", "D"], ["B", "C"]], "count": 1 },
-    { "type": "perpendicular", "segments": [["A", "B"], ["C", "D"]] },
-    { "type": "length", "segment": ["A", "B"], "value": "5" },
-    { "type": "dimension", "between": ["A", "B"], "value": "7" },
-    { "type": "text", "text": "x", "x": 200, "y": 150 },
-    { "type": "label", "text": "D", "x": 410, "y": 90 },
-    { "type": "arrow", "from": [300, 80], "to": [360, 80], "heads": "end" }
+    { "type": "point", "id": "A", "label": "A", "point": [120, 340], "confidence": 0.95 },
+    { "type": "point", "id": "P1", "label": "", "point": [500, 610], "confidence": 0.8 },
+    { "type": "segment", "from": "A", "to": "B", "dashed": false, "heads": "none", "ticks": 0, "confidence": 0.9 },
+    { "type": "polygon", "points": ["A", "B", "C"], "fill": false, "confidence": 0.9 },
+    { "type": "line", "from": "A", "to": "B", "confidence": 0.8 },
+    { "type": "ray", "from": "A", "through": "B", "confidence": 0.8 },
+    { "type": "circle", "center": "O", "through": "A", "confidence": 0.8 },
+    { "type": "arc", "center": "O", "from": "A", "to": "B", "confidence": 0.8 },
+    { "type": "rightAngle", "points": ["A", "B", "C"], "confidence": 0.9 },
+    { "type": "angle", "points": ["A", "B", "C"], "value": "60°", "confidence": 0.8 },
+    { "type": "parallel", "segment": ["A", "D"], "otherSegment": ["B", "C"], "count": 1, "confidence": 0.8 },
+    { "type": "perpendicular", "segment": ["A", "B"], "otherSegment": ["C", "D"], "confidence": 0.8 },
+    { "type": "length", "segment": ["A", "B"], "value": "5", "confidence": 0.8 },
+    { "type": "dimension", "segment": ["B", "G"], "value": "6", "confidence": 0.8 },
+    { "type": "arrow", "fromPos": [300, 800], "to": "A", "heads": "end", "confidence": 0.7 },
+    { "type": "text", "text": "x", "point": [200, 150], "confidence": 0.8 }
   ]
 }
+
 규칙:
-- 각(angle, rightAngle)의 points는 가운데 점이 꼭짓점이에요.
-- 점 이름을 모르면 label을 비워 두세요. 점과 떨어져 있는 이름 글자는 "label"로 적으면 가까운 점의 이름이 돼요.
-- 점선은 "dashed": true, 치수선(양쪽 화살표와 길이)은 "dimension"으로 적어 주세요.
-- 화살표는 "arrow"로, 꼬리(from)와 머리(to)를 적어요. 양쪽 화살표면 "heads": "both".
-- 같은 길이 표시(|, ||)가 있는 선분은 segment에 "ticks": 1~3을 적어요. 호(arc)는 화면에서 시계 반대 방향으로 from → to예요.
-- 두 점을 잇는 선분 끝에 화살촉이 있으면 segment에 "heads"를 적어요: "end"(to 쪽), "start"(from 쪽), "both".
-- 확실하지 않은 항목은 "confidence"를 0~1 사이로 낮게 적어 주세요.`;
+- 꼭짓점·끝점·교점·원의 중심·찍힌 점을 모두 "point"로 적고, 다른 항목은 점의 id로 가리켜요.
+- 점 옆의 글자(A, B, C, H, M, A' …)는 그 점의 "label"이에요(id도 같게). 따로 "text"로 또 적지 마세요.
+- 점 위치는 점이 찍힌 곳 또는 선들이 만나는 바로 그 자리예요. 글자 위치가 아니에요.
+- 그림에 그려진 선분은 모두 "segment"로 적어요. 한 직선 위에 점이 여러 개 있으면(B, G, H, C) 이웃한 점끼리 나눠서 적어요(B-G, G-H, H-C).
+- 점선이면 "dashed": true. 직각 표시(작은 네모)는 "rightAngle", 각의 호나 각도 글자는 "angle"(points의 가운데가 꼭짓점).
+- 선분 옆 숫자·식("6", "4 cm", "x")은 "length", 따로 그려진 치수선(양쪽 화살표나 괄호선)은 "dimension".
+- 숫자와 점 이름을 헷갈리지 마세요. 글자·숫자·직각 표시·눈금·화살촉을 선분으로 적지 마세요. 원과 호를 구분해요.
+- 그림에 없는 것은 만들지 마세요. 확실하지 않으면 "confidence"를 낮게(0~1) 적어요.`;
 
 /* 인식기 목록: auto = AI 서버(api/recognize.js)로 그림을 보내 자동 인식, paste = 다른 AI 결과 붙여넣기
    다른 인식 방법을 더하려면 { label, ready: true, async recognize(input, { signal }) → raw } 를 추가 */
@@ -3281,6 +3285,64 @@ async function analyzeGeometryImage(input, { signal } = {}) {
   return raw;
 }
 
+/* ---------- 받은 결과를 '보낸 그림(input)의 픽셀 좌표'로 맞추기 ----------
+   서버 결과는 이미 그 형식이고, 붙여넣기 결과는 Gemini 형식(0~1000 [y, x])·비율(ratio)·픽셀(그림 크기 따로) 중 무엇이든 받아요 */
+function parseAiText(text) {
+  if (typeof text !== 'string') return text;
+  const t = text.trim(), a = t.indexOf('{'), b = t.lastIndexOf('}');
+  try { return JSON.parse(a >= 0 && b > a ? t.slice(a, b + 1) : t); }
+  catch (_) { throw new UserError('결과를 읽을 수 없어요. AI가 준 JSON을 처음 { 부터 끝 } 까지 그대로 붙여 넣어 주세요.'); }
+}
+function fromYX1000(list, W, Hh) {
+  const px = p => Array.isArray(p) && p.length >= 2 && isFinite(+p[0]) && isFinite(+p[1]) ? { x: +p[1] / 1000 * W, y: +p[0] / 1000 * Hh } : null;
+  const out = [];
+  for (const o of list) {
+    if (!o || typeof o !== 'object') continue;
+    const base = { type: o.type, confidence: o.confidence };
+    switch (o.type) {
+      case 'point': { const p = px(o.point); if (p) out.push({ ...base, id: String(o.id || o.label || ''), label: String(o.label || ''), ...p }); break; }
+      case 'text': case 'label': { const p = px(o.point); if (p) out.push({ ...base, text: String(o.text || o.label || ''), ...p }); break; }
+      case 'segment': out.push({ ...base, from: o.from, to: o.to, dashed: !!o.dashed, ...(o.heads && o.heads !== 'none' ? { heads: o.heads } : {}), ...(+o.ticks > 0 ? { ticks: +o.ticks } : {}) }); break;
+      case 'line': out.push({ ...base, through: Array.isArray(o.through) ? o.through : [o.from, o.to], dashed: !!o.dashed }); break;
+      case 'circle': out.push({ ...base, center: o.center, ...(o.through ? { through: o.through } : {}), ...(+o.radius > 0 ? { radius: +o.radius / 1000 * W } : {}), dashed: !!o.dashed }); break;
+      case 'parallel': case 'perpendicular': out.push({ ...base, segments: o.segments || [o.segment, o.otherSegment], count: +o.count || 1 }); break;
+      case 'dimension': out.push({ ...base, between: o.between || o.segment, value: o.value || o.text || '' }); break;
+      case 'arrow': {
+        const end = (id, pos) => id || (px(pos) ? [px(pos).x, px(pos).y] : null);
+        const a = end(o.from, o.fromPos), b = end(o.to, o.toPos);
+        if (a && b) out.push({ ...base, from: a, to: b, heads: o.heads === 'both' ? 'both' : 'end' });
+        break;
+      }
+      default: out.push(o);
+    }
+  }
+  return out;
+}
+function prepareRaw(raw, input) {
+  raw = parseAiText(raw);
+  if (Array.isArray(raw)) raw = { objects: raw };
+  if (!raw || typeof raw !== 'object') throw new UserError('결과에 "objects" 목록이 없어요.');
+  const list = raw.objects || raw.items || raw.shapes || raw.elements;
+  if (!Array.isArray(list)) throw new UserError('결과에 "objects" 목록이 없어요.');
+  const W = input.width, Hh = input.height;
+  const yx = raw.format === 'yx1000' || list.some(o => o && Array.isArray(o.point));
+  let objects;
+  if (yx) objects = fromYX1000(list, W, Hh);
+  else {   // x, y 좌표: 비율이면 그대로 곱하고, 픽셀이면 AI가 적은 그림 크기 → 보낸 그림 크기로
+    const ratio = raw.units === 'ratio';
+    const kx = ratio ? W : raw.image && +raw.image.width > 0 ? W / +raw.image.width : 1;
+    const ky = ratio ? Hh : raw.image && +raw.image.height > 0 ? Hh / +raw.image.height : 1;
+    const sc = o => { if (isFinite(+o.x) && isFinite(+o.y)) { o.x = +o.x * kx; o.y = +o.y * ky; } };
+    objects = list.filter(o => o && typeof o === 'object').map(o => {
+      o = { ...o }; sc(o);
+      for (const k of ['from', 'to']) if (Array.isArray(o[k])) o[k] = [+o[k][0] * kx, +o[k][1] * ky];
+      if (+o.radius > 0) o.radius = +o.radius * (kx + ky) / 2;
+      return o;
+    });
+  }
+  return { image: { width: W, height: Hh }, region: input.region || null, objects };
+}
+
 /* ---------- 좌표 자동 보정: AI가 찍은 점을 '그림 속 선이 실제로 지나는 곳'으로 살짝 옮겨요 ----------
    점마다 연결된 선분 방향으로 그림의 어두운 픽셀(선)이 얼마나 이어지는지 재서, 가까운 범위에서 가장 잘 맞는 자리로.
    글자나 다른 표시 쪽으로는 끌려가지 않아요(선이 이어지는 방향만 보니까). 옮긴 점 개수를 돌려줘요. */
@@ -3322,6 +3384,43 @@ function refineRecognition(raw, canvas) {
     else if (o.type === 'line' && Array.isArray(o.through)) link(o.through[0], o.through[1]);
     else if (o.type === 'ray') link(o.from, o.through);
   }
+  // ① 전체 맞춤: AI 좌표가 통째로 늘었거나(그림 크기 착각) 밀려 있으면, 그림 속 선과 가장 잘 겹치도록 가로·세로 배율과 위치를 맞춰요
+  raw._aligned = false;
+  const edges = []; const seen = new Set();
+  for (const [p, set] of nbrs) for (const q of set) { const key = [objs.indexOf(p), objs.indexOf(q)].sort().join(); if (!seen.has(key)) { seen.add(key); edges.push([p, q]); } }
+  const allPts = [...pts.values()];
+  if (edges.length >= 2 && allPts.length >= 3) {
+    const cx = allPts.reduce((t, p) => t + +p.x, 0) / allPts.length, cy = allPts.reduce((t, p) => t + +p.y, 0) / allPts.length;
+    const T = (p, f) => ({ x: cx + (+p.x - cx) * f.sx + f.tx, y: cy + (+p.y - cy) * f.sy + f.ty });
+    const line = (a, b) => { const L = Math.hypot(b.x - a.x, b.y - a.y); if (L < 8) return 0; let h = 0; const n = 24;
+      for (let i = 0; i < n; i++) { const t = 0.1 + 0.8 * i / (n - 1); h += at(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t); } return h / n; };
+    const score = f => edges.reduce((t, [p, q]) => t + line(T(p, f), T(q, f)), 0) / edges.length;
+    const id = { sx: 1, sy: 1, tx: 0, ty: 0 }, base = score(id);
+    let best = { ...id }, bs = base;
+    for (let pass = 0; pass < 3; pass++) for (const [s, tt, span] of [['sy', 'ty', Hh], ['sx', 'tx', W]]) {
+      for (let sc = 0.5; sc <= 2.0001; sc += 0.025) for (let tv = -0.4 * span; tv <= 0.4 * span; tv += span / 150) {
+        const f = { ...best, [s]: sc, [tt]: tv }, v = score(f); if (v > bs) { bs = v; best = f; }
+      }
+    }
+    for (let step = 4; step >= 0.5; step /= 2) for (let it = 0; it < 6; it++) {   // 마지막으로 잘게
+      let improved = false;
+      for (const [key, d] of [['tx', step], ['tx', -step], ['ty', step], ['ty', -step], ['sx', step / 400], ['sx', -step / 400], ['sy', step / 400], ['sy', -step / 400]]) {
+        const f = { ...best, [key]: best[key] + d }, v = score(f); if (v > bs) { bs = v; best = f; improved = true; }
+      }
+      if (!improved) break;
+    }
+    if (bs >= 0.45 && bs > base + 0.15) {
+      const f = best, kr = (f.sx + f.sy) / 2;
+      for (const o of objs) {
+        if (!o) continue;
+        if (isFinite(+o.x) && isFinite(+o.y)) Object.assign(o, T(o, f));
+        for (const k of ['from', 'to']) if (Array.isArray(o[k])) { const q = T({ x: o[k][0], y: o[k][1] }, f); o[k] = [q.x, q.y]; }
+        if (+o.radius > 0) o.radius = +o.radius * kr;
+      }
+      raw._aligned = true;
+    }
+  }
+  // ② 점 하나씩: 연결된 선 방향으로 가장 잘 맞는 자리로
   const R = Math.max(5, Math.round(Math.max(W, Hh) * 0.02));
   const moved = new Set();
   for (const p of nbrs.keys()) p._x0 = +p.x, p._y0 = +p.y;
@@ -3380,7 +3479,7 @@ async function runRecognition(img, recognizerId = 'auto', region = null, opt = {
   try {
     const input = await recognitionInput(img, region);
     aiCountCall();
-    const raw = await R.recognize(input, { signal: ctrl.signal });
+    const raw = prepareRaw(await R.recognize(input, { signal: ctrl.signal }), input);
     if (ctrl.signal.aborted) throw Object.assign(new Error('aborted'), { name: 'AbortError' });
     let fixed = 0;
     if (aiSettings().refine && input.canvas && raw.units !== 'ratio') { try { fixed = refineRecognition(raw, input.canvas); } catch (e) { console.warn(e); } }
@@ -3388,7 +3487,7 @@ async function runRecognition(img, recognizerId = 'auto', region = null, opt = {
     finished = true;
     if (modalEl !== loading) return;   // 기다리다 창을 닫았으면 아무것도 하지 않아요
     if (!norm.cands.length) { closeModal(); throw new UserError('그림에서 도형을 찾지 못했어요. 그림이 흐리거나 작다면 [✂ 선택 영역 AI 인식]으로 도형 부분만 골라 보세요.'); }
-    Object.assign(norm, { refined: fixed, dashFixed: raw._dashFixed || 0, replaceAi: !!opt.replace });
+    Object.assign(norm, { refined: fixed, dashFixed: raw._dashFixed || 0, aligned: !!raw._aligned, replaceAi: !!opt.replace });
     reviewRecognitionDialog(norm);
   } catch (err) {
     finished = true;
@@ -3869,18 +3968,23 @@ function aiPasteDialog(img) {
     title: '🤖 AI 도형 인식', width: 580,
     body: H('div', {},
       H('ol', { class: 'ai-steps' },
-        H('li', {}, '[요청문 복사]를 누르고, AI 채팅(Gemini 앱 등)에 이 그림과 함께 붙여 넣어요.'),
-        H('li', {}, 'AI가 준 결과(JSON)를 복사해서 아래 칸에 붙여 넣어요.'),
+        H('li', {}, '[요청문 복사]를 누르고, AI 채팅(gemini.google.com 등)에 이 그림 파일과 함께 붙여 넣어 보내요.'),
+        H('li', {}, 'AI 답에서 { 로 시작하는 코드 상자의 복사 아이콘을 눌러 복사하고, 아래 칸에 붙여 넣어요.'),
         H('li', {}, '[인식 결과 확인]에서 맞는 것만 골라 적용하면, 직접 그린 것처럼 고칠 수 있어요.')),
       H('div', { class: 'btn-row' }, copyBtn, sampleBtn),
       ta,
-      H('div', { class: 'info', style: 'margin:10px 0 0' }, '💡 보통은 그림 속성창의 [🤖 AI로 도형 인식하기]가 더 편해요. 이 방법은 다른 AI의 결과를 쓰고 싶을 때만 써요.')),
+      H('div', { class: 'info', style: 'margin:10px 0 0' }, '💡 붙여 넣은 결과도 그림 속 선에 맞춰 위치를 자동으로 바로잡아요. 무료 한도가 다 찼을 때 쓰기 좋아요.')),
     buttons: [
       { label: '취소' },
-      { label: '인식 결과 확인', kind: 'primary', onClick: () => {
+      { label: '인식 결과 확인', kind: 'primary', onClick: async () => {
         if (!ta.value.trim()) { toast('AI가 준 결과를 먼저 붙여 넣어 주세요.', 'warn'); ta.focus(); return false; }
-        const norm = normalizeRecognitionResult(ta.value, img);
+        const input = await recognitionInput(img);   // 그림만 준비 (AI 호출 없음)
+        const raw = prepareRaw(ta.value, input);
+        let fixed = 0;
+        if (aiSettings().refine) { try { fixed = refineRecognition(raw, input.canvas); } catch (e) { console.warn(e); } }
+        const norm = normalizeRecognitionResult(raw, img);
         if (!norm.cands.length) throw new UserError('결과 안에서 도형을 하나도 찾지 못했어요.');
+        Object.assign(norm, { refined: fixed, dashFixed: raw._dashFixed || 0, aligned: !!raw._aligned });
         reviewRecognitionDialog(norm);
         return false;   // 검토 창이 이 창 대신 열려 있으니 닫지 않아요
       } },
@@ -3929,8 +4033,8 @@ function reviewRecognitionDialog(norm) {
     body: H('div', {},
       H('p', {}, `${norm.cands.length}개를 찾았어요. 체크한 것만 고칠 수 있는 개체로 만들어요. 그림 위 주황 점선이 미리보기예요.`),
       H('div', { class: 'ai-sub', style: 'margin:-6px 0 10px' }, '% 는 AI가 스스로 매긴 확신도예요. 실제 정확도를 보장하지 않으니 ⚠ 표시 항목은 특히 그림과 비교해 보세요.'),
-      norm.refined || norm.dashFixed ? H('div', { class: 'info', style: 'margin:0 0 8px' }, '📐 그림으로 다시 확인: '
-        + [norm.refined ? `점 ${norm.refined}개를 선이 만나는 곳에 맞췄어요` : '', norm.dashFixed ? `선분 ${norm.dashFixed}개의 실선/점선을 고쳤어요` : ''].filter(Boolean).join(', ') + '.') : null,
+      norm.aligned || norm.refined || norm.dashFixed ? H('div', { class: 'info', style: 'margin:0 0 8px' }, '📐 그림으로 다시 확인: '
+        + [norm.aligned ? '어긋나 있던 전체 위치·크기를 그림에 맞췄어요' : '', norm.refined ? `점 ${norm.refined}개를 선이 만나는 곳에 맞췄어요` : '', norm.dashFixed ? `선분 ${norm.dashFixed}개의 실선/점선을 고쳤어요` : ''].filter(Boolean).join(', ') + '.') : null,
       norm.replaceAi ? H('div', { class: 'note', style: 'margin:0 0 8px' }, '🔄 적용하면 이 그림의 기존 AI 개체는 지우고 새 결과로 바꿔요.') : null,
       norm.warnings.length ? H('div', { class: 'note', style: 'margin:0 0 8px' }, norm.warnings.slice(0, 4).join(' ') + (norm.warnings.length > 4 ? ` 외 ${norm.warnings.length - 4}개` : '')) : null,
       H('div', { class: 'btn-row', style: 'margin:0' },
@@ -3956,8 +4060,8 @@ function drawAiPreview(ov, k) {
     const d = c.data, w = (c.key === hot ? 4.5 : 2.2) * k;
     const st = { fill: 'none', stroke: color, 'stroke-width': w, 'stroke-dasharray': `${6 * k} ${4 * k}`, 'stroke-opacity': on.has(c.key) ? 1 : .5 };
     if (c.kind === 'point') {
-      S('circle', { cx: d.x, cy: d.y, r: (c.key === hot ? 8 : 5) * k, fill: color, 'fill-opacity': .85 }, ov);
-      if (d.label) { const t = S('text', { x: d.x + 9 * k, y: d.y - 9 * k, fill: color, 'font-size': 18 * k, 'font-weight': 700, 'font-family': CONFIG.mathFont }, ov); t.textContent = d.label; }
+      S('circle', { cx: d.x, cy: d.y, r: (c.key === hot ? 6 : 3.5) * k, fill: color, 'fill-opacity': .9 }, ov);
+      if (d.label) { const t = S('text', { x: d.x + 8 * k, y: d.y - 8 * k, fill: color, 'font-size': 15 * k, 'font-weight': 700, 'font-family': CONFIG.mathFont }, ov); t.textContent = d.label; }
     } else if (c.kind === 'arrow') {
       const G = arrowGeom({ x: d.x1, y: d.y1, dx: d.x2 - d.x1, dy: d.y2 - d.y1, heads: d.both ? 'both' : 'end', headSize: CONFIG.arrow.headSize });
       if (G) { S('line', { ...st, x1: G.L1.x, y1: G.L1.y, x2: G.L2.x, y2: G.L2.y }, ov); S('path', { d: G.heads, fill: color, 'fill-opacity': on.has(c.key) ? 1 : .5 }, ov); }
@@ -3969,8 +4073,17 @@ function drawAiPreview(ov, k) {
       const G = arcFromPts(pt(d.c), pt(d.a), pt(d.b), false); if (G) S('path', { ...st, d: arcD(G) }, ov);
     } else if (c.kind === 'circle') {
       const C = pt(d.c), p = d.p && pt(d.p), r = p ? V.dist(C, p) : d.r; if (C && r > 0) S('circle', { ...st, cx: C.x, cy: C.y, r }, ov);
-    } else if (c.kind === 'angle' || c.kind === 'right') {
-      const v = pt(d.v); if (v) S('circle', { ...st, cx: v.x, cy: v.y, r: 16 * k }, ov);
+    } else if (c.kind === 'right') {   // 직각 표시: 작은 ㄱ자
+      const a = pt(d.a), v = pt(d.v), b = pt(d.b);
+      if (a && v && b && V.dist(a, v) > 1 && V.dist(b, v) > 1) S('path', { ...st, 'stroke-dasharray': null, d: cornerPath(v, V.norm(V.sub(a, v)), V.norm(V.sub(b, v)), CONFIG.right.size).open }, ov);
+    } else if (c.kind === 'angle') {   // 각: 호 (+ 각도 글자)
+      const a = pt(d.a), v = pt(d.v), b = pt(d.b);
+      if (a && v && b && V.dist(a, v) > 1 && V.dist(b, v) > 1) {
+        const a1 = Math.atan2(a.y - v.y, a.x - v.x); let dd = Math.atan2(b.y - v.y, b.x - v.x) - a1;
+        while (dd <= -Math.PI) dd += TAU; while (dd > Math.PI) dd -= TAU;
+        S('path', { ...st, 'stroke-dasharray': null, d: arcPath(v, CONFIG.angle.radius, a1, dd) }, ov);
+        if (d.label) { const q = polar(v, CONFIG.angle.radius + 14, a1 + dd / 2); const t = S('text', { x: q.x, y: q.y, fill: color, 'font-size': 15 * k, 'font-weight': 700, 'text-anchor': 'middle', 'dominant-baseline': 'central', 'font-family': CONFIG.mathFont }, ov); t.textContent = d.label; }
+      }
     } else if (c.kind === 'length' || c.kind === 'text') {
       const s = c.kind === 'length' ? map.get(d.seg) : null;
       const p = s ? (() => { const a = pt(s.data.a), b = pt(s.data.b); return a && b ? V.lerp(a, b, .5) : null; })() : d;
