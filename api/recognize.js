@@ -227,6 +227,23 @@ async function handler(req, res) {
   }
 
   try {
+    if (body.diag) {   // [임시 진단] 조건을 바꿔 가며 Gemini 응답 시간 재기 — 원인을 찾으면 지울 예정
+      const d = body.diag, img = body.image || {};
+      const m = FREE_TIER_MODELS.includes(d.model) ? d.model : model;
+      const gc = { maxOutputTokens: d.maxTokens || 8192 };
+      if (d.schema) { gc.responseMimeType = 'application/json'; gc.responseSchema = RESULT_SCHEMA; }
+      else if (d.json) gc.responseMimeType = 'application/json';
+      if (d.thinking) gc.thinkingConfig = { thinkingLevel: d.thinking };
+      const parts = d.text ? [{ text: 'Say OK.' }] : [{ inlineData: { mimeType: img.mediaType, data: img.data } }, { text: d.prompt || 'Extract every geometric object in this math figure as JSON.' }];
+      const t0 = Date.now();
+      try {
+        const { status, body: b } = await gemini(`models/${m}:generateContent`, { method: 'POST', signal: AbortSignal.timeout(55_000),
+          body: JSON.stringify({ ...(d.system ? { systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] } } : {}), contents: [{ role: 'user', parts }], generationConfig: gc }) });
+        const c = b && b.candidates && b.candidates[0];
+        const text = c && c.content && (c.content.parts || []).map(x => x.text || '').join('');
+        return send(res, 200, { ok: true, diag: { model: m, ms: Date.now() - t0, status, finish: c && c.finishReason, usage: b && b.usageMetadata, head: text ? text.slice(0, 400) : null, len: text ? text.length : 0, detail: status !== 200 ? errDetail(status, b) : null } });
+      } catch (e) { return send(res, 200, { ok: true, diag: { model: m, ms: Date.now() - t0, error: e.name } }); }
+    }
     if (body.ping) {   // [연결 시험]: 그림 인식 없이 키·모델만 확인 (모델 정보 조회 — 생성 요청이 아니라 한도를 쓰지 않아요)
       const { status, body: b } = await gemini(`models/${model}`, { signal: AbortSignal.timeout(15_000) });
       if (status !== 200) return send(res, 502, { ok: false, error: geminiError(status, b) });
