@@ -103,6 +103,7 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
 #board.tool-select .obj.point,#board.tool-select .obj.text,#board.tool-select .obj.length,#board.tool-select .obj.arrow,
 #board.tool-select .obj.image.unlocked{cursor:move}
 #board.tool-select .obj.angle,#board.tool-select .obj.right,#board.tool-select .obj.perp{cursor:nwse-resize}
+#board.tool-select .obj.point .plabel{cursor:move}
 #board.tool-select .obj.image.locked{cursor:default}
 #board.tool-text{cursor:text}
 #board.tool-text .obj.text{cursor:move}
@@ -1415,10 +1416,10 @@ const DRAW = {
     if (o.showLabel && o.name) {
       const L = pointLabelPos(o);
       const ls = labelStyle(o);
-      const font = { 'font-family': ls.family, 'font-style': ls.italic ? 'italic' : 'normal' };
+      const font = { 'font-family': ls.family, 'font-style': ls.italic ? 'italic' : 'normal', class: 'plabel', 'pointer-events': edit ? 'bounding-box' : null };   // 이름 글자는 끌어서 옮길 수 있어요
       if (!ls.weight) mathText(g, L.x, L.y, pointLabelText(o), ls.size, o.color, font);
       else {   // 굵게: 글자 테두리를 같은 색으로 덧그려서 두껍게 (어떤 글꼴이든 단계적으로 조절돼요)
-        if (coordOn()) mathText(g, L.x, L.y, pointLabelText(o), ls.size, '#fff', { ...font, stroke: '#fff', 'stroke-width': 4 + ls.weight });   // 격자 위에서도 읽히게 흰 테두리
+        if (coordOn()) mathText(g, L.x, L.y, pointLabelText(o), ls.size, '#fff', { ...font, class: null, 'pointer-events': 'none', stroke: '#fff', 'stroke-width': 4 + ls.weight });   // 격자 위에서도 읽히게 흰 테두리
         mathText(g, L.x, L.y, pointLabelText(o), ls.size, o.color, { ...font, stroke: o.color, 'stroke-width': ls.weight, 'stroke-linejoin': 'round', 'paint-order': 'stroke' });
       }
     }
@@ -2075,6 +2076,13 @@ board.addEventListener('pointerdown', e => {
     if (e.shiftKey && hit && !lockedImg) { toggleSelect(hit.id); return; }
     // 빈 곳(또는 잠긴 그림 위)에서 끌면 네모로 여러 개 선택. 그냥 클릭하면 선택 해제(잠긴 그림이면 그림 선택)
     if (!hit || lockedImg) { beginDrag(e, { kind: 'box', start: pt, clickId: hit ? hit.id : null, add: e.shiftKey }); return; }
+    // 점 이름 글자를 끌면 이름만 옮겨요 (점은 그대로, 점을 옮기면 같은 간격으로 따라가요)
+    if (hit.type === 'point' && e.target.closest('.plabel')) {
+      select(hit.id);
+      const L = pointLabelPos(hit);
+      beginDrag(e, { kind: 'label', id: hit.id, start: pt, orig: { dx: L.x - hit.x, dy: L.y - hit.y } });
+      return;
+    }
     // 여러 개 선택된 것 중 하나를 끌면 함께 이동
     if (multiSel.includes(hit.id)) { const g = groupDragInfo(multiSel, pt); if (g) beginDrag(e, g); return; }
     select(hit.id);
@@ -2289,6 +2297,7 @@ board.addEventListener('pointermove', e => {
       if (t != null) o.def.t = Math.round(t * 10000) / 10000;
     }
     else if (drag.kind === 'length') dragLengthLabel(o, pt);
+    else if (drag.kind === 'label') { o.labelAuto = false; o.labelDir = null; o.labelDx = round1(drag.orig.dx + dx); o.labelDy = round1(drag.orig.dy + dy); }
     else if (drag.kind === 'radius') o.radius = round1(clamp(drag.orig.radius + V.dist(pt, drag.center) - drag.d0, 8, 200));
     else if (drag.kind === 'size') o.size = round1(clamp(drag.orig.size * V.dist(pt, drag.center) / drag.d0, 4, 80));
     renderCanvas();
@@ -2604,9 +2613,13 @@ function endpointSelect(o, key) {
 /* 점 이름 위치 고르기: 3×3 버튼 (가운데 '자동') */
 function labelDirPicker(o) {
   const cells = [['nw', '↖'], ['n', '↑'], ['ne', '↗'], ['w', '←'], ['auto', '자동'], ['e', '→'], ['sw', '↙'], ['s', '↓'], ['se', '↘']];
-  const cur = o.labelAuto !== false ? 'auto' : o.labelDir;
-  return H('div', { class: 'dir-grid' }, cells.map(([k, label]) => H('button', { class: k === cur ? 'on' : '', title: k === 'auto' ? '선분을 피해 자동으로' : '이 방향에 이름 두기',
-    onclick: () => { hist.lastKey = null; record(); o.labelAuto = k === 'auto'; if (k !== 'auto') o.labelDir = k; renderCanvas(); renderPanel(); } }, label)));
+  const cur = o.labelAuto !== false ? 'auto' : o.labelDir;   // 직접 끌어 둔 경우엔 어느 버튼도 켜지지 않아요
+  return H('div', {},
+    H('div', { class: 'dir-grid' }, cells.map(([k, label]) => H('button', { class: k === cur ? 'on' : '', title: k === 'auto' ? '선분을 피해 자동으로 (끌어 둔 위치도 처음으로)' : '이 방향에 이름 두기',
+      onclick: () => { hist.lastKey = null; record(); o.labelAuto = k === 'auto'; if (k !== 'auto') o.labelDir = k; renderCanvas(); renderPanel(); } }, label))),
+    H('div', { class: 'ai-sub', style: 'margin-top:6px' }, o.labelAuto === false && !o.labelDir
+      ? '✋ 지금은 직접 끌어 둔 위치예요. [자동]을 누르면 처음처럼 돌아가요.'
+      : '💡 그림에서 이름 글자를 직접 끌어서 원하는 곳에 둘 수도 있어요.'));
 }
 
 function renderPanel() {
