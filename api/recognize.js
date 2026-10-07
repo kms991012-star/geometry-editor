@@ -158,18 +158,23 @@ async function callModel({ mediaType, data, width, height }) {
       generationConfig,
     }),
   });
-  if (status !== 200) return { error: geminiError(status, body), retryAfter: retryAfterOf(body) };
+  if (status !== 200) return { error: geminiError(status, body), retryAfter: retryAfterOf(body), detail: errDetail(status, body) };
   if (body && body.promptFeedback && body.promptFeedback.blockReason) return { error: 'refused' };
   const cand = body && body.candidates && body.candidates[0];
   if (!cand) return { error: 'bad_output' };
   if (cand.finishReason === 'MAX_TOKENS') return { error: 'too_long' };
-  if (cand.finishReason && !['STOP', 'FINISH_REASON_UNSPECIFIED'].includes(cand.finishReason)) return { error: 'refused' };
+  if (cand.finishReason && !['STOP', 'FINISH_REASON_UNSPECIFIED'].includes(cand.finishReason)) return { error: 'refused', detail: cand.finishReason };
   const text = ((cand.content && cand.content.parts) || []).filter(p => typeof p.text === 'string' && !p.thought).map(p => p.text).join('');
   let parsed;
   try { parsed = JSON.parse(text); } catch (_) { return { error: 'bad_output' }; }
   return { result: toEditorFormat(parsed, width, height), model, usage: body.usageMetadata || null };
 }
 
+/* 진단용 짧은 정보 (키·그림 내용은 넣지 않아요): 예) '500 INTERNAL: Internal error encountered.' */
+function errDetail(status, body) {
+  const e = (body && body.error) || {};
+  return `${status} ${e.status || ''}: ${String(e.message || '').slice(0, 160)}`;
+}
 /* Gemini 오류 → 편집기가 아는 짧은 이름 */
 function geminiError(status, body) {
   const e = (body && body.error) || {};
@@ -237,14 +242,15 @@ async function handler(req, res) {
     const r = await callModel({ mediaType: img.mediaType, data: img.data, width, height });
     if (r.error) {
       const quota = r.error === 'quota_day' || r.error === 'quota_minute';
-      return send(res, quota ? 429 : 502, { ok: false, error: r.error, ...(r.retryAfter ? { retryAfter: r.retryAfter } : {}) });
+      console.error('gemini error:', r.detail);
+      return send(res, quota ? 429 : 502, { ok: false, error: r.error, ...(r.retryAfter ? { retryAfter: r.retryAfter } : {}), ...(r.detail ? { detail: r.detail } : {}) });
     }
     return send(res, 200, { ok: true, model: r.model, usage: r.usage, result: r.result });
   } catch (err) {
     // 어려운 오류 내용은 편집기에 보내지 않고 종류만 (자세한 내용은 Vercel 로그에)
     console.error('recognize failed:', err && err.name, err && err.message);
-    if (err && (err.name === 'TimeoutError' || err.name === 'AbortError')) return send(res, 504, { ok: false, error: 'timeout' });
-    return send(res, 502, { ok: false, error: 'ai_down' });
+    if (err && (err.name === 'TimeoutError' || err.name === 'AbortError')) return send(res, 504, { ok: false, error: 'timeout', detail: 'server waited 100s' });
+    return send(res, 502, { ok: false, error: 'ai_down', detail: `${err && err.name}: ${String(err && err.message).slice(0, 160)}` });
   }
 }
 
