@@ -19,7 +19,7 @@ const pairKey = (a, b) => [a, b].sort().join('');
   const names = fs.readdirSync(DIR).filter(f => /^\d_.*\.png$/.test(f)).map(f => f.replace('.png', '')).filter(n => !only || n === only);
   const rows = [];
   for (const [i, name] of names.entries()) {
-    if (i) await wait(8000);
+    if (i) await wait(+process.env.GAP_MS || 8000);
     const buf = fs.readFileSync(path.join(DIR, name + '.png')), truth = JSON.parse(fs.readFileSync(path.join(DIR, name + '.json'), 'utf8'));
     const { width, height } = pngSize(buf);
     const t0 = Date.now();
