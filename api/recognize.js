@@ -142,8 +142,7 @@ async function callModel({ mediaType, data, width, height }) {
   const generationConfig = {
     responseMimeType: 'application/json',
     responseSchema: RESULT_SCHEMA,
-    temperature: 0,
-    maxOutputTokens: 16384,
+    maxOutputTokens: 8192,   // temperature는 기본값(1.0) 그대로 — Gemini 3은 낮추면 반복(looping)할 수 있다고 공식 문서가 권고
   };
   if (model.startsWith('gemini-3')) generationConfig.thinkingConfig = { thinkingLevel: 'medium' };   // 3.x: 'minimal'은 지원 안 됨
   const { status, body } = await gemini(`models/${model}:generateContent`, {
