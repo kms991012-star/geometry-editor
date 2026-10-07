@@ -28,6 +28,10 @@
   선분 끌어서 이동, 마우스 올림 미리보기, 복사·붙여넣기·복제(Ctrl+C/V/D), 여러 개 한꺼번에 바꾸기,
   "이 모양을 기본값으로", 작업 이름·저장 상태 표시, 같은 파일에 덮어쓰기(Ctrl+S)·다른 이름으로(Ctrl+Shift+S),
   자동 저장·복구, PNG 안에 작업 정보 넣기(그 PNG를 다시 열면 고칠 수 있음)
+- [x] 6단계 (AI 도형 인식 기반): 원본 그림 숨기기(그림 속성 + 왼쪽 [원본 그림] 버튼), 선분 양 끝점 바꾸기,
+  AI 인식 결과 붙여넣기 → 검토 창(체크·확신도·그림 위 미리보기, 전체 적용/선택 항목만 적용/취소)
+  → 직접 만든 것과 똑같은 개체로 추가, "이 그림에서 인식한 개체 선택", 다른 AI에게 보낼 요청문 복사
+  - [ ] 다음: 그림을 AI 모델에 바로 보내는 자동 인식(`AI_RECOGNIZERS.auto`), 일부 영역만 다시 인식하는 화면
 
 ## 수정할 때 참고 (Claude Code용)
 파일 하나 안에 구역 제목(`[설정]`, `[그리기]` 등)이 주석으로 나뉘어 있습니다.
@@ -43,6 +47,10 @@
 | 여러 개 선택·복사 | `[선택]` 구역(`selectMany`, `moversFor`), `[복사 · 붙여넣기 · 복제]` 구역 |
 | 저장·자동 저장·PNG 작업 정보 | `[새 작업 · 작업 저장 · 작업 열기]` 구역 (`saveProject`, `scheduleAutosave`, `pngWithProject`) |
 | PNG 저장 방식 | `[PNG 내보내기]` 구역 |
+| AI 자동 인식 모델 연결 | `[AI 도형 인식]` 구역의 `AI_RECOGNIZERS.auto` (`ready: true` + `recognize(input)`이 결과 JSON을 돌려주면 됨) |
+| AI 결과 형식·요청문 | `AI_PROMPT` (형식 설명서 겸 다른 AI에게 보내는 요청문) |
+| AI가 알아듣는 종류 추가 | 결과 읽기 `AI_PARSERS`(+ 이름 맞추기 `AI_TYPE_ALIAS`) → 개체 만들기·이름 `AI_KINDS` |
+| AI 검토 창 기준(확신도·점 합치기 거리) | `CONFIG.ai` |
 
 - 모든 개체는 `doc.objects` 배열에 `{ id, type, ... }` 형태로 따로 저장됩니다.
   type: `point`, `segment`, `line`, `circle`, `arc`, `polygon`, `text`, `length`, `angle`, `right`, `parallel`, `perp`, `image`
@@ -55,3 +63,7 @@
 - 상태를 바꾸기 직전에 `record()`를 호출해야 실행 취소가 됩니다.
 - 화면용과 PNG용 그림은 같은 `drawScene()`으로 그립니다 (화면 전용 표시는 `renderOverlay()`).
 - 점은 항상 맨 위 레이어(`LAYER_OF`)여야 다른 표시에 가려지지 않고 잡을 수 있습니다.
+- 개체 종류별 속성 목록은 `<script>`의 `[상태]` 구역 주석에 정리되어 있습니다.
+- AI 인식 흐름: 인식 결과(JSON) → `normalizeRecognitionResult()`(종이 좌표로 변환, 후보 목록) → `reviewRecognitionDialog()`
+  → `applyRecognition()`. 개체는 수동 도구와 같은 `add…()` 함수로 만들고, 출처 기록 `o.ai = { image, conf }`만 더 붙습니다(동작은 같음).
+- 원본 그림은 `image` 개체로 따로 남습니다. `visible: false`면 화면·PNG에서 빠집니다.
