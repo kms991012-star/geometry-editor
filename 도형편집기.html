@@ -6,7 +6,7 @@
 <title>도형 편집기 · 수학 문제 그림 만들기</title>
 <!--
   ┌──────────────────────────────────────────────────────────────┐
-  │  도형 편집기 (3단계)                                            │
+  │  도형 편집기 (4단계)                                            │
   │  이 파일 하나만 더블클릭하면 브라우저에서 바로 실행됩니다.          │
   │  인터넷 연결·서버·설치가 필요 없습니다.                            │
   │                                                              │
@@ -63,6 +63,18 @@ svg.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.9;str
 .tb-btn.primary{background:var(--accent);color:#fff;padding:9px 15px;box-shadow:0 2px 6px rgba(91,124,250,.35)}
 .tb-btn.primary:hover{background:var(--accent-dark);color:#fff}
 .spacer{flex:1}
+.work-info{display:flex;flex-direction:column;align-items:flex-end;margin-right:10px;min-width:0;max-width:240px}
+#workTitle{border:none;background:none;padding:0 2px;font-weight:800;font-size:14px;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-bottom:1.5px dashed transparent}
+#workTitle:hover{border-bottom-color:var(--accent);color:var(--accent-dark)}
+.save-state{font-size:11.5px;font-weight:700}
+.save-state.saved{color:var(--green)}
+.save-state.unsaved{color:#c27311}
+.multi-kinds{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:14px}
+.multi-kinds span{background:#f0f3f9;border-radius:99px;padding:2px 9px;font-size:12.5px;font-weight:600;color:#45506a}
+.group-title{display:flex;align-items:center;gap:8px;margin:4px 0 10px;font-size:12px;font-weight:800;color:var(--accent-dark);letter-spacing:.02em}
+.group-title::after{content:'';flex:1;height:1px;background:var(--line)}
+.default-row{display:flex;gap:6px;margin:4px 0 6px}
+.default-row .small-btn{font-size:12px}
 
 /* ---------- 3단 레이아웃 ---------- */
 .main{flex:1;display:grid;grid-template-columns:156px 1fr 300px;gap:12px;padding:12px;min-height:0}
@@ -234,8 +246,10 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
   <div class="tb-group">
     <button class="tb-btn" id="btnOpen" title="저장해 둔 작업 파일 열기 (Ctrl+O)"><svg class="ic" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>작업 열기</button>
     <button class="tb-btn" id="btnSave" title="작업을 파일로 저장 (Ctrl+S)"><svg class="ic" viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v5h7V3"/><rect x="8" y="13" width="8" height="6"/></svg>저장</button>
+    <button class="tb-btn" id="btnSaveAs" title="새 파일로 저장 (Ctrl+Shift+S)">다른 이름으로</button>
   </div>
   <div class="spacer"></div>
+  <div class="work-info"><button id="workTitle" title="눌러서 작업 이름 바꾸기">이름 없는 작업</button><span id="saveState" class="save-state saved">✓ 저장됨</span></div>
   <button class="tb-btn primary" id="btnExport" title="완성한 그림을 PNG 이미지로 저장"><svg class="ic" viewBox="0 0 24 24"><path d="M12 4v11"/><path d="M7 10l5 5 5-5"/><path d="M5 20h14"/></svg>PNG로 내보내기</button>
 </header>
 
@@ -248,7 +262,8 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
       <kbd>Del</kbd> 지우기<br>
       <kbd>Esc</kbd> 취소<br>
       <kbd>Ctrl</kbd>+<kbd>Z</kbd> 되돌리기<br>
-      <kbd>Ctrl</kbd>+<kbd>V</kbd> 그림 붙여넣기<br>
+      <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>V</kbd> 복사·붙여넣기<br>
+      <kbd>Ctrl</kbd>+<kbd>D</kbd> 복제 · <kbd>Ctrl</kbd>+<kbd>A</kbd> 모두<br>
       <kbd>←</kbd><kbd>→</kbd> 조금씩 이동<br>
       휠 확대/축소<br>
       <kbd>Space</kbd>+끌기 화면 이동
@@ -297,7 +312,7 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
 </main>
 
 <input type="file" id="fileImage" accept="image/png,image/jpeg,image/gif,image/webp,image/bmp" hidden>
-<input type="file" id="fileProject" accept=".json,application/json" hidden>
+<input type="file" id="fileProject" accept=".json,application/json,.png,image/png" hidden>
 <div id="toasts"></div>
 
 <script>
@@ -389,7 +404,7 @@ const ICONS = {
    steps: 클릭할 때마다 아래 안내줄에 보여줄 말
    ================================================================ */
 const TOOLS = {
-  select:   { label: '선택', key: 'v', icon: 'select', hint: '개체를 클릭해 선택하고 드래그해서 옮겨요. 각·직각 표시는 드래그하면 크기가 바뀌어요.' },
+  select:   { label: '선택', key: 'v', icon: 'select', hint: '클릭해서 선택, 끌어서 이동해요. 빈 곳에서 끌면 여러 개를 고르고, Shift+클릭으로 더하거나 빼요.' },
   point:    { label: '점',   key: 'p', icon: 'pointTool', hint: '원하는 곳을 클릭하면 점이 생겨요. 그림 위에서도 찍을 수 있어요. 기존 점은 드래그해서 옮겨요.' },
   segment:  { label: '선분', key: 'l', icon: 'segment', pick: 'point', n: 2, steps: ['선분의 첫 번째 점', '두 번째 점'], tip: '빈 곳을 클릭하면 새 점이 생겨요.' },
   text:     { label: '문자', key: 't', icon: 'text', hint: '글자를 넣을 곳을 클릭하세요. 이미 있는 글자는 드래그해서 옮겨요.' },
@@ -414,10 +429,11 @@ const board = $('#board');
 
 let doc = emptyDoc();       // 현재 작업 { nextId, objects: [...] }
 const assets = {};          // 불러온 그림 원본 { 그림ID: { src, w, h } } — 실행 취소 기록에 중복 저장하지 않으려고 따로 보관
-let selectedId = null;      // 선택된 개체
+let selectedId = null;      // 하나만 선택했을 때 그 개체 (또는 COORD_ID)
+let multiSel = [];          // 여러 개를 선택했을 때 그 id들 (2개 이상)
 let tool = 'select';        // 현재 도구
 let picks = [];             // 선분·각·평행 등 도구에서 지금까지 고른 점/선분
-let hover = { pos: null, pointId: null, segId: null };
+let hover = { pos: null, pointId: null, segId: null, objId: null };
 let drag = null;            // 드래그 중인 정보
 let dirty = false;          // 저장하지 않은 변경이 있는지
 let tempHint = null;
@@ -600,10 +616,10 @@ function inputDialog({ title, value = '', placeholder = '', chips = [], extra = 
    같은 key로 연속 호출(슬라이더 드래그 등)하면 한 번으로 묶습니다.
    ================================================================ */
 const hist = { undo: [], redo: [], lastKey: null, lastTime: 0 };
-function snapshot() { return JSON.stringify({ doc, selectedId }); }
+function snapshot() { return JSON.stringify({ doc, selectedId, multiSel }); }
 function record(key) {
   const now = Date.now();
-  dirty = true;
+  markDirty();
   if (key && key === hist.lastKey && now - hist.lastTime < 1500) { hist.lastTime = now; return; }
   hist.undo.push(snapshot());
   if (hist.undo.length > CONFIG.historyLimit) hist.undo.shift();
@@ -613,22 +629,53 @@ function record(key) {
 }
 function restore(s) {
   const d = JSON.parse(s);
-  doc = normalizeDoc(d.doc); selectedId = (d.selectedId === COORD_ID || getObj(d.selectedId)) ? d.selectedId : null;
-  picks = []; drag = null; dirty = true;
+  doc = normalizeDoc(d.doc);
+  selectedId = (d.selectedId === COORD_ID || getObj(d.selectedId)) ? d.selectedId : null;
+  multiSel = (d.multiSel || []).filter(getObj);
+  picks = []; drag = null; markDirty();
   renderAll();
 }
 function undo() {
   if (!hist.undo.length) { toast('더 이상 되돌릴 작업이 없어요.'); return; }
+  const what = describeStep(hist.undo[hist.undo.length - 1], snapshot());
   hist.redo.push(snapshot()); restore(hist.undo.pop()); hist.lastKey = null;
+  toast('↩ 되돌렸어요: ' + what);
 }
 function redo() {
   if (!hist.redo.length) { toast('다시 실행할 작업이 없어요.'); return; }
+  const what = describeStep(snapshot(), hist.redo[hist.redo.length - 1]);
   hist.undo.push(snapshot()); restore(hist.redo.pop()); hist.lastKey = null;
+  toast('↪ 다시 했어요: ' + what);
 }
 function updateUndoButtons() {
-  $('#btnUndo').disabled = !hist.undo.length;
-  $('#btnRedo').disabled = !hist.redo.length;
+  const u = $('#btnUndo'), r = $('#btnRedo');
+  u.disabled = !hist.undo.length; r.disabled = !hist.redo.length;
+  u.title = hist.undo.length ? `실행 취소: ${describeStep(hist.undo[hist.undo.length - 1], snapshot())} (Ctrl+Z)` : '되돌릴 작업이 없어요';
+  r.title = hist.redo.length ? `다시 실행: ${describeStep(snapshot(), hist.redo[hist.redo.length - 1])} (Ctrl+Y)` : '다시 실행할 작업이 없어요';
 }
+/* 두 시점(before → after) 사이에 무엇이 바뀌었는지 "점 A 이동"처럼 말로 설명 */
+function describeStep(beforeSnap, afterSnap) {
+  try {
+    const a = JSON.parse(beforeSnap).doc, b = JSON.parse(afterSnap).doc;
+    const A = new Map(a.objects.map(o => [o.id, o])), B = new Map(b.objects.map(o => [o.id, o]));
+    const added = [...B.keys()].filter(k => !A.has(k)), removed = [...A.keys()].filter(k => !B.has(k));
+    const changed = [...B.keys()].filter(k => A.has(k) && JSON.stringify(A.get(k)) !== JSON.stringify(B.get(k)));
+    const nameIn = (d, id) => withDoc(d, () => objLabel(getObj(id)));
+    const many = (ids, d, verb) => ids.length === 1 ? `${nameIn(d, ids[0])} ${verb}` : `개체 ${ids.length}개 ${verb}`;
+    if (added.length && !removed.length) return many(added, b, '추가');
+    if (removed.length && !added.length) return many(removed, a, '삭제');
+    if (added.length && removed.length) return '새 작업 / 작업 열기';
+    if (changed.length) {
+      const strip = o => { const { x, y, ...rest } = o; return JSON.stringify(rest); };
+      const moved = changed.every(k => strip(A.get(k)) === strip(B.get(k)));
+      return many(changed, b, moved ? '이동' : '변경');
+    }
+    if (JSON.stringify(a.coord) !== JSON.stringify(b.coord)) return '좌표평면 설정';
+    return '선택 변경';
+  } catch (_) { return '이전 작업'; }
+}
+/* 잠시 다른 작업 내용(d)을 기준으로 이름 등을 계산할 때 */
+function withDoc(d, fn) { const keep = doc; doc = d; try { return fn(); } finally { doc = keep; } }
 
 /* ================================================================
    [개체 만들기] 점 · 선분 · 문자 · 길이 · 각 · 직각 · 평행 · 수직 · 그림
@@ -642,7 +689,29 @@ function nextPointName() {
     }
   }
 }
-function push(o) { doc.objects.push(o); return o; }
+/* ---------- [내 기본값] 속성창의 "이 모양을 기본값으로" 버튼으로 저장 (이 컴퓨터 브라우저에 기억) ---------- */
+const STYLE_KEYS = {
+  point: ['size', 'color'], segment: ['width', 'color', 'dashed'], text: ['size', 'color', 'bold', 'italic'],
+  length: ['size', 'color', 'format', 'style', 'lineWidth'], angle: ['radius', 'width', 'color', 'labelSize', 'labelMode', 'fill', 'showArc'],
+  right: ['size', 'width', 'color'], parallel: ['size', 'width', 'color', 'count'], perp: ['size', 'width', 'color'],
+};
+const store = {   // 브라우저 저장소 (막혀 있어도 프로그램은 정상 동작)
+  get(k) { try { return JSON.parse(localStorage.getItem('geoEditor.' + k)); } catch (_) { return null; } },
+  set(k, v) { try { localStorage.setItem('geoEditor.' + k, JSON.stringify(v)); return true; } catch (_) { return false; } },
+  del(k) { try { localStorage.removeItem('geoEditor.' + k); } catch (_) {} },
+};
+let userDefaults = store.get('defaults') || {};
+function saveAsDefault(o) {
+  userDefaults[o.type] = Object.fromEntries(STYLE_KEYS[o.type].map(k => [k, o[k]]));
+  store.set('defaults', userDefaults);
+  toast(`앞으로 새로 만드는 ${KIND_NAME[o.type]}은(는) 이 모양으로 만들어져요.`, 'ok');
+  renderPanel();
+}
+function resetDefault(type) {
+  delete userDefaults[type]; store.set('defaults', userDefaults);
+  toast(`${KIND_NAME[type]} 기본값을 처음 설정으로 되돌렸어요.`); renderPanel();
+}
+function push(o) { Object.assign(o, userDefaults[o.type] || {}); doc.objects.push(o); return o; }
 function addPoint(x, y) {
   const P = CONFIG.point, q = snapPt({ x, y });
   return push({ id: newId(), type: 'point', name: nextPointName(), x: q.x, y: q.y, labelCoord: false,
@@ -668,8 +737,11 @@ function addLength(segId, value, format) {
   const d = V.norm(V.sub(B, A)), n = { x: -d.y, y: d.x };
   let side = V.dot(V.sub(c, mid), n);
   side = Math.abs(side) < 1 ? (n.y < 0 || (n.y === 0 && n.x > 0) ? 1 : -1) : (side > 0 ? -1 : 1);
-  return push({ id: newId(), type: 'length', seg: segId, value, format, style: L.style, t: 0.5,
-    offset: side * (L.style === 'brace' ? L.braceDepth : L.gap), size: L.size, color: L.color, lineWidth: L.lineWidth, visible: true });
+  const style = (userDefaults.length || {}).style || L.style;
+  const o = push({ id: newId(), type: 'length', seg: segId, value, format, style, t: 0.5,
+    offset: side * (style === 'brace' ? L.braceDepth : L.gap), size: L.size, color: L.color, lineWidth: L.lineWidth, visible: true });
+  o.format = format;   // 입력 창에서 고른 표시 방법이 우선
+  return o;
 }
 function addAngle(p1, vertex, p2) {
   const A = CONFIG.angle;
@@ -999,7 +1071,7 @@ function drawScene(root, mode, opt = {}) {
     const draw = DRAW[o.type]; if (!draw) continue;
     const g = S('g', edit ? { 'data-id': o.id, class: `obj ${o.type}` + (o.visible === false ? ' is-hidden' : '') } : {}, layers[LAYER_OF[o.type]]);
     if (draw(g, o, { edit, k }) === false) { g.remove(); continue; }
-    if (edit && o.id === selectedId && GLOW_TYPES.has(o.type)) glow(g, k);
+    if (edit && isSelected(o.id) && GLOW_TYPES.has(o.type)) glow(g, k);
   }
 }
 
@@ -1066,8 +1138,27 @@ function renderOverlay() {
   const ring = (p, color, extra = 6) => S('circle', { cx: p.x, cy: p.y, r: p.size + extra * k, fill: color, 'fill-opacity': .12, stroke: color, 'stroke-width': 2.2 * k }, ov);
   const band = (s, color, op) => { const e = segEnds(s); if (e) S('line', { x1: e[0].x, y1: e[0].y, x2: e[1].x, y2: e[1].y, stroke: color, 'stroke-opacity': op, 'stroke-width': s.width + 9 * k, 'stroke-linecap': 'round' }, ov); };
 
-  if (sel && sel.type === 'point') ring(sel, accent);
-  if (sel && sel.type === 'segment') band(sel, accent, .35);
+  // 선택된 점·선분 (여러 개 선택 포함), 여러 개 선택한 그림은 점선 테두리만
+  for (const o of selectionIds().map(getObj)) {
+    if (o.type === 'point') ring(o, accent);
+    else if (o.type === 'segment') band(o, accent, .35);
+    else if (o.type === 'image' && multiSel.length) S('rect', { x: o.x, y: o.y, width: o.w, height: o.h, fill: 'none', stroke: accent, 'stroke-width': 2 * k, 'stroke-dasharray': `${6 * k} ${4 * k}` }, ov);
+  }
+  // 선택 도구: 마우스를 올린 개체를 연하게 미리 보여 줍니다 (클릭하면 이것이 선택돼요)
+  const hv = tool === 'select' && !drag && hover.objId && !isSelected(hover.objId) ? getObj(hover.objId) : null;
+  if (hv) {
+    if (hv.type === 'point') S('circle', { cx: hv.x, cy: hv.y, r: hv.size + 6 * k, fill: 'none', stroke: accent, 'stroke-opacity': .6, 'stroke-width': 1.5 * k }, ov);
+    else if (hv.type === 'segment') band(hv, accent, .15);
+    else if (hv.type !== 'image') {
+      const el = LAYER.content.querySelector(`[data-id="${hv.id}"]`);
+      if (el) { const b = el.getBBox(), p = 4 * k; S('rect', { x: b.x - p, y: b.y - p, width: b.width + 2 * p, height: b.height + 2 * p, rx: 4 * k, fill: 'none', stroke: accent, 'stroke-opacity': .6, 'stroke-width': 1.3 * k, 'stroke-dasharray': `${4 * k} ${3 * k}` }, ov); }
+    }
+  }
+  // 끌어서 여러 개 고르는 네모
+  if (drag && drag.kind === 'box' && drag.cur) {
+    const x = Math.min(drag.start.x, drag.cur.x), y = Math.min(drag.start.y, drag.cur.y);
+    S('rect', { x, y, width: Math.abs(drag.cur.x - drag.start.x), height: Math.abs(drag.cur.y - drag.start.y), fill: accent, 'fill-opacity': .08, stroke: accent, 'stroke-width': 1.2 * k, 'stroke-dasharray': `${5 * k} ${3 * k}` }, ov);
+  }
   if (sel && sel.type === 'image') {
     S('rect', { x: sel.x, y: sel.y, width: sel.w, height: sel.h, fill: 'none', stroke: sel.locked ? orange : accent, 'stroke-width': 2 * k, 'stroke-dasharray': `${6 * k} ${4 * k}` }, ov);
     if (sel.locked) {
@@ -1160,10 +1251,69 @@ function updateHint() {
 }
 function setTempHint(msg) { tempHint = msg; updateHint(); }
 
+/* ================================================================
+   [선택] 하나 선택 · 여러 개 선택(Shift+클릭, 끌어서 네모, Ctrl+A)
+   ================================================================ */
 function select(id) {
-  selectedId = id;
+  selectedId = id; multiSel = [];
   tempHint = null;
   renderAll();
+}
+function selectMany(ids) {
+  ids = [...new Set(ids)].filter(getObj);
+  if (ids.length <= 1) { select(ids[0] || null); return; }
+  multiSel = ids; selectedId = null; tempHint = null;
+  renderAll();
+}
+const isSelected = id => id === selectedId || multiSel.includes(id);
+/* 지금 선택된 개체 id들 (좌표평면 설정창은 빼고) */
+function selectionIds() { return multiSel.length ? [...multiSel] : (getObj(selectedId) ? [selectedId] : []); }
+function toggleSelect(id) {
+  const ids = selectionIds();
+  selectMany(ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]);
+}
+function selectAll() {
+  const ids = doc.objects.filter(o => !(o.type === 'image' && o.locked)).map(o => o.id);
+  if (!ids.length) { toast('선택할 개체가 없어요.'); return; }
+  if (tool !== 'select') setTool('select');
+  selectMany(ids);
+  toast(`개체 ${ids.length}개를 모두 선택했어요. (잠긴 그림은 빼고)`);
+}
+/* 옮길 때 실제로 움직이는 것들: 점·문자·그림은 그 자체, 선분·표시는 연결된 점들 */
+function moversFor(ids) {
+  const out = new Set();
+  const addRefs = id => {
+    const o = getObj(id); if (!o) return;
+    if (o.type === 'point' || o.type === 'text') out.add(o);
+    else if (o.type === 'image') { if (!o.locked) out.add(o); }
+    else refsOf(o).forEach(addRefs);
+  };
+  ids.forEach(addRefs);
+  return [...out];
+}
+function groupDragInfo(ids, pt) {
+  const items = moversFor(ids).map(o => ({ o, x0: o.x, y0: o.y }));
+  return items.length ? { kind: 'group', items, start: pt } : null;
+}
+/* 묶음 옮기기: 격자에 맞추는 중이면 첫 번째 점이 격자점에 오도록 이동량을 맞춥니다 */
+function moveGroup(items, dx, dy) {
+  const anchor = items.find(it => it.o.type === 'point');
+  if (anchor && coordOn() && doc.coord.snap) {
+    const s = snapPt({ x: anchor.x0 + dx, y: anchor.y0 + dy });
+    dx = s.x - anchor.x0; dy = s.y - anchor.y0;
+  }
+  for (const it of items) { it.o.x = round1(it.x0 + dx); it.o.y = round1(it.y0 + dy); }
+}
+/* 네모 안에 완전히 들어온 개체들 */
+function objectsInBox(a, b) {
+  const x1 = Math.min(a.x, b.x), x2 = Math.max(a.x, b.x), y1 = Math.min(a.y, b.y), y2 = Math.max(a.y, b.y);
+  const inside = p => p && p.x >= x1 && p.x <= x2 && p.y >= y1 && p.y <= y2;
+  const pointsOf = o => {
+    if (o.type === 'point' || o.type === 'text') return [o];
+    if (o.type === 'image') return [{ x: o.x, y: o.y }, { x: o.x + o.w, y: o.y + o.h }];
+    return moversFor([o.id]);
+  };
+  return doc.objects.filter(o => !(o.type === 'image' && o.locked)).filter(o => { const ps = pointsOf(o); return ps.length && ps.every(inside); }).map(o => o.id);
 }
 
 /* ================================================================
@@ -1194,6 +1344,7 @@ function nearestSegment(pt) {
 function dragInfoFor(o, pt) {
   if (o.type === 'point' || o.type === 'text') return { kind: 'move', orig: { x: o.x, y: o.y } };
   if (o.type === 'image') return o.locked ? null : { kind: 'move', orig: { x: o.x, y: o.y } };
+  if (o.type === 'segment') return groupDragInfo([o.id], pt);   // 선분을 끌면 양 끝점이 함께 움직여요
   if (o.type === 'length') return { kind: 'length' };
   if (o.type === 'angle') { const B = getObj(o.vertex); return B ? { kind: 'radius', center: B, d0: V.dist(pt, B), orig: { radius: o.radius } } : null; }
   if (o.type === 'right' || o.type === 'perp') {
@@ -1235,9 +1386,14 @@ board.addEventListener('pointerdown', e => {
         beginDrag(e, { kind: 'resize', id: img.id, handle: handleEl.dataset.handle, start: pt, orig: { x: img.x, y: img.y, w: img.w, h: img.h } });
       return;
     }
-    if (!hit) { select(null); return; }
+    const lockedImg = hit && hit.type === 'image' && hit.locked;
+    // Shift+클릭: 선택에 더하거나 빼기
+    if (e.shiftKey && hit && !lockedImg) { toggleSelect(hit.id); return; }
+    // 빈 곳(또는 잠긴 그림 위)에서 끌면 네모로 여러 개 선택. 그냥 클릭하면 선택 해제(잠긴 그림이면 그림 선택)
+    if (!hit || lockedImg) { beginDrag(e, { kind: 'box', start: pt, clickId: hit ? hit.id : null, add: e.shiftKey }); return; }
+    // 여러 개 선택된 것 중 하나를 끌면 함께 이동
+    if (multiSel.includes(hit.id)) { const g = groupDragInfo(multiSel, pt); if (g) beginDrag(e, g); return; }
     select(hit.id);
-    if (hit.type === 'image' && hit.locked) { setTempHint('🔒 잠긴 그림이라 움직이지 않아요. 옮기려면 오른쪽 속성창에서 잠금을 해제하세요.'); return; }
     const info = dragInfoFor(hit, pt);
     if (info) beginDrag(e, { ...info, id: hit.id, start: pt });
     return;
@@ -1350,7 +1506,14 @@ board.addEventListener('pointermove', e => {
     const dx = pt.x - drag.start.x, dy = pt.y - drag.start.y;
     if (!drag.moved) {
       if (Math.hypot(dx, dy) * pxPerUnit() < 3) return;   // 살짝 떨린 클릭은 이동으로 보지 않음
-      drag.moved = true; record();
+      drag.moved = true;
+      if (drag.kind !== 'box') record();
+    }
+    if (drag.kind === 'box') { drag.cur = pt; renderOverlay(); return; }
+    if (drag.kind === 'group') {
+      moveGroup(drag.items, dx, dy);
+      if (selectedId) { const so = getObj(selectedId); if (so && so.type === 'point') syncCoordInputs(so); }
+      renderCanvas(); return;
     }
     const o = getObj(drag.id); if (!o) return;
     if (drag.kind === 'move') {
@@ -1370,6 +1533,12 @@ board.addEventListener('pointermove', e => {
   const T = TOOLS[tool];
   hover.pointId = (tool === 'point' || T.pick === 'point') ? (pointAt(pt) || {}).id || null : null;
   hover.segId = T.pick === 'segment' ? (nearestSegment(pt) || {}).id || null : null;
+  if (tool === 'select') {
+    const el = e.target.closest('[data-id]'), id = el ? el.dataset.id : null;
+    const ho = getObj(id);
+    const nid = ho && !(ho.type === 'image' && ho.locked) ? id : null;   // 잠긴 그림은 미리보기 안 함
+    if (nid !== hover.objId) { hover.objId = nid; renderOverlay(); }
+  }
   if (tool === 'point' || T.pick) renderOverlay();
 });
 
@@ -1388,14 +1557,26 @@ function dragLengthLabel(o, pt) {
 
 function endDrag() {
   if (!drag) return;
-  const moved = drag.moved, kind = drag.kind; drag = null;
+  const d = drag, moved = drag.moved, kind = drag.kind; drag = null;
+  if (kind === 'box') {
+    if (!moved) {   // 그냥 클릭: 선택 해제 (잠긴 그림 위였다면 그림 선택)
+      if (d.add) return;
+      select(d.clickId);
+      if (d.clickId) setTempHint('🔒 잠긴 그림이라 움직이지 않아요. 옮기려면 오른쪽 속성창에서 잠금을 해제하세요. (끌면 여러 개를 고를 수 있어요)');
+      return;
+    }
+    const ids = objectsInBox(d.start, d.cur || d.start);
+    selectMany(d.add ? [...selectionIds(), ...ids] : ids);
+    if (ids.length > 1) toast(`개체 ${ids.length}개를 선택했어요. 끌면 함께 움직이고, Delete로 함께 지워요.`);
+    return;
+  }
   if (moved && kind !== 'pan') { renderPanel(); renderCanvas(); }
 }
 board.addEventListener('pointerup', endDrag);
 board.addEventListener('pointercancel', endDrag);
 board.addEventListener('pointerleave', () => {
   if (drag) return;
-  hover = { pos: null, pointId: null, segId: null }; $('#coords').textContent = '';
+  hover = { pos: null, pointId: null, segId: null, objId: null }; $('#coords').textContent = '';
   renderOverlay();
 });
 
@@ -1431,7 +1612,7 @@ function textDialog(pt) {
 }
 function lengthDialog(segId) {
   const name = segmentName(getObj(segId));
-  let format = CONFIG.length.format;
+  let format = (userDefaults.length || {}).format || CONFIG.length.format;
   const prev = H('div', { class: 'live-preview' });
   const show = v => { prev.replaceChildren('미리보기: ', H('b', {}, format === 'named' ? `${name} = ${v || '□'}` : (v || '□'))); };
   let inp;
@@ -1450,18 +1631,81 @@ function lengthDialog(segId) {
    [삭제]
    ================================================================ */
 function deleteSelected() {
-  const o = getObj(selectedId);
-  if (!o) { toast('지울 개체를 먼저 클릭해서 선택하세요.'); return; }
-  if (o.type === 'image' && o.locked) { toast('🔒 잠긴 그림은 지울 수 없어요. 먼저 잠금을 해제하세요.', 'warn'); return; }
-  const label = objLabel(o);
+  const all = selectionIds().map(getObj);
+  if (!all.length) { toast('지울 개체를 먼저 클릭해서 선택하세요.'); return; }
+  const locked = all.filter(o => o.type === 'image' && o.locked);
+  const targets = all.filter(o => !locked.includes(o));
+  if (!targets.length) { toast('🔒 잠긴 그림은 지울 수 없어요. 먼저 잠금을 해제하세요.', 'warn'); return; }
+  const label = targets.length === 1 ? objLabel(targets[0]) : `개체 ${targets.length}개`;
   record();
-  const gone = withDependents(o.id);
+  const gone = new Set();
+  for (const o of targets) withDependents(o.id).forEach(id => gone.add(id));
   doc.objects = doc.objects.filter(x => !gone.has(x.id));
   picks = picks.filter(id => !gone.has(id));
-  const extra = gone.size - 1;
-  toast(extra ? `${label}와(과) 연결된 선분·표시 ${extra}개를 함께 지웠어요. (되돌리기: Ctrl+Z)` : `${label}을(를) 지웠어요. (되돌리기: Ctrl+Z)`);
+  const extra = gone.size - targets.length;
+  const obj = targets.length === 1 ? label + '을(를)' : label + '를', withP = targets.length === 1 ? label + '와(과)' : label + '와';
+  toast((extra ? `${withP} 연결된 선분·표시 ${extra}개를 함께 지웠어요.` : `${obj} 지웠어요.`) + ' (되돌리기: Ctrl+Z)'
+    + (locked.length ? ' 잠긴 그림은 남겨 두었어요.' : ''));
   select(null);
 }
+
+/* ================================================================
+   [복사 · 붙여넣기 · 복제]  Ctrl+C / Ctrl+X / Ctrl+V / Ctrl+D
+   선분·표시를 복사하면 거기에 연결된 점도 함께 복사됩니다.
+   ================================================================ */
+let clip = null;            // 프로그램 안의 복사 보관함
+const CLIP_MARK = 'GEO-EDITOR-CLIP';
+function copySelection() {
+  const ids = selectionIds(); if (!ids.length) return false;
+  const keep = new Set();
+  const add = id => { if (keep.has(id)) return; const o = getObj(id); if (!o) return; keep.add(id); refsOf(o).forEach(add); };
+  ids.forEach(add);
+  clip = { objects: doc.objects.filter(o => keep.has(o.id)).map(o => JSON.parse(JSON.stringify(o))), pasted: 0 };
+  return true;
+}
+function pasteClip() {
+  if (!clip || !clip.objects.length) { toast('붙여 넣을 개체가 없어요. 먼저 복사(Ctrl+C)하세요.'); return; }
+  record();
+  clip.pasted++;
+  const step = (coordOn() && doc.coord.snap ? doc.coord.unit * Math.max(doc.coord.snap, 0.5) : 20) * clip.pasted;   // 겹치지 않게 조금씩 비켜서
+  const map = {};
+  for (const o of clip.objects) map[o.id] = newId();
+  const fresh = [];
+  for (const src of clip.objects) {
+    const o = JSON.parse(JSON.stringify(src));
+    o.id = map[src.id];
+    for (const k of ['p1', 'p2', 'vertex', 'seg']) if (o[k]) o[k] = map[o[k]] || o[k];
+    if (o.segs) o.segs = o.segs.map(s => map[s] || s);
+    if ('x' in o) { o.x = round1(o.x + step); o.y = round1(o.y + step); }
+    if (o.type === 'point') o.name = nextPointName();
+    if (o.type === 'image') o.locked = false;
+    doc.objects.push(o); fresh.push(o.id);
+  }
+  // 그림은 늘 맨 뒤에 깔리도록 정리
+  doc.objects.sort((a, b) => (a.type === 'image' ? 0 : 1) - (b.type === 'image' ? 0 : 1));
+  if (tool !== 'select') setTool('select');
+  selectMany(fresh);
+  toast(`개체 ${fresh.length}개를 붙여 넣었어요. 끌어서 원하는 곳으로 옮기세요.`, 'ok');
+}
+function duplicateSelection() {
+  if (!copySelection()) { toast('복제할 개체를 먼저 선택하세요.'); return; }
+  pasteClip();
+}
+document.addEventListener('copy', e => {
+  if (modalEl || /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+  if (!copySelection()) return;
+  e.preventDefault();
+  e.clipboardData.setData('text/plain', CLIP_MARK);   // 붙여넣기 때 '그림'이 아니라 '개체'임을 알아보는 표시
+  toast(`개체를 복사했어요. Ctrl+V로 붙여 넣으세요.`);
+});
+document.addEventListener('cut', e => {
+  if (modalEl || /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+  if (!copySelection()) return;
+  e.preventDefault();
+  e.clipboardData.setData('text/plain', CLIP_MARK);
+  clip.pasted = -1;   // 잘라낸 것은 같은 자리에 붙여 넣기
+  deleteSelected();
+});
 
 /* ================================================================
    [속성창] 오른쪽 패널
@@ -1536,6 +1780,7 @@ function renderPanel() {
     body.append(...coordPanel().filter(Boolean));
     return;
   }
+  if (multiSel.length) { multiPanel(head, body); return; }
   const o = getObj(selectedId);
   if (!o) {
     head.append(H('div', { class: 'badge' }, icon('info')), H('div', {}, H('div', { class: 't1' }, '속성'), H('div', { class: 't2' }, '선택된 개체가 없어요')));
@@ -1547,13 +1792,55 @@ function renderPanel() {
         H('li', {}, '[점] 도구로 꼭짓점을 찍고 [선분]으로 이어요.'),
         H('li', {}, '[길이]·[각]·[직각]·[평행]·[수직]으로 표시를 더해요.'),
         H('li', {}, '[PNG로 내보내기]로 저장해요.')),
-      H('div', { class: 'tip' }, '💡 개체를 클릭하면 여기에서 글자·크기·색을 바꿀 수 있어요. 실수했다면 Ctrl+Z로 되돌리세요.')));
+      H('div', { class: 'tip' }, '💡 개체를 클릭하면 여기에서 글자·크기·색을 바꿀 수 있어요. 실수했다면 Ctrl+Z로 되돌리세요.'),
+      H('div', { class: 'tip' }, '🖱 빈 곳에서 끌거나 Shift+클릭하면 여러 개를 한꺼번에 고를 수 있어요. Ctrl+C·V로 복사, Ctrl+D로 복제해요.')));
     return;
   }
   const t1 = H('div', { class: 't1', id: 'propsTitle' }, objLabel(o));
   head.append(H('div', { class: 'badge' }, icon(o.type)), H('div', {}, t1, H('div', { class: 't2' }, KIND_NAME[o.type] + ' 속성')));
-  const parts = PANELS[o.type](o);
-  body.append(...parts.filter(Boolean));
+  const parts = PANELS[o.type](o).filter(Boolean);
+  // 지우기 버튼 바로 위에 '기본값으로' 버튼
+  if (STYLE_KEYS[o.type]) parts.splice(parts.length - 1, 0, defaultsRow(o));
+  body.append(...parts);
+}
+/* 속성창 안의 작은 묶음 제목 */
+const groupTitle = t => H('div', { class: 'group-title' }, t);
+/* "이 모양을 기본값으로": 지금 색·크기를 앞으로 만들 같은 종류에 그대로 */
+function defaultsRow(o) {
+  return H('div', {},
+    groupTitle('기본 모양'),
+    H('div', { class: 'default-row' },
+      H('button', { class: 'small-btn', title: `앞으로 만드는 ${KIND_NAME[o.type]}이(가) 이 색·크기로 만들어져요`, onclick: () => saveAsDefault(o) }, '⭐ 이 모양을 기본값으로'),
+      userDefaults[o.type] ? H('button', { class: 'small-btn', title: '처음 설정으로', onclick: () => resetDefault(o.type) }, '기본값 초기화') : null));
+}
+
+/* 여러 개를 골랐을 때: 공통으로 바꿀 수 있는 것들 */
+function multiPanel(head, body) {
+  const objs = multiSel.map(getObj).filter(Boolean);
+  head.append(H('div', { class: 'badge' }, icon('select')), H('div', {}, H('div', { class: 't1' }, `개체 ${objs.length}개 선택`), H('div', { class: 't2' }, '한꺼번에 바꾸기')));
+  const counts = {};
+  for (const o of objs) counts[o.type] = (counts[o.type] || 0) + 1;
+  const withKey = k => objs.filter(o => k in o && o.type !== 'image');
+  const setAll = (key, value, list = withKey(key)) => {
+    record('multi:' + key); for (const o of list) o[key] = value; renderCanvas();
+  };
+  const colored = withKey('color'), widthed = objs.filter(o => o.type === 'segment' || o.type in { angle: 1, right: 1, parallel: 1, perp: 1 });
+  const points = objs.filter(o => o.type === 'point');
+  const first = (list, key, def) => list.length ? list[0][key] : def;
+  body.append(...[
+    H('div', { class: 'multi-kinds' }, Object.entries(counts).map(([t, n]) => H('span', {}, `${KIND_NAME[t]} ${n}`))),
+    colored.length ? field('색 (모두)', colorPicker(first(colored, 'color', INK), c => setAll('color', c, colored))) : null,
+    widthed.length ? field('선 굵기 (선분·표시 모두)', slider({ min: 0.5, max: 8, step: 0.5, value: first(widthed, 'width', 2), onInput: v => setAll('width', v, widthed) })) : null,
+    points.length ? field('점 크기 (점 모두)', slider({ min: CONFIG.point.sizeMin, max: CONFIG.point.sizeMax, step: 0.5, value: first(points, 'size', 4.5), onInput: v => setAll('size', v, points) })) : null,
+    H('div', { class: 'btn-row' },
+      H('button', { class: 'small-btn', onclick: () => { hist.lastKey = null; setAll('visible', true, objs.filter(o => o.type !== 'image')); renderAll(); } }, '👁 모두 보이기'),
+      H('button', { class: 'small-btn', onclick: () => { hist.lastKey = null; setAll('visible', false, objs.filter(o => o.type !== 'image')); renderAll(); } }, '숨기기')),
+    H('div', { class: 'btn-row' },
+      H('button', { class: 'small-btn', title: 'Ctrl+D', onclick: duplicateSelection }, '⧉ 복제'),
+      H('button', { class: 'small-btn', title: 'Ctrl+C', onclick: () => { if (copySelection()) toast('복사했어요. Ctrl+V로 붙여 넣으세요.'); } }, '복사')),
+    H('div', { class: 'info' }, '💡 선택한 것 중 하나를 끌면 함께 움직여요. 화살표 키로도 옮길 수 있어요. Shift+클릭으로 더하거나 빼요.'),
+    H('button', { class: 'big-btn danger', onclick: deleteSelected }, icon('trash'), `${objs.length}개 모두 지우기`),
+  ].filter(Boolean));
 }
 function refreshTitle(o) { const t = $('#propsTitle'); if (t) t.textContent = objLabel(o); renderList(); }
 
@@ -1639,8 +1926,10 @@ const PANELS = {
       field('이름', nameInput, chips),
       coordOn() ? pointCoordField(o) : null,
       coordOn() ? toggle(`이름 옆에 좌표 쓰기  ${pointLabelText({ ...o, labelCoord: true })}`, o.labelCoord, v => setProp(o, 'labelCoord', v)) : null,
+      groupTitle('이름표'),
       toggle('이름 보이기', o.showLabel, v => setProp(o, 'showLabel', v)),
       field('이름 위치 (가운데 = 자동)', labelDirPicker(o)),
+      groupTitle('모양'),
       field('점 크기', slider({ min: CONFIG.point.sizeMin, max: CONFIG.point.sizeMax, step: 0.5, value: o.size, onInput: v => setProp(o, 'size', v) })),
       colorField(o),
       visibleField(o),
@@ -1690,6 +1979,7 @@ const PANELS = {
     return [
       field('표시할 글자', inp, H('div', { class: 'chips' }, ['cm', 'x', 'a', '√', '²'].map(c => H('button', { class: 'chip' + (/^[a-z]$/.test(c) ? ' it' : ''), onclick: () => insertAtCursor(inp, c) }, c)))),
       field('표시 방법', segmented([['value', '숫자만'], ['named', `${name} = □`]], o.format, v => setOnce(o, 'format', v))),
+      groupTitle('모양'),
       field('모양', segmented([['plain', '글자만'], ['brace', '⌒ 괄호선']], o.style, v => {
         const s = o.offset >= 0 ? 1 : -1;
         hist.lastKey = null; record();
@@ -1721,10 +2011,12 @@ const PANELS = {
         setOnce(o, 'labelMode', v);
         if (v === 'custom') custom.focus();
       }), customWrap),
+      groupTitle('호'),
       toggle('각의 호 보이기', o.showArc, v => setProp(o, 'showArc', v)),
       field('호 개수 (같은 각 표시)', segmented([[1, '⌒'], [2, '⌒⌒'], [3, '⌒⌒⌒']], o.arcs, v => setOnce(o, 'arcs', v))),
       field('호 크기 (드래그로도 조절)', slider({ min: 8, max: 120, value: o.radius, onInput: v => setProp(o, 'radius', v) })),
       toggle('안쪽 색칠', o.fill, v => setProp(o, 'fill', v)),
+      groupTitle('모양'),
       widthField(o),
       field('글자 크기', slider({ min: 10, max: 40, value: o.labelSize, onInput: v => setProp(o, 'labelSize', v) })),
       colorField(o),
@@ -1822,7 +2114,7 @@ function renderList() {
     const tags = [];
     if (o.type === 'image') tags.push(o.locked ? '🔒 잠김' : '잠금 해제');
     if (o.visible === false) tags.push('숨김');
-    box.append(H('div', { class: 'list-item' + (o.id === selectedId ? ' on' : ''), onclick: () => { if (tool !== 'select') setTool('select'); select(o.id); } },
+    box.append(H('div', { class: 'list-item' + (isSelected(o.id) ? ' on' : ''), title: 'Shift+클릭: 여러 개 고르기', onclick: ev => { if (tool !== 'select') setTool('select'); ev.shiftKey ? toggleSelect(o.id) : select(o.id); } },
       H('span', { class: 'li-ic' }, icon(o.type, 'ic')), objLabel(o), H('span', { class: 'tag' }, tags.join(' · '))));
   }
   const on = box.querySelector('.on'); if (on) on.scrollIntoView({ block: 'nearest' });
@@ -1836,7 +2128,7 @@ function renderAll() {
    [그림 불러오기] 파일 선택 · 끌어다 놓기 · 붙여넣기(Ctrl+V)
    ================================================================ */
 const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/bmp'];
-function loadImageFile(file) {
+function insertImageFile(file) {
   if (!file) return;
   if (!IMAGE_TYPES.includes(file.type)) { toast('PNG 또는 JPG 그림 파일만 불러올 수 있어요.', 'error'); return; }
   const reader = new FileReader();
@@ -1869,15 +2161,15 @@ function fitImage(o) {
   o.w = round1(a.w * s); o.h = round1(a.h * s);
   o.x = round1((W - o.w) / 2); o.y = round1((Hh - o.h) / 2);
 }
-function handleFiles(files) {
+function handleFiles(files, fromOpen = false) {
   const f = files && files[0]; if (!f) return;
-  if (f.name.toLowerCase().endsWith('.json')) { f.text().then(openProjectText); return; }
-  loadImageFile(f);
+  if (f.name.toLowerCase().endsWith('.json')) { f.text().then(t => openProjectText(t, f.name)); return; }
+  loadImageFile(f, fromOpen);
 }
 
 $('#btnImage').onclick = () => $('#fileImage').click();
 $('#fileImage').onchange = e => { handleFiles(e.target.files); e.target.value = ''; };
-$('#fileProject').onchange = e => { handleFiles(e.target.files); e.target.value = ''; };
+$('#fileProject').onchange = e => { handleFiles(e.target.files, true); e.target.value = ''; };
 
 const wrap = $('#canvasWrap');
 wrap.addEventListener('dragover', e => { e.preventDefault(); wrap.classList.add('dragover'); });
@@ -1885,53 +2177,224 @@ wrap.addEventListener('dragleave', e => { if (e.target === wrap || !wrap.contain
 wrap.addEventListener('drop', e => { e.preventDefault(); wrap.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
 document.addEventListener('paste', e => {
   if (modalEl || /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
-  const item = [...(e.clipboardData ? e.clipboardData.items : [])].find(i => i.type.startsWith('image/'));
-  if (item) { e.preventDefault(); loadImageFile(item.getAsFile()); }
+  const data = e.clipboardData;
+  // 이 프로그램에서 복사한 개체면 개체를, 캡처한 그림이면 그림을 붙여 넣어요
+  if (data && data.getData('text/plain') === CLIP_MARK && clip) { e.preventDefault(); pasteClip(); return; }
+  const item = [...(data ? data.items : [])].find(i => i.type.startsWith('image/'));
+  if (item) { e.preventDefault(); insertImageFile(item.getAsFile()); return; }
+  if (clip) { e.preventDefault(); pasteClip(); }
 });
+
+/* ================================================================
+   [작업 이름 · 저장 상태 표시]
+   ================================================================ */
+let workName = '이름 없는 작업';
+let fileHandle = null;      // 한 번 저장한 파일 (다음부터 Ctrl+S 한 번으로 같은 파일에 덮어쓰기)
+function markDirty() { dirty = true; updateTitle(); scheduleAutosave(); }
+function markSaved() { dirty = false; updateTitle(); }
+function updateTitle() {
+  const t = $('#workTitle'), st = $('#saveState');
+  if (!t) return;
+  t.textContent = workName;
+  st.textContent = dirty ? '● 저장 안 됨' : '✓ 저장됨';
+  st.className = 'save-state ' + (dirty ? 'unsaved' : 'saved');
+  document.title = (dirty ? '● ' : '') + workName + ' · 도형 편집기';
+}
+function renameWork() {
+  inputDialog({ title: '작업 이름 바꾸기', value: workName, placeholder: '예: 1학기 중간고사 3번', okLabel: '바꾸기',
+    onOk: v => { workName = v.replace(/[\\/:*?"<>|]/g, ' ').trim() || '이름 없는 작업'; fileHandle = null; markDirty(); toast('작업 이름을 바꿨어요. 저장하면 이 이름으로 저장돼요.'); } });
+}
 
 /* ================================================================
    [새 작업 · 작업 저장 · 작업 열기]
    저장 파일(.json)에는 그림과 점·선·표시가 모두 들어 있어 나중에 다시 고칠 수 있어요.
+   크롬·엣지에서는 저장할 위치와 이름을 고를 수 있고, 다음부터는 Ctrl+S로 같은 파일에 덮어써요.
    ================================================================ */
 function newWork() {
-  if (!doc.objects.length) { toast('이미 빈 작업이에요.'); return; }
+  if (!doc.objects.length && !coordOn()) { toast('이미 빈 작업이에요.'); return; }
   confirmBox('새 작업을 시작할까요?', '지금 그린 내용이 모두 지워져요. (실수했다면 실행 취소로 되돌릴 수 있어요)', '새로 시작', () => {
-    record(); doc = emptyDoc(); selectedId = null; picks = []; dirty = false;
+    record(); doc = emptyDoc(); selectedId = null; multiSel = []; picks = [];
+    workName = '이름 없는 작업'; fileHandle = null; markSaved(); store.del('autosave');
     renderAll(); toast('새 작업을 시작했어요.', 'ok');
   }, 'danger');
 }
-function saveProject() {
+function projectData() {
   const used = new Set(byType('image').map(o => o.asset));
-  const data = { app: 'math-geo-editor', version: 2, savedAt: new Date().toISOString(), paper: CONFIG.paper,
+  return { app: 'math-geo-editor', version: 4, name: workName, savedAt: new Date().toISOString(), paper: CONFIG.paper,
     doc, assets: Object.fromEntries([...used].filter(k => assets[k]).map(k => [k, assets[k]])) };
-  downloadBlob(new Blob([JSON.stringify(data)], { type: 'application/json' }), `도형작업_${stamp()}.json`);
-  dirty = false;
-  toast('작업을 파일로 저장했어요. 나중에 [작업 열기]로 다시 고칠 수 있어요.', 'ok');
 }
-function openProjectText(text) {
+const canPickFiles = () => typeof window.showSaveFilePicker === 'function';
+async function saveProject(asNew = false) {
+  const blob = new Blob([JSON.stringify(projectData())], { type: 'application/json' });
+  if (canPickFiles()) {
+    try {
+      if (!fileHandle || asNew) {
+        fileHandle = await window.showSaveFilePicker({ suggestedName: workName + '.json',
+          types: [{ description: '도형 작업 파일', accept: { 'application/json': ['.json'] } }] });
+        workName = fileHandle.name.replace(/\.json$/i, '');
+      }
+      const w = await fileHandle.createWritable(); await w.write(blob); await w.close();
+      markSaved();
+      toast(`"${fileHandle.name}"에 저장했어요. 다음부터는 Ctrl+S 한 번이면 같은 파일에 저장돼요.`, 'ok');
+      return;
+    } catch (err) {
+      if (err && err.name === 'AbortError') return;   // 저장 창에서 [취소]를 누른 경우
+      fileHandle = null;                              // 파일 저장이 막혀 있으면 다운로드로 대신 저장
+    }
+  }
+  downloadBlob(blob, `${workName}.json`);
+  markSaved();
+  toast(`"${workName}.json" 파일로 저장했어요. (다운로드 폴더) 나중에 [작업 열기]로 다시 고칠 수 있어요.`, 'ok');
+}
+async function openProject() {
+  if (typeof window.showOpenFilePicker === 'function') {
+    try {
+      const [h] = await window.showOpenFilePicker({ types: [{ description: '도형 작업 파일 또는 도형 PNG', accept: { 'application/json': ['.json'], 'image/png': ['.png'] } }] });
+      const f = await h.getFile();
+      if (f.name.toLowerCase().endsWith('.json')) { openProjectText(await f.text(), f.name, h); return; }
+      loadImageFile(f, true);
+      return;
+    } catch (err) { if (err && err.name === 'AbortError') return; }
+  }
+  $('#fileProject').click();
+}
+function openProjectText(text, fileName, handle = null) {
   let data;
   try { data = JSON.parse(text); } catch (_) { toast('작업 파일을 읽을 수 없어요. 파일이 손상되었을 수 있어요.', 'error'); return; }
+  openProjectData(data, fileName, handle);
+}
+function openProjectData(data, fileName, handle = null) {
   if (!data || data.app !== 'math-geo-editor' || !data.doc || !Array.isArray(data.doc.objects)) {
-    toast('이 프로그램에서 저장한 작업 파일(.json)이 아니에요.', 'error'); return;
+    toast('이 프로그램에서 저장한 작업 파일(.json)이 아니에요.', 'error'); return false;
   }
   record();
   Object.assign(assets, data.assets || {});
-  doc = normalizeDoc(data.doc); selectedId = null; picks = []; dirty = false;
-  setTool('select'); renderAll();
-  toast('작업을 열었어요.', 'ok');
+  doc = normalizeDoc(data.doc); selectedId = null; multiSel = []; picks = [];
+  workName = data.name || (fileName ? fileName.replace(/\.(json|png)$/i, '') : '이름 없는 작업');
+  fileHandle = handle;
+  markSaved();
+  setTool('select'); renderAll(); zoomFit();
+  toast(`"${workName}" 작업을 열었어요.`, 'ok');
+  return true;
 }
+
+/* ---------- 자동 저장: 바뀐 뒤 잠시 후 브라우저에 보관 → 창이 닫혀도 다음에 이어서 ---------- */
+let autosaveTimer = null, autosaveWarned = false;
+function scheduleAutosave() {
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(() => {
+    if (!doc.objects.length && !coordOn()) { store.del('autosave'); return; }
+    const data = projectData();
+    if (store.set('autosave', data)) return;
+    // 그림이 너무 커서 브라우저 보관함에 안 들어가면 그림 없이라도 보관
+    if (store.set('autosave', { ...data, assets: {}, noImages: true }) && !autosaveWarned) {
+      autosaveWarned = true;
+      toast('그림이 커서 자동 보관에서는 빠졌어요. [저장]으로 파일에 저장해 두세요.', 'warn');
+    }
+  }, 1200);
+}
+function offerRecovery() {
+  const data = store.get('autosave');
+  if (!data || !data.doc || !(data.doc.objects || []).length) return;
+  const when = data.savedAt ? new Date(data.savedAt).toLocaleString('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+  openModal({
+    title: '지난번 작업이 남아 있어요',
+    body: H('div', {},
+      H('p', {}, `"${data.name || '이름 없는 작업'}" (${when}, 개체 ${data.doc.objects.length}개)`),
+      H('p', {}, '이어서 작업할까요?'),
+      data.noImages ? H('div', { class: 'note', style: 'margin:0' }, '배경 그림은 크기가 커서 보관되지 않았어요. 점·선·표시만 돌아와요.') : null),
+    buttons: [
+      { label: '새로 시작', onClick: () => store.del('autosave') },
+      { label: '이어서 하기', kind: 'primary', onClick: () => {
+        openProjectData(data, null);
+        hist.undo = []; hist.redo = []; updateUndoButtons();
+        markDirty();   // 파일로는 아직 저장되지 않은 상태
+      } },
+    ],
+  });
+}
+
+/* ---------- PNG 안에 작업 정보 넣기 / 꺼내기 ----------
+   PNG 파일의 'tEXt' 칸에 작업 내용을 넣어 두면, 그 PNG를 다시 열었을 때 점·선을 고칠 수 있어요.
+   (한글·PPT에 넣은 그림에는 영향이 없어요) */
+const PNG_KEY = 'GeoEditorProject';
+const CRC_TABLE = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(bytes) { let c = 0xFFFFFFFF; for (const b of bytes) c = CRC_TABLE[(c ^ b) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function utf8ToBase64(str) {
+  const bytes = new TextEncoder().encode(str); let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+function base64ToUtf8(b64) { return new TextDecoder().decode(Uint8Array.from(atob(b64), c => c.charCodeAt(0))); }
+async function pngWithProject(blob) {
+  const png = new Uint8Array(await blob.arrayBuffer());
+  const body = new TextEncoder().encode(PNG_KEY + '\0' + utf8ToBase64(JSON.stringify(projectData())));
+  const chunk = new Uint8Array(12 + body.length), dv = new DataView(chunk.buffer);
+  dv.setUint32(0, body.length);
+  chunk.set([0x74, 0x45, 0x58, 0x74], 4);   // 'tEXt'
+  chunk.set(body, 8);
+  dv.setUint32(8 + body.length, crc32(chunk.subarray(4, 8 + body.length)));
+  const iend = png.length - 12;               // 마지막 IEND 칸 바로 앞에 넣습니다
+  const out = new Uint8Array(png.length + chunk.length);
+  out.set(png.subarray(0, iend), 0); out.set(chunk, iend); out.set(png.subarray(iend), iend + chunk.length);
+  return new Blob([out], { type: 'image/png' });
+}
+async function readProjectFromPng(file) {
+  try {
+    const buf = new Uint8Array(await file.arrayBuffer()), dv = new DataView(buf.buffer);
+    let i = 8;
+    while (i + 8 <= buf.length) {
+      const len = dv.getUint32(i), type = String.fromCharCode(...buf.subarray(i + 4, i + 8));
+      if (type === 'tEXt') {
+        const txt = new TextDecoder('latin1').decode(buf.subarray(i + 8, i + 8 + len));
+        if (txt.startsWith(PNG_KEY + '\0')) return JSON.parse(base64ToUtf8(txt.slice(PNG_KEY.length + 1)));
+      }
+      if (type === 'IEND') break;
+      i += 12 + len;
+    }
+  } catch (_) {}
+  return null;
+}
+
+/* 그림 파일 불러오기: 이 프로그램이 만든 PNG면 '고칠 수 있게 열기'를 먼저 물어봐요 */
+async function loadImageFile(file, fromOpen = false) {
+  if (!file) return;
+  if (file.type === 'image/png') {
+    const data = await readProjectFromPng(file);
+    if (data) {
+      if (fromOpen) { openProjectData(data, file.name); return; }
+      openModal({
+        title: '도형 편집기로 만든 그림이에요',
+        body: H('p', {}, '이 PNG에는 작업 정보가 들어 있어요. 점·선·표시를 다시 고칠 수 있게 열까요?'),
+        buttons: [
+          { label: '그림으로만 넣기', onClick: () => insertImageFile(file) },
+          { label: '고칠 수 있게 열기', kind: 'primary', onClick: () => openProjectData(data, file.name) },
+        ],
+      });
+      return;
+    }
+    if (fromOpen) toast('이 PNG에는 작업 정보가 없어서 배경 그림으로 넣었어요.');
+  } else if (fromOpen) {
+    toast('작업 파일(.json)이나 이 프로그램에서 만든 PNG를 골라 주세요. 일반 그림은 [그림 불러오기]를 쓰세요.', 'warn');
+    return;
+  }
+  insertImageFile(file);
+}
+
 $('#btnNew').onclick = newWork;
-$('#btnSave').onclick = saveProject;
-$('#btnOpen').onclick = () => $('#fileProject').click();
+$('#btnSave').onclick = () => saveProject(false);
+$('#btnSaveAs').onclick = () => saveProject(true);
+$('#btnOpen').onclick = openProject;
 $('#btnUndo').onclick = undo;
 $('#btnRedo').onclick = redo;
+$('#workTitle').onclick = renameWork;
 window.addEventListener('beforeunload', e => { if (dirty && doc.objects.length) { e.preventDefault(); e.returnValue = ''; } });
 
 /* ================================================================
    [PNG 내보내기]
    화면의 선택 표시·손잡이는 빼고, 숨긴 개체도 빼고 저장합니다.
    ================================================================ */
-const exportOpt = { area: 'full', includeImages: true, background: 'white', scale: CONFIG.export.scale };
+const exportOpt = { area: 'full', includeImages: true, background: 'white', scale: CONFIG.export.scale, embed: true };
 
 function buildExportSvg(opt) {
   const root = S('svg', { xmlns: SVGNS });
@@ -2002,6 +2465,7 @@ function openExportDialog() {
     toggle('배경 그림 포함', opt.includeImages, upd('includeImages')),
     field('바탕', segmented([['white', '흰색'], ['transparent', '투명']], opt.background, upd('background'))),
     field('선명도', segmented([[1, '보통'], [2, '선명 (추천)'], [3, '아주 선명']], opt.scale, upd('scale'))),
+    toggle('나중에 다시 고칠 수 있게 작업 정보 넣기 (추천)', opt.embed, v => { opt.embed = v; }),
     H('p', { style: 'font-size:12.5px;color:var(--muted);margin:4px 0 0' }, '💡 한글(HWP)·PPT에 바로 넣으려면 [클립보드에 복사] 후 Ctrl+V 하세요.'));
   openModal({ title: 'PNG 이미지로 내보내기', body, width: 470, buttons: [
     { label: '취소' },
@@ -2012,9 +2476,19 @@ function openExportDialog() {
       toast('그림을 복사했어요. 한글·PPT에서 Ctrl+V로 붙여 넣으세요.', 'ok');
     } },
     { label: 'PNG 파일 저장', kind: 'primary', onClick: async () => {
-      const { blob } = await makePNG(opt);
-      downloadBlob(blob, `도형_${stamp()}.png`);
-      toast('PNG 파일로 저장했어요. (다운로드 폴더를 확인하세요)', 'ok');
+      let { blob } = await makePNG(opt);
+      if (opt.embed) blob = await pngWithProject(blob);   // 이 PNG를 [작업 열기]로 열면 다시 고칠 수 있어요
+      const name = (workName === '이름 없는 작업' ? '도형' : workName) + '_' + stamp() + '.png';
+      if (canPickFiles()) {
+        try {
+          const h = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: 'PNG 그림', accept: { 'image/png': ['.png'] } }] });
+          const w = await h.createWritable(); await w.write(blob); await w.close();
+          toast(`"${h.name}"으로 저장했어요.` + (opt.embed ? ' 이 PNG를 [작업 열기]로 열면 다시 고칠 수 있어요.' : ''), 'ok');
+          return;
+        } catch (err) { if (err && err.name === 'AbortError') return false; }
+      }
+      downloadBlob(blob, name);
+      toast('PNG 파일로 저장했어요. (다운로드 폴더)' + (opt.embed ? ' 이 PNG를 [작업 열기]로 열면 다시 고칠 수 있어요.' : ''), 'ok');
     } },
   ] });
   refresh();
@@ -2036,14 +2510,16 @@ document.addEventListener('keydown', e => {
     }
     return;
   }
-  if (ctrl && key === 's') { e.preventDefault(); saveProject(); return; }
-  if (ctrl && key === 'o') { e.preventDefault(); $('#fileProject').click(); return; }
+  if (ctrl && key === 's') { e.preventDefault(); saveProject(e.shiftKey); return; }   // Shift까지 누르면 다른 이름으로
+  if (ctrl && key === 'o') { e.preventDefault(); openProject(); return; }
   if (typing) return;
   if (ctrl && key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
   if (ctrl && (key === 'y' || (key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); return; }
   if (ctrl && (key === '=' || key === '+')) { e.preventDefault(); zoomTo(view.scale * CONFIG.zoom.step); return; }
   if (ctrl && key === '-') { e.preventDefault(); zoomTo(view.scale / CONFIG.zoom.step); return; }
   if (ctrl && key === '0') { e.preventDefault(); zoomFit(); return; }
+  if (ctrl && key === 'a') { e.preventDefault(); selectAll(); return; }
+  if (ctrl && key === 'd') { e.preventDefault(); duplicateSelection(); return; }
   if (ctrl || e.altKey) return;
   if (e.key === ' ') { e.preventDefault(); if (!spaceDown) { spaceDown = true; wrap.classList.add('panning'); } return; }
   if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteSelected(); return; }
@@ -2057,17 +2533,18 @@ document.addEventListener('keydown', e => {
   if (t) { setTool(t); return; }
   const arrows = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
   if (arrows[e.key]) {
-    const o = getObj(selectedId);
-    if (!o || !('x' in o)) return;
+    const ids = selectionIds(), one = ids.length === 1 ? getObj(ids[0]) : null;
+    if (!ids.length || (one && !('x' in one) && one.type !== 'segment')) return;   // 표시 하나만 골랐을 땐 움직이지 않아요
     e.preventDefault();
-    if (o.type === 'image' && o.locked) { toast('🔒 잠긴 그림은 움직이지 않아요.', 'warn'); return; }
+    if (one && one.type === 'image' && one.locked) { toast('🔒 잠긴 그림은 움직이지 않아요.', 'warn'); return; }
+    const movers = moversFor(ids); if (!movers.length) return;
     // 격자에 맞추는 중이면 점은 한 칸(또는 반 칸)씩 움직입니다
-    const gridStep = o.type === 'point' && coordOn() && doc.coord.snap ? doc.coord.unit * doc.coord.snap : 0;
+    const gridStep = movers.some(m => m.type === 'point') && coordOn() && doc.coord.snap ? doc.coord.unit * doc.coord.snap : 0;
     const step = gridStep || (e.shiftKey ? 10 : 1);
-    record('nudge:' + o.id);
-    o.x = round1(o.x + arrows[e.key][0] * step); o.y = round1(o.y + arrows[e.key][1] * step);
+    record('nudge:' + ids.join(','));
+    for (const m of movers) { m.x = round1(m.x + arrows[e.key][0] * step); m.y = round1(m.y + arrows[e.key][1] * step); }
     renderCanvas();
-    if (o.type === 'point') syncCoordInputs(o);
+    if (one && one.type === 'point') syncCoordInputs(one);
   }
 });
 document.addEventListener('keyup', e => { if (e.key === ' ') { spaceDown = false; wrap.classList.remove('panning'); } });
@@ -2091,6 +2568,8 @@ new ResizeObserver(() => { if (LAYER) { applyView(); renderCanvas(); } }).observ
 setupBoard();
 setTool('select');
 renderAll();
+updateTitle();
+offerRecovery();   // 지난번에 저장하지 못한 작업이 있으면 이어서 할지 물어봐요
 </script>
 </body>
 </html>
