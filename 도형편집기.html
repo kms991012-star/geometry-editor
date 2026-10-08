@@ -390,7 +390,7 @@ const CONFIG = {
     color: INK,                // 선 색
     dashPattern: [3.5, 2.5],   // 점선 모양(선 굵기의 배수: 선 길이, 빈칸 길이)
     widthMin: 0.5, widthMax: 8,
-    tickLen: 11, tickGap: 4.5, // 같은 길이 표시(|, ||)의 길이와 간격
+    tickLen: 11, tickGap: 4.5, // 같은 길이 표시(|, ||)의 기본 길이와 간격 (선분마다 속성창에서 바꿀 수 있어요)
     headSize: 11,              // 끝 모양(화살촉) 크기 — 선이 굵으면 그만큼 커져요
   },
   line: { width: 1.6, color: INK },          // 직선·반직선·수선·평행선 등
@@ -850,7 +850,7 @@ function labelStyle(o) {
   return { size: o.labelSize || P.labelSize, family: f.family, italic: known ? (o.labelItalic ?? f.italic) : P.labelItalic, weight: +o.labelWeight || 0 };
 }
 const STYLE_KEYS = {
-  point: ['size', 'color', 'labelFont', 'labelItalic', 'labelSize', 'labelWeight'], segment: ['width', 'color', 'dashed'], text: ['size', 'color', 'bold', 'italic'],
+  point: ['size', 'color', 'labelFont', 'labelItalic', 'labelSize', 'labelWeight'], segment: ['width', 'color', 'dashed', 'tickLen', 'tickWidth'], text: ['size', 'color', 'bold', 'italic'],
   length: ['size', 'color', 'format', 'style', 'lineWidth', 'braceDashed'], angle: ['radius', 'width', 'color', 'labelSize', 'labelMode', 'fill', 'showArc'],
   right: ['size', 'width', 'color'], parallel: ['size', 'width', 'color', 'count'], perp: ['size', 'width', 'color'],
   line: ['width', 'color', 'dashed'], circle: ['width', 'color', 'dashed', 'fill', 'fillColor', 'fillOpacity'], arc: ['width', 'color', 'dashed', 'fill', 'fillColor', 'fillOpacity'],
@@ -1395,6 +1395,9 @@ let maskSeq = 0;   // 마스크 이름이 겹치지 않게
 /* 원·부채꼴의 색칠 색과 진하기 (따로 정하지 않았으면 선 색 + 기본 진하기) */
 const fillColorOf = o => o.fillColor || o.color;
 const fillOpacityOf = o => o.fillOpacity != null ? o.fillOpacity : CONFIG.circle.fillOpacity;
+/* 같은 길이 표시의 크기(길이)와 굵기 — 선분마다 따로, 안 정했으면 기본값 */
+const tickLenOf = o => o.tickLen || CONFIG.segment.tickLen;
+const tickWidthOf = o => o.tickWidth || Math.max(1.3, o.width * 0.8);
 const DRAW = {
   segment(g, o, { edit, k }) {
     const e = segEnds(o); if (!e) return false;
@@ -1409,12 +1412,14 @@ const DRAW = {
     if (hd) S('path', { d: hd.heads, fill: o.color, stroke: o.color, 'stroke-width': Math.min(o.width, 1.2), 'stroke-linejoin': 'round' }, g);
     if (o.ticks) {   // 같은 길이 표시 | || |||
       const d = V.norm(V.sub(b, a)), n = perpOf(d), m = V.lerp(a, b, .5), C = CONFIG.segment;
+      const len = tickLenOf(o), tw = tickWidthOf(o);
+      const gap = Math.max(C.tickGap * len / C.tickLen, tw * 2.2);   // 표시가 커지거나 굵어지면 간격도 함께 넓게
       let path = '';
       for (let i = 0; i < o.ticks; i++) {
-        const c = V.add(m, V.mul(d, (i - (o.ticks - 1) / 2) * C.tickGap)), h = C.tickLen / 2;
+        const c = V.add(m, V.mul(d, (i - (o.ticks - 1) / 2) * gap)), h = len / 2;
         path += `M${c.x + n.x * h} ${c.y + n.y * h}L${c.x - n.x * h} ${c.y - n.y * h}`;
       }
-      S('path', { d: path, stroke: o.color, 'stroke-width': Math.max(1.3, o.width * 0.8), 'stroke-linecap': 'round', fill: 'none' }, g);
+      S('path', { d: path, stroke: o.color, 'stroke-width': tw, 'stroke-linecap': 'round', fill: 'none' }, g);
     }
   },
   point(g, o, { edit, k }) {
@@ -2819,6 +2824,20 @@ function fillFields(o) {
       } }, label))),
   ];
 }
+/* 같은 길이 표시의 크기·굵기 칸 */
+function tickFields(o) {
+  const others = () => byType('segment').filter(x => x !== o && x.ticks);
+  return [
+    field('표시 크기', slider({ min: 5, max: 36, step: 1, value: tickLenOf(o), onInput: v => setProp(o, 'tickLen', v) })),
+    field('표시 굵기', slider({ min: 0.5, max: 6, step: 0.5, value: tickWidthOf(o), onInput: v => setProp(o, 'tickWidth', v) })),
+    others().length ? H('div', { class: 'btn-row' }, H('button', { class: 'small-btn', title: '그림 안의 모든 같은 길이 표시를 이 크기·굵기로 맞춰요',
+      onclick: () => {
+        hist.lastKey = null; record();
+        const list = others(); for (const x of list) { x.tickLen = tickLenOf(o); x.tickWidth = tickWidthOf(o); }
+        renderCanvas(); toast(`다른 같은 길이 표시 ${list.length}개도 이 크기·굵기로 맞췄어요.`, 'ok');
+      } }, '다른 같은 길이 표시도 모두 이렇게')) : null,
+  ];
+}
 const PANELS = {
   point(o) {
     const nameInput = H('input', { type: 'text', value: o.name, maxlength: 12, placeholder: '예: A, P, Q',
@@ -2926,7 +2945,8 @@ const PANELS = {
       field('선 굵기', slider({ min: CONFIG.segment.widthMin, max: CONFIG.segment.widthMax, step: 0.5, value: o.width, onInput: v => setProp(o, 'width', v) })),
       colorField(o, '선 색'),
       field('선 모양', segmented([[false, '━━ 실선'], [true, '╍╍ 점선']], o.dashed, v => setOnce(o, 'dashed', v))),
-      field('같은 길이 표시', segmented([[0, '없음'], [1, '|'], [2, '||'], [3, '|||']], o.ticks || 0, v => setOnce(o, 'ticks', v))),
+      field('같은 길이 표시', segmented([[0, '없음'], [1, '|'], [2, '||'], [3, '|||']], o.ticks || 0, v => setOnce(o, 'ticks', v, renderPanel))),
+      ...(o.ticks ? tickFields(o) : []),
       field('끝 모양 (화살촉)', segmented([['none', '없음'], ['end', `${pname(o.p1)}→${pname(o.p2)}`], ['start', `${pname(o.p2)}→${pname(o.p1)}`], ['both', '↔ 양쪽']],
         o.heads || 'none', v => setOnce(o, 'heads', v === 'none' ? undefined : v))),
       field('양 끝점 바꾸기', H('div', { class: 'wh' }, endpointSelect(o, 'p1'), '—', endpointSelect(o, 'p2'))),
