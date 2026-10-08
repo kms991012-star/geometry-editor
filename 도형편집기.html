@@ -457,6 +457,7 @@ const ICONS = {
   right:    '<path d="M5 4v15h15"/><path d="M5 12h7v7"/>',
   parallel: '<path d="M3 8h18M3 16h18"/><path d="M10 5.5l2.5 2.5-2.5 2.5M10 13.5l2.5 2.5-2.5 2.5"/>',
   perp:     '<path d="M12 4v15M4 19h16"/><path d="M12 14h5v5"/>',
+  equal:    '<path d="M3 17L21 7"/><path d="M9.6 9.3l2.2 3.9M12.9 7.5l2.2 3.9"/>',
   image:    '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 8"/>',
   coord:    '<path d="M12 21V3M3 12h18" stroke-width="2"/><path d="M10 5l2-2 2 2M19 10l2 2-2 2"/><path d="M7 3v18M17 3v18M3 7h18M3 17h18" stroke-width="1" opacity=".45"/>',
   lock:     '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
@@ -515,6 +516,7 @@ const TOOLS = {
   regpoly:  { label: '정다각형', icon: 'regpoly', desc: '한 변을 정하고 몇 각형인지 입력', picks: ['point', 'point'], steps: ['한 변의 첫 번째 꼭짓점', '두 번째 꼭짓점'], tip: '두 점의 왼쪽 위로 만들어져요.' },
   // 글자·표시
   text:     { label: '문자', key: 't', icon: 'text', hint: '글자를 넣을 곳을 클릭하세요. 이미 있는 글자는 드래그해서 옮겨요.' },
+  equal:    { label: '같은 길이', short: '같은 길이', key: 'e', icon: 'equal', desc: '같은 길이인 선분에 | 표시', picks: ['segment'], steps: ['같은 길이인 선분'] },
   length:   { label: '길이', key: 'd', icon: 'length', desc: '선분 옆에 길이 쓰기', picks: ['segment'], steps: ['길이를 표시할 선분'] },
   angle:    { label: '각', key: 'a', icon: 'angle', desc: '∠ABC에 호와 각도 표시', picks: ['point', 'point', 'point'], steps: ['첫 번째 점(예: A)', '꼭짓점(예: B)', '마지막 점(예: C)'], tip: '∠ABC라면 A → B → C 순서로 클릭해요.' },
   right:    { label: '직각', key: 'r', icon: 'right', desc: '∠ABC에 직각 표시', picks: ['point', 'point', 'point'], steps: ['첫 번째 점(예: A)', '직각인 꼭짓점(예: B)', '마지막 점(예: C)'] },
@@ -531,7 +533,7 @@ const TOOL_GROUPS = [
   { id: 'construct', label: '작도', tools: ['perpLine', 'parLine', 'pbis', 'abis'] },
   { id: 'poly',      label: '다각형', tools: ['polygon', 'regpoly'] },
   { id: 'text',      tools: ['text'] },
-  { id: 'mark',      label: '표시', tools: ['length', 'angle', 'right', 'parallel', 'perp'] },
+  { id: 'mark',      label: '표시', tools: ['length', 'equal', 'angle', 'right', 'parallel', 'perp'] },
 ];
 
 /* ================================================================
@@ -851,7 +853,7 @@ const STYLE_KEYS = {
   point: ['size', 'color', 'labelFont', 'labelItalic', 'labelSize', 'labelWeight'], segment: ['width', 'color', 'dashed'], text: ['size', 'color', 'bold', 'italic'],
   length: ['size', 'color', 'format', 'style', 'lineWidth', 'braceDashed'], angle: ['radius', 'width', 'color', 'labelSize', 'labelMode', 'fill', 'showArc'],
   right: ['size', 'width', 'color'], parallel: ['size', 'width', 'color', 'count'], perp: ['size', 'width', 'color'],
-  line: ['width', 'color', 'dashed'], circle: ['width', 'color', 'dashed', 'fill'], arc: ['width', 'color', 'dashed', 'fill'],
+  line: ['width', 'color', 'dashed'], circle: ['width', 'color', 'dashed', 'fill', 'fillColor', 'fillOpacity'], arc: ['width', 'color', 'dashed', 'fill', 'fillColor', 'fillOpacity'],
   polygon: ['fillColor', 'fillOpacity', 'border', 'width', 'color'],
   arrow: ['width', 'color', 'dashed', 'heads', 'headSize'],
 };
@@ -1390,6 +1392,9 @@ function mathText(g, x, y, str, size, color, extra = {}) {
 const HIT = 'transparent';
 let maskSeq = 0;   // 마스크 이름이 겹치지 않게
 
+/* 원·부채꼴의 색칠 색과 진하기 (따로 정하지 않았으면 선 색 + 기본 진하기) */
+const fillColorOf = o => o.fillColor || o.color;
+const fillOpacityOf = o => o.fillOpacity != null ? o.fillOpacity : CONFIG.circle.fillOpacity;
 const DRAW = {
   segment(g, o, { edit, k }) {
     const e = segEnds(o); if (!e) return false;
@@ -1438,14 +1443,14 @@ const DRAW = {
     const G = circleGeom(o); if (!G) return false;
     const d = circleD(G.C, G.r);
     if (edit) S('path', { class: 'hit', d, fill: 'none', stroke: HIT, 'stroke-width': CONFIG.hitRadius * 2 * k, 'pointer-events': 'stroke' }, g);
-    S('path', { d, fill: o.fill ? o.color : 'none', 'fill-opacity': o.fill ? CONFIG.circle.fillOpacity : null,
+    S('path', { d, fill: o.fill ? fillColorOf(o) : 'none', 'fill-opacity': o.fill ? fillOpacityOf(o) : null,
       stroke: o.color, 'stroke-width': o.width, 'stroke-dasharray': dashFor(o) }, g);
   },
   arc(g, o, { edit, k }) {
     const G = arcGeom(o); if (!G) return false;
     const d = o.sector ? sectorD(G) : arcD(G);
     if (edit) S('path', { class: 'hit', d, fill: o.sector ? HIT : 'none', stroke: HIT, 'stroke-width': CONFIG.hitRadius * 2 * k, 'pointer-events': o.sector ? 'all' : 'stroke' }, g);
-    S('path', { d, fill: o.sector && o.fill ? o.color : 'none', 'fill-opacity': o.sector && o.fill ? CONFIG.circle.fillOpacity : null,
+    S('path', { d, fill: o.sector && o.fill ? fillColorOf(o) : 'none', 'fill-opacity': o.sector && o.fill ? fillOpacityOf(o) : null,
       stroke: o.color, 'stroke-width': o.width, 'stroke-linejoin': 'round', 'stroke-dasharray': dashFor(o) }, g);
   },
   polygon(g, o, { edit }) {
@@ -1879,8 +1884,14 @@ function openCoord() {
   if (tool !== 'select') setTool('select');
   select(COORD_ID);
 }
+let equalMark = 1;   // '같은 길이' 도구가 지금 붙이는 표시 개수 (1=|, 2=||, 3=|||)
+function nextEqualMark() {
+  const used = new Set(byType('segment').map(s => s.ticks || 0));
+  return [1, 2, 3].find(n => !used.has(n)) || 1;
+}
 function setTool(t) {
   tool = t; picks = []; tempHint = null; regionPick = null;
+  if (t === 'equal') equalMark = nextEqualMark();
   const g = groupOf(t); if (g) groupCurrent[g.id] = t;
   renderToolButtons();
   $('#toolChip').textContent = '현재 도구: ' + TOOLS[t].label;
@@ -1898,6 +1909,11 @@ function updateHint() {
   if (tempHint) { el.textContent = tempHint; el.classList.add('warn'); return; }
   el.classList.remove('warn');
   const T = TOOLS[tool];
+  if (tool === 'equal') {
+    el.append(H('span', { class: 'step' }, '표시 ' + '|'.repeat(equalMark)),
+      '같은 길이인 선분들을 차례로 클릭하세요. 다른 길이 묶음은 Enter(| → || → |||). 다시 클릭하면 지워져요.');
+    return;
+  }
   if (tool === 'polygon') {
     el.append(H('span', { class: 'step' }, `꼭짓점 ${picks.length}개`),
       picks.length < 3 ? '꼭짓점을 차례로 클릭하세요.' : '계속 클릭하거나, 처음 점을 다시 클릭(또는 Enter)하면 완성돼요.');
@@ -2177,6 +2193,14 @@ function finishPick(ids, alreadyRecorded) {
   const samePair = (o) => (o.segs[0] === ids[0] && o.segs[1] === ids[1]) || (o.segs[0] === ids[1] && o.segs[1] === ids[0]);
   let made = null;
   switch (tool) {
+    case 'equal': {   // 같은 길이 표시: 누를 때마다 붙였다 뗐다
+      const sg = getObj(ids[0]); if (!sg) return;
+      rec();
+      sg.ticks = sg.ticks === equalMark ? 0 : equalMark;
+      renderAll();
+      toast(sg.ticks ? `선분 ${segmentName(sg)}에 ${'|'.repeat(sg.ticks)} 표시를 넣었어요.` : `선분 ${segmentName(sg)}의 표시를 지웠어요.`);
+      return;
+    }
     // ── 알지오매스식 도구
     case 'mid': {
       const ex = byType('point').find(p => p.def && p.def.kind === 'mid' && ((p.def.a === ids[0] && p.def.b === ids[1]) || (p.def.a === ids[1] && p.def.b === ids[0])));
@@ -2782,6 +2806,19 @@ function derivedInfo(o) {
   if (f.kind === 'reg') return `🔗 정${f.n}각형의 꼭짓점이에요. ${pname(f.a)}, ${pname(f.b)}을(를) 옮기면 따라 움직여요.`;
   return null;
 }
+/* 색칠 칸 (다각형·원·부채꼴 공통): 색칠 색, 색 진하기, 빠른 버튼 */
+function fillFields(o) {
+  return [
+    field('색칠 색', colorPicker(fillColorOf(o), c => setProp(o, 'fillColor', c))),
+    field('색 진하기', slider({ min: 0, max: 100, value: Math.round(fillOpacityOf(o) * 100), unit: '%', onInput: v => setProp(o, 'fillOpacity', v / 100) })),
+    H('div', { class: 'btn-row' },
+      ...[['연하게', 0.12], ['보통', 0.25], ['빗금 대신 회색', null]].map(([label, op]) => H('button', { class: 'small-btn', onclick: () => {
+        hist.lastKey = null; record();
+        if (op === null) { o.fillColor = '#9aa3b2'; o.fillOpacity = 0.35; } else { o.fillColor = fillColorOf(o); o.fillOpacity = op; }
+        renderCanvas(); renderPanel();
+      } }, label))),
+  ];
+}
 const PANELS = {
   point(o) {
     const nameInput = H('input', { type: 'text', value: o.name, maxlength: 12, placeholder: '예: A, P, Q',
@@ -2842,7 +2879,8 @@ const PANELS = {
       H('div', { class: 'info' }, ({ cp: '중심과 한 점으로 그린 원', cr: '중심과 반지름으로 그린 원', three: '세 점을 지나는 원' })[f.kind]
         + (G ? ` · 반지름 약 ${unitText(G.r)}` : ' · 지금은 그릴 수 없어요')),
       rIn ? field(grid ? '반지름 (칸)' : '반지름 (픽셀)', rIn) : null,
-      toggle('안쪽 색칠', o.fill, v => setProp(o, 'fill', v)),
+      toggle('안쪽 색칠', o.fill, v => setProp(o, 'fill', v, renderPanel)),
+      ...(o.fill ? fillFields(o) : []),
       groupTitle('모양'),
       field('선 굵기', slider({ min: CONFIG.segment.widthMin, max: CONFIG.segment.widthMax, step: 0.5, value: o.width, onInput: v => setProp(o, 'width', v) })),
       colorField(o, '선 색'),
@@ -2856,7 +2894,8 @@ const PANELS = {
     return [
       field('종류', segmented([[false, '⌒ 호'], [true, '◔ 부채꼴']], o.sector, v => { hist.lastKey = null; record(); o.sector = v; o.fill = v; renderAll(); })),
       H('div', { class: 'btn-row' }, H('button', { class: 'small-btn', title: '나머지 부분으로 바꿔요', onclick: () => setOnce(o, 'flip', !o.flip) }, '⟲ 반대쪽 호로 바꾸기')),
-      o.sector ? toggle('안쪽 색칠', o.fill, v => setProp(o, 'fill', v)) : null,
+      o.sector ? toggle('안쪽 색칠', o.fill, v => setProp(o, 'fill', v, renderPanel)) : null,
+      ...(o.sector && o.fill ? fillFields(o) : []),
       groupTitle('모양'),
       field('선 굵기', slider({ min: CONFIG.segment.widthMin, max: CONFIG.segment.widthMax, step: 0.5, value: o.width, onInput: v => setProp(o, 'width', v) })),
       colorField(o, '선 색'),
@@ -2869,14 +2908,7 @@ const PANELS = {
 
   polygon(o) {
     return [
-      field('색칠 색', colorPicker(o.fillColor, c => setProp(o, 'fillColor', c))),
-      field('색 진하기', slider({ min: 0, max: 100, value: Math.round(o.fillOpacity * 100), unit: '%', onInput: v => setProp(o, 'fillOpacity', v / 100) })),
-      H('div', { class: 'btn-row' },
-        ...[['연하게', 0.12], ['보통', 0.25], ['빗금 대신 회색', null]].map(([label, op]) => H('button', { class: 'small-btn', onclick: () => {
-          hist.lastKey = null; record();
-          if (op === null) { o.fillColor = '#9aa3b2'; o.fillOpacity = 0.35; } else o.fillOpacity = op;
-          renderCanvas(); renderPanel();
-        } }, label))),
+      ...fillFields(o),
       groupTitle('테두리'),
       toggle('테두리 보이기', o.border, v => setProp(o, 'border', v, renderPanel)),
       o.border ? field('테두리 굵기', slider({ min: CONFIG.segment.widthMin, max: CONFIG.segment.widthMax, step: 0.5, value: o.width, onInput: v => setProp(o, 'width', v) })) : null,
@@ -4528,6 +4560,10 @@ document.addEventListener('keydown', e => {
   if (e.key === ' ') { e.preventDefault(); if (!spaceDown) { spaceDown = true; wrap.classList.add('panning'); } return; }
   if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteSelected(); return; }
   if (e.key === 'Enter' && tool === 'polygon' && picks.length) { e.preventDefault(); finishPolygon(false); return; }
+  if (e.key === 'Enter' && tool === 'equal') {   // 다음 길이 묶음으로 (| → || → |||)
+    e.preventDefault(); equalMark = equalMark % 3 + 1; updateHint();
+    toast(`이제 ${'|'.repeat(equalMark)} 표시를 붙여요. 같은 길이인 선분들을 클릭하세요.`); return;
+  }
   if (e.key === 'Escape') {
     if (flyEl) { closeFlyout(); return; }
     if (regionPick) { aiRegionCancel(); toast('영역 고르기를 취소했어요.'); return; }
