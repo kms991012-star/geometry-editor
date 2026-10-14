@@ -1038,6 +1038,70 @@ function makeSphere(c, p) {
   return [circle.id, e.id];
 }
 
+/* ---------- [한 직선 위의 점] 점을 두 끝점을 잇는 직선 위에 묶어 두기 (끝점을 옮겨도 늘 한 직선) ---------- */
+function dependsOn(id, target, seen = new Set()) {   // id가 (돌고 돌아) target에 기대고 있는지 — 서로 기대는 고리를 막아요
+  if (id === target) return true;
+  if (seen.has(id)) return false; seen.add(id);
+  const o = getObj(id); return !!o && refsOf(o).some(r => dependsOn(r, target, seen));
+}
+function bindToLine(p, a, b) {   // 점 p를 직선 ab 위로 옮기고 묶기 — 묶었으면 true
+  if (!p || !a || !b || p.id === a.id || p.id === b.id || a.id === b.id) return false;
+  if (dependsOn(a.id, p.id) || dependsOn(b.id, p.id)) return false;
+  const ab = V.sub(b, a), L2 = V.dot(ab, ab); if (L2 < 1) return false;
+  const t = Math.round(V.dot(V.sub(p, a), ab) / L2 * 10000) / 10000;
+  p.def = { kind: 'col', a: a.id, b: b.id, t };
+  const q = V.lerp(a, b, t); p.x = round1(q.x); p.y = round1(q.y); p.undef = false;
+  return true;
+}
+/* 선분으로 이어진 점들 가운데, 이웃한 두 점 사이 한 직선 위에 놓인 '가운데 점'을 찾아 그 직선의 양 끝에 묶어요 (AI 결과에) */
+function bindCollinearRuns(segIds) {
+  const nb = new Map(), link = (x, y) => { if (!nb.has(x)) nb.set(x, new Set()); nb.get(x).add(y); };
+  for (const sg of segIds.map(getObj)) if (sg && sg.type === 'segment') { link(sg.p1, sg.p2); link(sg.p2, sg.p1); }
+  const mid = new Map();   // 가운데 점 → [이웃 점, 이웃 점]
+  for (const [pid, set] of nb) {
+    const p = P(pid); if (!p || p.def) continue;
+    const ns = [...set].map(P).filter(Boolean); let found = null, count = 0;
+    for (let i = 0; i < ns.length; i++) for (let j = i + 1; j < ns.length; j++) {
+      const q = ns[i], r = ns[j], L = V.dist(q, r); if (L < 4) continue;
+      if (distToSegment(p, q, r) <= Math.max(3, L * 0.02) && V.dot(V.sub(q, p), V.sub(r, p)) < 0) { found = [q.id, r.id]; count++; }   // 약 2° 이내로 곧게 이어지면
+    }
+    if (count === 1) mid.set(pid, found);   // 한 직선만 지나는 점만 (애매하면 묶지 않아요)
+  }
+  const endFrom = (prev, cur) => {   // 가운데 점들을 건너 직선의 끝까지
+    for (let guard = 0; mid.has(cur) && guard < 200; guard++) {
+      const [x, y] = mid.get(cur), nxt = x === prev ? y : y === prev ? x : null;
+      if (!nxt) break; prev = cur; cur = nxt;
+    }
+    return cur;
+  };
+  let n = 0;
+  for (const [pid, [q, r]] of mid) { const e1 = endFrom(pid, q), e2 = endFrom(pid, r); if (e1 !== e2 && bindToLine(getObj(pid), P(e1), P(e2))) n++; }
+  return n;
+}
+/* [📏 한 직선으로 맞추기] 고른 점(또는 선분의 끝점)들을 가장 먼 두 점을 잇는 직선 위로 옮기고 묶어요 */
+function alignSelectionToLine() {
+  const pts = new Set();
+  for (const o of selectionIds().map(getObj)) {
+    if (!o) continue;
+    if (o.type === 'point') pts.add(o);
+    else if (o.type === 'segment') [o.p1, o.p2].map(getObj).forEach(q => q && pts.add(q));
+  }
+  const list = [...pts].filter(isPt);
+  if (list.length < 3) { toast('한 직선으로 맞출 점을 3개 이상 골라 주세요. (점이나 선분을 Shift+클릭, 또는 끌어서 네모로)', 'warn'); return; }
+  let a = null, b = null, far = -1;
+  for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) { const d = V.dist(list[i], list[j]); if (d > far) { far = d; a = list[i]; b = list[j]; } }
+  record();
+  let n = 0, skip = 0;
+  for (const q of list) {
+    if (q === a || q === b) continue;
+    if (q.def && q.def.kind !== 'col') { skip++; continue; }   // 중점·교점 같은 점은 그대로
+    if (bindToLine(q, a, b)) n++; else skip++;
+  }
+  renderAll();
+  toast(n ? `점 ${n}개를 직선 ${a.name}${b.name} 위에 맞추고 묶었어요. 이제 끝점을 옮겨도 한 직선으로 따라가요.` + (skip ? ` (${skip}개는 그대로 뒀어요)` : '')
+          : '맞출 수 있는 점이 없었어요.', n ? 'ok' : 'warn');
+}
+
 /* 이 개체가 기대고 있는 다른 개체들 (점이 지워지면 연결된 선분·표시도 함께 지움) */
 function refsOf(o) {
   switch (o.type) {
@@ -1047,7 +1111,7 @@ function refsOf(o) {
     case 'parallel': case 'perp': return o.segs;
     case 'point': {
       const f = o.def; if (!f) return [];
-      return f.kind === 'mid' || f.kind === 'reg' ? [f.a, f.b] : f.kind === 'inter' ? [f.o1, f.o2] : f.kind === 'on' ? [f.obj] : [];
+      return f.kind === 'mid' || f.kind === 'reg' || f.kind === 'col' ? [f.a, f.b] : f.kind === 'inter' ? [f.o1, f.o2] : f.kind === 'on' ? [f.obj] : [];
     }
     case 'line': { const f = o.def; return f.kind === 'two' ? [f.p1, f.p2] : f.kind === 'pbis' ? [f.a, f.b] : f.kind === 'abis' ? [f.a, f.v, f.b] : [f.p, f.ref]; }
     case 'circle': { const f = o.def; return f.kind === 'cp' ? [f.c, f.p] : f.kind === 'cr' ? [f.c] : [f.a, f.b, f.c]; }
@@ -1335,6 +1399,7 @@ function computeDerived(p) {
   if (f.kind === 'inter') { const o1 = getObj(f.o1), o2 = getObj(f.o2); return o1 && o2 ? intersectAt(o1, o2, f.idx) : null; }
   if (f.kind === 'on') { const o = getObj(f.obj); return o ? pointOn(o, f.t) : null; }
   if (f.kind === 'reg') { const a = P(f.a), b = P(f.b); return a && b ? regVertex(a, b, f.n, f.k) : null; }
+  if (f.kind === 'col') { const a = P(f.a), b = P(f.b); return a && b ? V.lerp(a, b, f.t) : null; }   // 직선 위의 점
   return null;
 }
 /* 그리기 전에 따라 움직이는 점들의 위치를 모두 새로 계산 */
@@ -1347,7 +1412,7 @@ function updateDerived() {
       else o.undef = true;   // 지금은 위치가 없음 (예: 두 원이 만나지 않음) → 그리지 않아요
     }
 }
-const DERIVED_NAME = { mid: '중점', inter: '교점', on: '위의 점', reg: '정다각형 꼭짓점' };
+const DERIVED_NAME = { mid: '중점', inter: '교점', on: '위의 점', reg: '정다각형 꼭짓점', col: '직선 위의 점' };
 
 /* ---------- 타원: 긴 지름의 양 끝(p1, p2) + 납작한 정도(ratio) ---------- */
 function ellipseGeom(o) {
@@ -2161,7 +2226,7 @@ function nearestCurve(pt, types) {
 /* 선택 도구에서 드래그하면 무엇이 바뀌는지 */
 function dragInfoFor(o, pt) {
   if (o.type === 'point' && o.def) {   // 따라 움직이는 점
-    if (o.def.kind === 'on') return { kind: 'slide' };   // 선·원 위의 점은 그 위를 따라 미끄러져요
+    if (o.def.kind === 'on' || o.def.kind === 'col') return { kind: 'slide' };   // 선·원 위의 점, 직선 위의 점은 그 위를 따라 미끄러져요
     setTempHint(`${o.name}은(는) ${DERIVED_NAME[o.def.kind]}이라 직접 옮길 수 없어요. 연결된 점을 옮기면 따라 움직여요.`);
     return null;
   }
@@ -2458,7 +2523,11 @@ board.addEventListener('pointermove', e => {
       if (V.dist(q, other) >= 1 && !(q.pid && q.pid === o[i ? 'p1' : 'p2'])) setArrowEnd(o, i, q);
     }
     else if (drag.kind === 'slide') {   // 선·원 위의 점: 그 위를 따라 이동
-      const obj = getObj(o.def.obj), t = obj ? projectParam(obj, pt) : null;
+      if (o.def.kind === 'col') {   // 직선 위의 점: 두 끝점을 잇는 직선을 따라
+        const a = P(o.def.a), b = P(o.def.b), ab = a && b && V.sub(b, a), L2 = ab ? V.dot(ab, ab) : 0;
+        if (L2 > 1) o.def.t = Math.round(V.dot(V.sub(pt, a), ab) / L2 * 10000) / 10000;
+      }
+      const obj = o.def.kind === 'on' ? getObj(o.def.obj) : null, t = obj ? projectParam(obj, pt) : null;
       if (t != null) o.def.t = Math.round(t * 10000) / 10000;
     }
     else if (drag.kind === 'length') dragLengthLabel(o, drag, dx, dy);
@@ -2625,6 +2694,8 @@ function deleteSelected() {
   const label = targets.length === 1 ? objLabel(targets[0]) : `개체 ${targets.length}개`;
   record();
   const gone = new Set();
+  const tset = new Set(targets.map(o => o.id));   // 직선의 끝점을 지우면 그 직선 위에 묶인 점은 지우지 않고 풀어 줘요
+  for (const q of byType('point')) if (q.def && q.def.kind === 'col' && !tset.has(q.id) && (tset.has(q.def.a) || tset.has(q.def.b))) delete q.def;
   for (const o of targets) withDependents(o.id).forEach(id => gone.add(id));
   // 붙어 있던 점이 지워지면 화살표는 남기고 그 자리에서 떼어요
   for (const a of byType('arrow')) if (!gone.has(a.id)) bakeArrow(a, ['p1', 'p2'].filter(k => a[k] && gone.has(a[k])));
@@ -2849,6 +2920,7 @@ function multiPanel(head, body) {
     H('div', { class: 'btn-row' },
       H('button', { class: 'small-btn', onclick: () => { hist.lastKey = null; setAll('visible', true, objs.filter(o => o.type !== 'image')); renderAll(); } }, '👁 모두 보이기'),
       H('button', { class: 'small-btn', onclick: () => { hist.lastKey = null; setAll('visible', false, objs.filter(o => o.type !== 'image')); renderAll(); } }, '숨기기')),
+    points.length + objs.filter(o => o.type === 'segment').length >= 2 ? H('button', { class: 'big-btn accent', title: '고른 점들을 가장 먼 두 점을 잇는 직선 위에 맞추고, 끝점을 옮겨도 계속 한 직선이 되게 묶어요', onclick: alignSelectionToLine }, '📏 한 직선으로 맞추기') : null,
     H('div', { class: 'btn-row' },
       H('button', { class: 'small-btn', title: 'Ctrl+D', onclick: duplicateSelection }, '⧉ 복제'),
       H('button', { class: 'small-btn', title: 'Ctrl+C', onclick: () => { if (copySelection()) toast('복사했어요. Ctrl+V로 붙여 넣으세요.'); } }, '복사')),
@@ -2937,6 +3009,7 @@ function derivedInfo(o) {
   if (f.kind === 'inter') return `🔗 ${objLabel(getObj(f.o1) || { type: '?' })}와(과) ${objLabel(getObj(f.o2) || { type: '?' })}의 교점이에요.` + (o.undef ? ' 지금은 만나지 않아서 보이지 않아요.' : '');
   if (f.kind === 'on') return `🔗 ${objLabel(getObj(f.obj) || { type: '?' })} 위의 점이에요. 끌면 그 위를 따라 움직여요.`;
   if (f.kind === 'reg') return `🔗 정${f.n}각형의 꼭짓점이에요. ${pname(f.a)}, ${pname(f.b)}을(를) 옮기면 따라 움직여요.`;
+  if (f.kind === 'col') return `📏 직선 ${pname(f.a)}${pname(f.b)} 위의 점이에요. 끌면 직선을 따라서만 움직이고, ${pname(f.a)}, ${pname(f.b)}을(를) 옮기면 같이 따라가서 늘 한 직선으로 보여요.`;
   return null;
 }
 /* 색칠 칸 (다각형·원·부채꼴 공통): 색칠 색, 색 진하기, 빠른 버튼 */
@@ -3002,6 +3075,9 @@ const PANELS = {
     const dv = o.def ? derivedInfo(o) : null;
     return [
       dv ? H('div', { class: 'note', style: 'margin:0 0 14px' }, dv) : null,
+      o.def && o.def.kind === 'col' ? H('button', { class: 'big-btn', title: '이 점을 직선에서 풀어서 자유롭게 옮길 수 있게 해요', onclick: () => {
+        hist.lastKey = null; record(); delete o.def; renderAll(); toast(`${o.name}을(를) 직선에서 뗐어요. 이제 어디로든 옮길 수 있어요.`);
+      } }, '✂ 직선에서 떼기') : null,
       field('이름', nameInput, chips),
       coordOn() ? pointCoordField(o) : null,
       coordOn() ? toggle(`이름 옆에 좌표 쓰기  ${pointLabelText({ ...o, labelCoord: true })}`, o.labelCoord, v => setProp(o, 'labelCoord', v)) : null,
@@ -4144,6 +4220,7 @@ function applyRecognition(norm, keys, opt = {}) {
     if (r) made.set(c.key, r); else skipped.push(c);
     for (const o of doc.objects) if (!before.has(o.id)) { o.ai = { image: norm.imageId, conf: Math.round(c.conf * 100) / 100 }; fresh.push(o.id); }
   }
+  const colN = bindCollinearRuns(fresh);   // 한 직선 위에 이어진 점들은 끝점에 묶어서, 조정해도 꺾이지 않게
   const img = getObj(norm.imageId);
   if (img && opt.lockImage) img.locked = true;
   if (img && opt.dimImage) img.opacity = Math.min(img.opacity, CONFIG.ai.dimOpacity);
@@ -4151,7 +4228,8 @@ function applyRecognition(norm, keys, opt = {}) {
   if (fresh.length) selectMany(fresh); else renderAll();
   toast((removed ? `기존 AI 개체를 지우고 ` : '') + `인식한 개체 ${fresh.length}개를 만들었어요.` + (extra ? ` (필요한 점·선분 ${extra}개 포함)` : '')
     + (made.size > fresh.length ? ` 이미 있던 ${made.size - fresh.length}개는 그대로 썼어요.` : '')
-    + (skipped.length ? ` ${skipped.length}개는 만들 수 없어서 건너뛰었어요.` : '') + ' 마음에 들지 않으면 Ctrl+Z', fresh.length ? 'ok' : 'warn');
+    + (skipped.length ? ` ${skipped.length}개는 만들 수 없어서 건너뛰었어요.` : '')
+    + (colN ? ` 한 직선 위의 점 ${colN}개는 직선에 묶었어요.` : '') + ' 마음에 들지 않으면 Ctrl+Z', fresh.length ? 'ok' : 'warn');
   return true;
 }
 
