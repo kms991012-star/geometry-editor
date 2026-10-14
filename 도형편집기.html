@@ -179,6 +179,7 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
 .seg{display:flex;gap:2px;padding:3px;background:#f0f3f9;border-radius:10px}
 .seg button{flex:1;padding:7px 4px;border:none;border-radius:8px;background:transparent;font-weight:600;color:var(--muted);white-space:nowrap}
 .seg button.on{background:#fff;color:var(--accent-dark);box-shadow:0 1px 4px rgba(30,40,70,.14)}
+.props select{width:100%;padding:8px 10px;border:1.5px solid var(--line-strong);border-radius:9px;font:inherit;background:#fff;color:var(--text)}
 .dir-grid{display:grid;grid-template-columns:repeat(3,44px);gap:4px}
 .dir-grid button{height:30px;border:1.5px solid var(--line-strong);border-radius:8px;background:#fff;font-size:14px;font-weight:700;color:var(--muted);padding:0}
 .dir-grid button:hover{border-color:var(--accent);color:var(--accent-dark)}
@@ -396,6 +397,11 @@ const CONFIG = {
   line: { width: 1.6, color: INK },          // 직선·반직선·수선·평행선 등
   circle: { width: 2, color: INK, fillOpacity: 0.12 },   // 원·호·부채꼴
   polygon: { fillColor: '#5b7cfa', fillOpacity: 0.18, border: true, width: 2, color: INK },   // 다각형(색칠)
+  solid: {                     // 입체도형(타원)
+    ratio: 0.32,               // 타원의 납작한 정도(짧은 지름 ÷ 긴 지름)
+    liquidColor: '#8ec9f0', liquidOpacity: 0.55,   // 물·액체 색칠 기본값
+    capLen: 12,                // 치수선 양 끝 막대(⊢⊣)의 길이
+  },
   text: { size: 22, color: INK, bold: false, italic: false, sizeMin: 10, sizeMax: 64 },   // 문자
   length: {                    // 길이 표시
     size: 19, color: INK, lineWidth: 1.3,
@@ -458,6 +464,11 @@ const ICONS = {
   parallel: '<path d="M3 8h18M3 16h18"/><path d="M10 5.5l2.5 2.5-2.5 2.5M10 13.5l2.5 2.5-2.5 2.5"/>',
   perp:     '<path d="M12 4v15M4 19h16"/><path d="M12 14h5v5"/>',
   equal:    '<path d="M3 17L21 7"/><path d="M9.6 9.3l2.2 3.9M12.9 7.5l2.2 3.9"/>',
+  ellipse:  '<ellipse cx="12" cy="12" rx="9" ry="4.5"/>',
+  cone:     '<path d="M12 3L4.5 17.5M12 3l7.5 14.5"/><ellipse cx="12" cy="17.5" rx="7.5" ry="2.8"/>',
+  cylinder: '<ellipse cx="12" cy="6" rx="7" ry="2.6"/><path d="M5 6v12M19 6v12M5 18a7 2.6 0 0 0 14 0"/>',
+  frustum:  '<ellipse cx="12" cy="6" rx="4.5" ry="1.8"/><path d="M7.5 6L4 18M16.5 6L20 18M4 18a8 2.8 0 0 0 16 0"/>',
+  sphere:   '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12a8.5 3 0 0 0 17 0"/><path d="M3.5 12a8.5 3 0 0 1 17 0" stroke-dasharray="2 2"/>',
   image:    '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 8"/>',
   coord:    '<path d="M12 21V3M3 12h18" stroke-width="2"/><path d="M10 5l2-2 2 2M19 10l2 2-2 2"/><path d="M7 3v18M17 3v18M3 7h18M3 17h18" stroke-width="1" opacity=".45"/>',
   lock:     '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
@@ -515,6 +526,12 @@ const TOOLS = {
   polygon:  { label: '다각형 (색칠)', short: '다각형', key: 'g', icon: 'polygon', desc: '꼭짓점을 차례로 → 색칠한 영역', picks: ['point'], steps: ['꼭짓점'], hint: '꼭짓점을 차례로 클릭하고, 처음 점을 다시 클릭하면 완성돼요. (Enter로도 완성)' },
   regpoly:  { label: '정다각형', icon: 'regpoly', desc: '한 변을 정하고 몇 각형인지 입력', picks: ['point', 'point'], steps: ['한 변의 첫 번째 꼭짓점', '두 번째 꼭짓점'], tip: '두 점의 왼쪽 위로 만들어져요.' },
   // 글자·표시
+  // 입체
+  cone:     { label: '원뿔', icon: 'cone', desc: '꼭짓점과 밑면의 양 끝 (거꾸로 된 그릇도)', picks: ['point', 'point', 'point'], steps: ['원뿔의 꼭짓점', '밑면(타원)의 한쪽 끝', '밑면의 반대쪽 끝'], tip: '보이지 않는 뒤쪽 반은 자동으로 점선이 돼요.' },
+  cylinder: { label: '원기둥', icon: 'cylinder', desc: '밑면의 양 끝과 윗면의 한쪽 끝', picks: ['point', 'point', 'point'], steps: ['밑면의 한쪽 끝', '밑면의 반대쪽 끝', '첫 번째 점 바로 위(윗면의 끝)'] },
+  frustum:  { label: '원뿔대', icon: 'frustum', desc: '밑면 양 끝, 윗면 양 끝', picks: ['point', 'point', 'point', 'point'], steps: ['밑면의 한쪽 끝', '밑면의 반대쪽 끝', '윗면의 같은 쪽 끝', '윗면의 반대쪽 끝'] },
+  sphere:   { label: '구', icon: 'sphere', desc: '중심과 구 위의 한 점', picks: ['point', 'point'], steps: ['구의 중심', '구 위의 한 점'] },
+  ellipse:  { label: '타원', icon: 'ellipse', desc: '긴 지름의 양 끝 (밑면·물 표면 등)', picks: ['point', 'point'], steps: ['타원의 한쪽 끝', '반대쪽 끝'], tip: '납작한 정도·점선·색칠은 오른쪽에서 바꿔요.' },
   text:     { label: '문자', key: 't', icon: 'text', hint: '글자를 넣을 곳을 클릭하세요. 이미 있는 글자는 드래그해서 옮겨요.' },
   equal:    { label: '같은 길이', short: '같은 길이', key: 'e', icon: 'equal', desc: '같은 길이인 선분에 | 표시', picks: ['segment'], steps: ['같은 길이인 선분'] },
   length:   { label: '길이', key: 'd', icon: 'length', desc: '선분 옆에 길이 쓰기', picks: ['segment'], steps: ['길이를 표시할 선분'] },
@@ -532,6 +549,7 @@ const TOOL_GROUPS = [
   { id: 'circle',    label: '원', tools: ['circleCP', 'circleCR', 'circle3', 'arc', 'sector'] },
   { id: 'construct', label: '작도', tools: ['perpLine', 'parLine', 'pbis', 'abis'] },
   { id: 'poly',      label: '다각형', tools: ['polygon', 'regpoly'] },
+  { id: 'solid',     label: '입체', tools: ['cone', 'cylinder', 'frustum', 'sphere', 'ellipse'] },
   { id: 'text',      tools: ['text'] },
   { id: 'mark',      label: '표시', tools: ['length', 'equal', 'angle', 'right', 'parallel', 'perp'] },
 ];
@@ -541,13 +559,17 @@ const TOOL_GROUPS = [
    doc.objects 에 점·선분·문자·표시·그림이 각각 따로 저장됩니다.
 
    ── 개체 구조 (모든 개체 공통: id, type, visible / 만드는 함수는 [개체 만들기]의 add…)
-   point    { name, x, y, size, color, showLabel, labelAuto, labelDir, labelCoord, def? }  addPoint
+   point    { name, x, y, size, color, showLabel, labelAuto, labelDir, labelCoord, dot?(false=동그라미 안 찍음), def? }  addPoint
             def가 있으면 따라 움직이는 점: {kind:'mid'|'inter'|'on'|'reg', …}             addDerivedPoint
-   segment  { p1, p2 (점 id), width, color, dashed, ticks, heads?:'end'|'start'|'both' (끝 모양) }  addSegment
+   segment  { p1, p2 (점 id), width, color, dashed, ticks, heads?:'end'|'start'|'both' (끝 모양), caps?(양 끝 막대 ⊢⊣) }  addSegment
    line     { def:{kind:'two'|'perp'|'par'|'pbis'|'abis', …}, ray, width, color, dashed }   addLine
    circle   { def:{kind:'cp'|'cr'|'three', …}, width, color, dashed, fill }                addCircle
    arc      { c, a, b (점 id), sector, flip, … }                                           addArc
    polygon  { pts:[점 id…], fillColor, fillOpacity, border, … }                            addPolygon
+   ellipse  { def:{kind:'ends', p1, p2} | {kind:'circleEq', circle}, ratio(짧은지름/긴지름),
+              back/front:'solid'|'dashed'|'none' (위쪽=뒤쪽 반 / 아래쪽=앞쪽 반), fill, fillColor, fillOpacity,
+              fillTo?: 점 id(원뿔 모양으로 꼭짓점까지) | 타원 id(원기둥 모양으로 그 타원까지) }      addEllipse
+            입체도형(원뿔·원기둥·원뿔대·구)은 따로 된 개체가 아니라 선분 + 타원(+ 원)으로 만들어요.
    text     { content, x, y, size, color, bold, italic }                                   addText
    length   { seg (선분 id), value, format, style:'plain'|'brace', t, offset, … }          addLength
    angle    { p1, vertex, p2 (점 id), labelMode, label, radius, arcs, … }                  addAngle
@@ -850,11 +872,12 @@ function labelStyle(o) {
   return { size: o.labelSize || P.labelSize, family: f.family, italic: known ? (o.labelItalic ?? f.italic) : P.labelItalic, weight: +o.labelWeight || 0 };
 }
 const STYLE_KEYS = {
-  point: ['size', 'color', 'labelFont', 'labelItalic', 'labelSize', 'labelWeight'], segment: ['width', 'color', 'dashed', 'tickLen', 'tickWidth'], text: ['size', 'color', 'bold', 'italic'],
+  point: ['size', 'color', 'labelFont', 'labelItalic', 'labelSize', 'labelWeight'], segment: ['width', 'color', 'dashed', 'tickLen', 'tickWidth', 'caps'], text: ['size', 'color', 'bold', 'italic'],
   length: ['size', 'color', 'format', 'style', 'lineWidth', 'braceDashed'], angle: ['radius', 'width', 'color', 'labelSize', 'labelMode', 'fill', 'showArc'],
   right: ['size', 'width', 'color'], parallel: ['size', 'width', 'color', 'count'], perp: ['size', 'width', 'color'],
   line: ['width', 'color', 'dashed'], circle: ['width', 'color', 'dashed', 'fill', 'fillColor', 'fillOpacity'], arc: ['width', 'color', 'dashed', 'fill', 'fillColor', 'fillOpacity'],
   polygon: ['fillColor', 'fillOpacity', 'border', 'width', 'color'],
+  ellipse: ['width', 'color', 'ratio'],
   arrow: ['width', 'color', 'dashed', 'heads', 'headSize'],
 };
 const store = {   // 브라우저 저장소 (막혀 있어도 프로그램은 정상 동작)
@@ -979,6 +1002,42 @@ function makeRegularPolygon(a, b, n) {
 }
 
 
+/* ---------- 입체도형: 타원 + 선분(+ 원)으로 만들어요 ---------- */
+function addEllipse(def) {
+  const C = CONFIG.solid;
+  return push({ id: newId(), type: 'ellipse', def, ratio: C.ratio, back: 'solid', front: 'solid', width: CONFIG.circle.width, color: CONFIG.circle.color,
+    fill: false, fillTo: null, visible: true });
+}
+const segBetween = (a, b) => byType('segment').find(s => (s.p1 === a && s.p2 === b) || (s.p1 === b && s.p2 === a));
+const ensureSegment = (a, b) => segBetween(a, b) || addSegment(a, b);
+/* 입체의 몸통(ref 쪽)이 타원의 위쪽에 있으면 그 타원은 아랫면 → 뒤쪽(위쪽) 반이 가려져서 점선 */
+function autoBack(e, ref) {
+  const G = ellipseGeom(e); if (!G || !ref) return;
+  e.back = V.dot(V.sub(ref, G.C), ellUpVec(G)) > 0.5 ? 'dashed' : 'solid';
+}
+function makeCone(v, a, b) {
+  ensureSegment(v, a); ensureSegment(v, b);
+  const e = addEllipse({ kind: 'ends', p1: a, p2: b }); autoBack(e, P(v));
+  return [e.id];
+}
+function makeFrustum(a, b, c, d) {   // 밑면 a-b, 윗면 c-d (c는 a 쪽)
+  ensureSegment(a, c); ensureSegment(b, d);
+  const e1 = addEllipse({ kind: 'ends', p1: a, p2: b }), e2 = addEllipse({ kind: 'ends', p1: c, p2: d });
+  const g1 = ellipseGeom(e1), g2 = ellipseGeom(e2);
+  if (g1 && g2) { autoBack(e1, g2.C); autoBack(e2, g1.C); }
+  return [e1.id, e2.id];
+}
+function makeCylinder(a, b, c) {      // 밑면 a-b, c = a 바로 위 → 윗면의 반대쪽 끝은 b + (c - a)
+  const A = P(a), B = P(b), Cc = P(c);
+  const d = addPoint(0, 0); d.x = round1(B.x + Cc.x - A.x); d.y = round1(B.y + Cc.y - A.y);
+  return makeFrustum(a, b, c, d.id);
+}
+function makeSphere(c, p) {
+  const circle = addCircle({ kind: 'cp', c, p });
+  const e = addEllipse({ kind: 'circleEq', circle: circle.id }); e.back = 'dashed';
+  return [circle.id, e.id];
+}
+
 /* 이 개체가 기대고 있는 다른 개체들 (점이 지워지면 연결된 선분·표시도 함께 지움) */
 function refsOf(o) {
   switch (o.type) {
@@ -994,6 +1053,7 @@ function refsOf(o) {
     case 'circle': { const f = o.def; return f.kind === 'cp' ? [f.c, f.p] : f.kind === 'cr' ? [f.c] : [f.a, f.b, f.c]; }
     case 'arc': return [o.c, o.a, o.b];
     case 'polygon': return o.pts;
+    case 'ellipse': return [...(o.def.kind === 'ends' ? [o.def.p1, o.def.p2] : [o.def.circle]), ...(o.fillTo ? [o.fillTo] : [])];
     default: return [];
   }
 }
@@ -1037,10 +1097,11 @@ function objLabel(o) {
     }
     case 'arc': return (o.sector ? '부채꼴 ' + pname(o.c) : '호 ') + pname(o.a) + pname(o.b);
     case 'polygon': return (o.pts.length === 3 ? '삼각형 ' : '다각형 ') + o.pts.map(pname).join('');
+    case 'ellipse': return o.def.kind === 'ends' ? '타원 ' + pname(o.def.p1) + pname(o.def.p2) : '구의 단면(타원)';
     default: return o.type;
   }
 }
-const KIND_NAME = { point: '점', segment: '선분', text: '문자', length: '길이 표시', angle: '각 표시', right: '직각 표시', parallel: '평행 표시', perp: '수직 표시', image: '그림', line: '직선', circle: '원', arc: '호·부채꼴', polygon: '다각형', arrow: '화살표' };
+const KIND_NAME = { point: '점', segment: '선분', text: '문자', length: '길이 표시', angle: '각 표시', right: '직각 표시', parallel: '평행 표시', perp: '수직 표시', image: '그림', line: '직선', circle: '원', arc: '호·부채꼴', polygon: '다각형', arrow: '화살표', ellipse: '타원' };
 
 /* ================================================================
    [표시 모양 계산] 길이 · 각 · 직각 · 수직
@@ -1288,6 +1349,37 @@ function updateDerived() {
 }
 const DERIVED_NAME = { mid: '중점', inter: '교점', on: '위의 점', reg: '정다각형 꼭짓점' };
 
+/* ---------- 타원: 긴 지름의 양 끝(p1, p2) + 납작한 정도(ratio) ---------- */
+function ellipseGeom(o) {
+  if (!o) return null;
+  const f = o.def; let p1 = null, p2 = null;
+  if (f.kind === 'ends') { p1 = P(f.p1); p2 = P(f.p2); }
+  else if (f.kind === 'circleEq') { const c = circleGeom(getObj(f.circle)); if (c) { p1 = { x: c.C.x - c.r, y: c.C.y }; p2 = { x: c.C.x + c.r, y: c.C.y }; } }
+  if (!p1 || !p2 || V.dist(p1, p2) < 2) return null;
+  const rx = V.dist(p1, p2) / 2, d = V.norm(V.sub(p2, p1));
+  return { C: V.lerp(p1, p2, .5), rx, ry: Math.max(0.5, rx * clamp(o.ratio || CONFIG.solid.ratio, 0.03, 1)), rot: Math.atan2(d.y, d.x) * 180 / Math.PI, p1, p2, d, n: perpOf(d) };
+}
+/* SVG 호에서 sweep=1 인 반쪽은 -n 쪽. 화면 위쪽(뒤쪽) 반을 그리는 sweep 값과 그쪽 방향 */
+const ellUpperSweep = G => { const u = V.mul(G.n, -1); return u.y < -1e-9 || (Math.abs(u.y) <= 1e-9 && u.x < 0) ? 1 : 0; };
+const ellUpVec = G => ellUpperSweep(G) ? V.mul(G.n, -1) : G.n;
+const ellArc = (G, to, sweep) => `A${G.rx} ${G.ry} ${G.rot} 0 ${sweep} ${to.x} ${to.y}`;
+const ellHalfD = (G, sweep) => `M${G.p1.x} ${G.p1.y}` + ellArc(G, G.p2, sweep);
+const ellFullD = G => ellHalfD(G, 1) + ellArc(G, G.p1, 1) + 'Z';
+/* from → to 로 가는 반쪽 중 ref 에서 먼 쪽의 sweep */
+const ellAway = (G, from, to, ref) => V.dot(V.sub(ref, G.C), V.mul(perpOf(V.norm(V.sub(to, from))), -1)) > 0 ? 0 : 1;
+/* 색칠할 모양들 (한 묶음으로 투명도를 주니 겹쳐도 진해지지 않아요) */
+function ellipseFillShapes(o, G) {
+  const t = o.fillTo ? getObj(o.fillTo) : null;
+  if (t && t.type === 'point' && isPt(t))   // 원뿔 모양: 꼭짓점 → 한쪽 끝 → (꼭짓점에서 먼 쪽 호) → 다른 끝
+    return [`M${t.x} ${t.y}L${G.p1.x} ${G.p1.y}` + ellArc(G, G.p2, ellAway(G, G.p1, G.p2, t)) + 'Z', ellFullD(G)];
+  const G2 = t && t.type === 'ellipse' ? ellipseGeom(t) : null;
+  if (G2) {   // 원기둥 모양: 두 타원 사이 띠 + 두 타원
+    const [q2, q1] = V.dist(G2.p2, G.p2) <= V.dist(G2.p1, G.p2) ? [G2.p2, G2.p1] : [G2.p1, G2.p2];
+    return [`M${G.p1.x} ${G.p1.y}` + ellArc(G, G.p2, ellAway(G, G.p1, G.p2, G2.C)) + `L${q2.x} ${q2.y}` + ellArc(G2, q1, ellAway(G2, q2, q1, G.C)) + 'Z', ellFullD(G), ellFullD(G2)];
+  }
+  return [ellFullD(G)];
+}
+
 /* 점 이름 위치: '자동'이면 연결된 선분들의 반대쪽(도형 바깥)에 놓습니다 */
 const LABEL_DIRS = { nw: [-1, -1], n: [0, -1], ne: [1, -1], w: [-1, 0], e: [1, 0], sw: [-1, 1], s: [0, 1], se: [1, 1] };
 function pointLabelPos(o) {
@@ -1421,11 +1513,17 @@ const DRAW = {
       }
       S('path', { d: path, stroke: o.color, 'stroke-width': tw, 'stroke-linecap': 'round', fill: 'none' }, g);
     }
+    if (o.caps) {   // 치수선 양 끝 막대 ⊢⊣
+      const n = perpOf(V.norm(V.sub(b, a))), h = (o.capLen || CONFIG.solid.capLen) / 2;
+      S('path', { d: [a, b].map(q => `M${q.x + n.x * h} ${q.y + n.y * h}L${q.x - n.x * h} ${q.y - n.y * h}`).join(''),
+        stroke: o.color, 'stroke-width': o.width, 'stroke-linecap': 'round', fill: 'none' }, g);
+    }
   },
   point(g, o, { edit, k }) {
     if (!isPt(o)) return false;   // 지금 위치가 없는 따라 움직이는 점
     if (edit) S('circle', { class: 'hit', cx: o.x, cy: o.y, r: Math.max(o.size + 3 * k, CONFIG.hitRadius * k), fill: HIT, 'pointer-events': 'all' }, g);
-    S('circle', { cx: o.x, cy: o.y, r: o.size, fill: o.color }, g);
+    if (o.dot !== false) S('circle', { cx: o.x, cy: o.y, r: o.size, fill: o.color }, g);
+    else if (edit) S('circle', { cx: o.x, cy: o.y, r: 3.5 * k, fill: 'none', stroke: o.color, 'stroke-opacity': .4, 'stroke-width': 1.2 * k, 'stroke-dasharray': `${2 * k} ${2 * k}` }, g);   // PNG에는 안 나와요
     if (o.showLabel && o.name) {
       const L = pointLabelPos(o);
       const ls = labelStyle(o);
@@ -1462,6 +1560,20 @@ const DRAW = {
     const pts = o.pts.map(P); if (pts.length < 3 || pts.some(p => !p)) return false;
     S('polygon', { points: pts.map(p => `${p.x},${p.y}`).join(' '), fill: o.fillColor, 'fill-opacity': o.fillOpacity,
       stroke: o.border ? o.color : 'none', 'stroke-width': o.width, 'stroke-linejoin': 'round', 'pointer-events': edit ? 'all' : null }, g);
+  },
+  ellipse(g, o, { edit, k }) {
+    const G = ellipseGeom(o); if (!G) return false;
+    if (o.fill) {
+      const fg = S('g', { opacity: fillOpacityOf(o), 'pointer-events': edit ? 'all' : null }, g);
+      for (const d of ellipseFillShapes(o, G)) S('path', { d, fill: fillColorOf(o), stroke: 'none' }, fg);
+    }
+    if (edit) S('path', { class: 'hit', d: ellFullD(G), fill: 'none', stroke: HIT, 'stroke-width': CONFIG.hitRadius * 2 * k, 'pointer-events': 'stroke' }, g);
+    const up = ellUpperSweep(G);
+    for (const [style, sweep] of [[o.back, up], [o.front, 1 - up]]) {   // 뒤쪽(위) 반, 앞쪽(아래) 반
+      if (style === 'none') continue;
+      S('path', { d: ellHalfD(G, sweep), fill: 'none', stroke: o.color, 'stroke-width': o.width,
+        'stroke-dasharray': style === 'dashed' ? dashFor({ dashed: true, width: o.width }) : null }, g);
+    }
   },
   text(g, o) {
     mathText(g, o.x, o.y, o.content, o.size, o.color, { 'font-weight': o.bold ? 700 : 400, 'font-style': o.italic ? 'italic' : 'normal', 'pointer-events': 'bounding-box' });
@@ -1567,9 +1679,9 @@ function headedLine(A, B, gapA, gapB, size, atStart, atEnd) {
     L1: atStart ? V.add(A, V.mul(d, h * 0.7)) : A, L2: atEnd ? V.sub(B, V.mul(d, h * 0.7)) : B };
 }
 /* 그리는 순서(아래 → 위): 그림 → 선분 → 각·직각·평행·수직 → 문자·길이 → 점 (점은 항상 맨 위라 언제나 잡을 수 있어요) */
-const LAYER_OF = { image: 0, polygon: 1, segment: 2, line: 2, circle: 2, arc: 2, angle: 3, right: 3, parallel: 3, perp: 3, arrow: 3, text: 4, length: 4, point: 5 };
+const LAYER_OF = { image: 0, polygon: 1, segment: 2, line: 2, circle: 2, arc: 2, ellipse: 2, angle: 3, right: 3, parallel: 3, perp: 3, arrow: 3, text: 4, length: 4, point: 5 };
 /* 선택했을 때 파란 빛으로 감싸 보여줄 종류 (점·선분·그림은 따로 표시) */
-const GLOW_TYPES = new Set(['text', 'length', 'angle', 'right', 'parallel', 'perp', 'line', 'circle', 'arc', 'polygon', 'arrow']);
+const GLOW_TYPES = new Set(['text', 'length', 'angle', 'right', 'parallel', 'perp', 'line', 'circle', 'arc', 'polygon', 'arrow', 'ellipse']);
 
 function glow(g, k) {
   const first = g.firstChild;
@@ -1788,6 +1900,7 @@ function curveD(o) {
   if (o.type === 'circle') { const G = circleGeom(o); return G && circleD(G.C, G.r); }
   if (o.type === 'arc') { const G = arcGeom(o); return G && (o.sector ? sectorD(G) : arcD(G)); }
   if (o.type === 'polygon') { const pts = o.pts.map(P); return pts.every(Boolean) ? 'M' + pts.map(p => `${p.x} ${p.y}`).join('L') + 'Z' : null; }
+  if (o.type === 'ellipse') { const G = ellipseGeom(o); return G && ellFullD(G); }
   return null;
 }
 
@@ -2052,7 +2165,7 @@ function dragInfoFor(o, pt) {
   }
   if (o.type === 'point' || o.type === 'text' || o.type === 'arrow') return { kind: 'move', orig: { x: o.x, y: o.y } };
   if (o.type === 'image') return o.locked ? null : { kind: 'move', orig: { x: o.x, y: o.y } };
-  if (['segment', 'line', 'circle', 'arc', 'polygon'].includes(o.type)) return groupDragInfo([o.id], pt);   // 선분·원 등을 끌면 연결된 점이 함께 움직여요
+  if (['segment', 'line', 'circle', 'arc', 'polygon', 'ellipse'].includes(o.type)) return groupDragInfo([o.id], pt);   // 선분·원 등을 끌면 연결된 점이 함께 움직여요
   if (o.type === 'length') { const G = lengthGeom(o); return G ? { kind: 'length', origLabel: G.label } : null; }
   if (o.type === 'angle') { const B = getObj(o.vertex); return B ? { kind: 'radius', center: B, d0: V.dist(pt, B), orig: { radius: o.radius } } : null; }
   if (o.type === 'right' || o.type === 'perp') {
@@ -2198,6 +2311,15 @@ function finishPick(ids, alreadyRecorded) {
   const samePair = (o) => (o.segs[0] === ids[0] && o.segs[1] === ids[1]) || (o.segs[0] === ids[1] && o.segs[1] === ids[0]);
   let made = null;
   switch (tool) {
+    // ── 입체 (타원 + 선분)
+    case 'ellipse': rec(); made = addEllipse({ kind: 'ends', p1: ids[0], p2: ids[1] }); break;
+    case 'cone': case 'cylinder': case 'frustum': case 'sphere': {
+      rec();
+      const ids2 = tool === 'cone' ? makeCone(...ids) : tool === 'cylinder' ? makeCylinder(...ids) : tool === 'frustum' ? makeFrustum(...ids) : makeSphere(...ids);
+      selectMany(ids2);
+      toast(`${TOOLS[tool].label}을(를) 만들었어요. 점을 옮기면 모양이 따라 바뀌고, 타원을 누르면 납작한 정도·점선·색칠을 바꿀 수 있어요.`, 'ok');
+      return;
+    }
     case 'equal': {   // 같은 길이 표시: 누를 때마다 붙였다 뗐다
       const sg = getObj(ids[0]); if (!sg) return;
       rec();
@@ -2549,7 +2671,7 @@ function pasteClip() {
   toast(`개체 ${fresh.length}개를 붙여 넣었어요. 끌어서 원하는 곳으로 옮기세요.`, 'ok');
 }
 /* 붙여 넣은 개체가 원래 개체 대신 새로 붙여 넣은 점·선을 가리키도록 id 바꾸기 */
-const REF_KEYS = ['p1', 'p2', 'vertex', 'seg', 'c', 'p', 'a', 'b', 'v', 'ref', 'o1', 'o2', 'obj'];
+const REF_KEYS = ['p1', 'p2', 'vertex', 'seg', 'c', 'p', 'a', 'b', 'v', 'ref', 'o1', 'o2', 'obj', 'circle', 'fillTo'];
 function remapIds(o, map) {
   for (const t of [o, o.def].filter(Boolean)) {
     for (const k of REF_KEYS) if (typeof t[k] === 'string' && map[t[k]]) t[k] = map[t[k]];
@@ -2710,7 +2832,7 @@ function multiPanel(head, body) {
   const setAll = (key, value, list = withKey(key)) => {
     record('multi:' + key); for (const o of list) o[key] = value; renderCanvas();
   };
-  const colored = withKey('color'), widthed = objs.filter(o => o.type in { segment: 1, line: 1, circle: 1, arc: 1, angle: 1, right: 1, parallel: 1, perp: 1, arrow: 1 });
+  const colored = withKey('color'), widthed = objs.filter(o => o.type in { segment: 1, line: 1, circle: 1, arc: 1, ellipse: 1, angle: 1, right: 1, parallel: 1, perp: 1, arrow: 1 });
   const points = objs.filter(o => o.type === 'point');
   const first = (list, key, def) => list.length ? list[0][key] : def;
   body.append(...[
@@ -2839,6 +2961,29 @@ function tickFields(o) {
   ];
 }
 const PANELS = {
+  ellipse(o) {
+    const opts = [['', '타원 안쪽만'],
+      ...byType('point').filter(q => isPt(q) && q.name).map(q => [q.id, `점 ${q.name}까지 (원뿔 모양)`]),
+      ...byType('ellipse').filter(e => e !== o).map(e => [e.id, `${objLabel(e)}까지 (원기둥 모양)`])];
+    const sel = H('select', { onchange: e => setOnce(o, 'fillTo', e.target.value || null) }, opts.map(([v, l]) => H('option', { value: v, selected: (o.fillTo || '') === v }, l)));
+    const style3 = [['solid', '━ 실선'], ['dashed', '╍ 점선'], ['none', '숨김']];
+    return [
+      H('div', { class: 'info' }, o.def.kind === 'ends' ? '입체도형의 밑면·윗면·물 표면 같은 타원이에요. 양 끝 점을 옮기면 따라 움직여요.' : '구의 가운데 단면이에요. 원을 따라 움직여요.'),
+      field('납작한 정도', slider({ min: 5, max: 100, value: Math.round((o.ratio || CONFIG.solid.ratio) * 100), unit: '%', onInput: v => setProp(o, 'ratio', v / 100) })),
+      field('뒤쪽(위) 반', segmented(style3, o.back || 'solid', v => setOnce(o, 'back', v))),
+      field('앞쪽(아래) 반', segmented(style3, o.front || 'solid', v => setOnce(o, 'front', v))),
+      toggle('안쪽 색칠 (물·색칠한 부분)', o.fill, v => setProp(o, 'fill', v, () => {
+        if (v && !o.fillColor) { o.fillColor = CONFIG.solid.liquidColor; o.fillOpacity = CONFIG.solid.liquidOpacity; renderCanvas(); }   // 처음엔 물 색으로
+        renderPanel();
+      })),
+      ...(o.fill ? [field('색칠 범위', sel), ...fillFields(o)] : []),
+      groupTitle('모양'),
+      field('선 굵기', slider({ min: CONFIG.segment.widthMin, max: CONFIG.segment.widthMax, step: 0.5, value: o.width, onInput: v => setProp(o, 'width', v) })),
+      colorField(o, '선 색'),
+      visibleField(o),
+      deleteButton(o),
+    ];
+  },
   point(o) {
     const nameInput = H('input', { type: 'text', value: o.name, maxlength: 12, placeholder: '예: A, P, Q',
       oninput: e => setProp(o, 'name', e.target.value.trim(), () => refreshTitle(o)),
@@ -2862,6 +3007,7 @@ const PANELS = {
       field('이름 굵기 (0 = 보통)', slider({ min: 0, max: 1.6, step: 0.1, value: labelStyle(o).weight, onInput: v => setProp(o, 'labelWeight', v) })),
       field('이름 위치 (가운데 = 자동)', labelDirPicker(o)),
       groupTitle('모양'),
+      toggle('점(동그라미) 찍기', o.dot !== false, v => setProp(o, 'dot', v ? undefined : false)),
       field('점 크기', slider({ min: CONFIG.point.sizeMin, max: CONFIG.point.sizeMax, step: 0.5, value: o.size, onInput: v => setProp(o, 'size', v) })),
       colorField(o),
       visibleField(o),
@@ -2947,6 +3093,7 @@ const PANELS = {
       field('선 모양', segmented([[false, '━━ 실선'], [true, '╍╍ 점선']], o.dashed, v => setOnce(o, 'dashed', v))),
       field('같은 길이 표시', segmented([[0, '없음'], [1, '|'], [2, '||'], [3, '|||']], o.ticks || 0, v => setOnce(o, 'ticks', v, renderPanel))),
       ...(o.ticks ? tickFields(o) : []),
+      toggle('양 끝 막대 (치수선 ⊢⊣)', o.caps, v => setProp(o, 'caps', v)),
       field('끝 모양 (화살촉)', segmented([['none', '없음'], ['end', `${pname(o.p1)}→${pname(o.p2)}`], ['start', `${pname(o.p2)}→${pname(o.p1)}`], ['both', '↔ 양쪽']],
         o.heads || 'none', v => setOnce(o, 'heads', v === 'none' ? undefined : v))),
       field('양 끝점 바꾸기', H('div', { class: 'wh' }, endpointSelect(o, 'p1'), '—', endpointSelect(o, 'p2'))),
@@ -3151,7 +3298,7 @@ const PANELS = {
 };
 
 /* 개체 목록 (숨긴 개체도 여기서 선택할 수 있어요) */
-const LIST_ORDER = ['image', 'point', 'segment', 'line', 'circle', 'arc', 'polygon', 'arrow', 'text', 'length', 'angle', 'right', 'parallel', 'perp'];
+const LIST_ORDER = ['image', 'point', 'segment', 'line', 'circle', 'arc', 'ellipse', 'polygon', 'arrow', 'text', 'length', 'angle', 'right', 'parallel', 'perp'];
 function renderList() {
   const box = $('#objList'); box.replaceChildren();
   if (!doc.objects.length) { box.append(H('div', { class: 'list-empty' }, '아직 아무것도 없어요.')); return; }
@@ -3256,13 +3403,14 @@ const AI_PROMPT = `첨부한 수학 문제 그림을 분석해서, 그림 속 �
   "format": "yx1000",
   "objects": [
     { "type": "point", "id": "A", "label": "A", "point": [120, 340], "confidence": 0.95 },
-    { "type": "point", "id": "P1", "label": "", "point": [500, 610], "confidence": 0.8 },
+    { "type": "point", "id": "P1", "label": "", "point": [500, 610], "dot": false, "confidence": 0.8 },
     { "type": "segment", "from": "A", "to": "B", "dashed": false, "heads": "none", "ticks": 0, "confidence": 0.9 },
     { "type": "polygon", "points": ["A", "B", "C"], "fill": false, "confidence": 0.9 },
     { "type": "line", "from": "A", "to": "B", "confidence": 0.8 },
     { "type": "ray", "from": "A", "through": "B", "confidence": 0.8 },
     { "type": "circle", "center": "O", "through": "A", "confidence": 0.8 },
     { "type": "arc", "center": "O", "from": "A", "to": "B", "confidence": 0.8 },
+    { "type": "ellipse", "id": "E1", "from": "C", "to": "D", "ratio": 0.3, "back": "dashed", "front": "solid", "fill": false, "confidence": 0.8 },
     { "type": "rightAngle", "points": ["A", "B", "C"], "confidence": 0.9 },
     { "type": "angle", "points": ["A", "B", "C"], "value": "60°", "confidence": 0.8 },
     { "type": "parallel", "segment": ["A", "D"], "otherSegment": ["B", "C"], "count": 1, "confidence": 0.8 },
@@ -3278,10 +3426,15 @@ const AI_PROMPT = `첨부한 수학 문제 그림을 분석해서, 그림 속 �
 - 꼭짓점·끝점·교점·원의 중심·찍힌 점을 모두 "point"로 적고, 다른 항목은 점의 id로 가리켜요.
 - 점 옆의 글자(A, B, C, H, M, A' …)는 그 점의 "label"이에요(id도 같게). 따로 "text"로 또 적지 마세요.
 - 점 위치는 점이 찍힌 곳 또는 선들이 만나는 바로 그 자리예요. 글자 위치가 아니에요.
+- 그림에 동그라미(점)가 실제로 찍혀 있지 않은 꼭짓점·끝점은 "dot": false (입체도형의 꼭짓점은 보통 찍혀 있지 않아요).
 - 그림에 그려진 선분은 모두 "segment"로 적어요. 한 직선 위에 점이 여러 개 있으면(B, G, H, C) 이웃한 점끼리 나눠서 적어요(B-G, G-H, H-C).
 - 점선이면 "dashed": true. 직각 표시(작은 네모)는 "rightAngle", 각의 호나 각도 글자는 "angle"(points의 가운데가 꼭짓점).
 - 선분 옆 숫자·식("6", "4 cm", "x")은 "length", 따로 그려진 치수선(양쪽 화살표나 괄호선)은 "dimension".
 - 숫자와 점 이름을 헷갈리지 마세요. 글자·숫자·직각 표시·눈금·화살촉을 선분으로 적지 마세요. 원과 호를 구분해요.
+- 입체도형(원뿔·원기둥·구·그릇)은 곧은 모서리를 "segment"(가려진 모서리는 점선)로, 밑면·윗면·물 표면 같은 타원을 "ellipse"로 적어요.
+  "from"/"to" = 타원의 긴 지름 양 끝 점, "ratio" = 짧은 지름 ÷ 긴 지름, "back" = 위쪽(뒤쪽) 반 "solid"/"dashed"/"none", "front" = 아래쪽 반.
+  물이나 색칠한 부분은 그 윗면 타원에 "fill": true, "fillColor"(예: "#8ec9f0"), "fillTo" = 원뿔 꼭짓점의 id 또는 아래 타원의 id.
+- 숫자 없이 양 끝에 짧은 막대가 있는 치수선은 따로 된 점 사이의 "segment"에 "caps": true (같은 길이 표시는 "ticks").
 - 그림에 없는 것은 만들지 마세요. 확실하지 않으면 "confidence"를 낮게(0~1) 적어요.`;
 
 /* 인식기 목록: auto = AI 서버(api/recognize.js)로 그림을 보내 자동 인식, paste = 다른 AI 결과 붙여넣기
@@ -3406,9 +3559,9 @@ function fromYX1000(list, W, Hh) {
     if (!o || typeof o !== 'object') continue;
     const base = { type: o.type, confidence: o.confidence };
     switch (o.type) {
-      case 'point': { const p = px(o.point); if (p) out.push({ ...base, id: String(o.id || o.label || ''), label: String(o.label || ''), ...p }); break; }
+      case 'point': { const p = px(o.point); if (p) out.push({ ...base, id: String(o.id || o.label || ''), label: String(o.label || ''), ...(o.dot === false ? { dot: false } : {}), ...p }); break; }
       case 'text': case 'label': { const p = px(o.point); if (p) out.push({ ...base, text: String(o.text || o.label || ''), ...p }); break; }
-      case 'segment': out.push({ ...base, from: o.from, to: o.to, dashed: !!o.dashed, ...(o.heads && o.heads !== 'none' ? { heads: o.heads } : {}), ...(+o.ticks > 0 ? { ticks: +o.ticks } : {}) }); break;
+      case 'segment': out.push({ ...base, from: o.from, to: o.to, dashed: !!o.dashed, ...(o.heads && o.heads !== 'none' ? { heads: o.heads } : {}), ...(+o.ticks > 0 ? { ticks: +o.ticks } : {}), ...(o.caps ? { caps: true } : {}) }); break;
       case 'line': out.push({ ...base, through: Array.isArray(o.through) ? o.through : [o.from, o.to], dashed: !!o.dashed }); break;
       case 'circle': out.push({ ...base, center: o.center, ...(o.through ? { through: o.through } : {}), ...(+o.radius > 0 ? { radius: +o.radius / 1000 * W } : {}), dashed: !!o.dashed }); break;
       case 'parallel': case 'perpendicular': out.push({ ...base, segments: o.segments || [o.segment, o.otherSegment], count: +o.count || 1 }); break;
@@ -3612,9 +3765,9 @@ const AI_TYPE_ALIAS = {
   polygon: 'polygon', circle: 'circle', angle: 'angle', rightangle: 'right', right: 'right', parallel: 'parallel',
   parallelmark: 'parallel', perpendicular: 'perp', perp: 'perp', length: 'length', dimension: 'dimension',
   dimensionline: 'dimension', text: 'text', number: 'text', symbol: 'text', char: 'text', letter: 'text',
-  label: 'label', pointlabel: 'label', arrow: 'arrow', doublearrow: 'arrow', arc: 'arc',
+  label: 'label', pointlabel: 'label', arrow: 'arrow', doublearrow: 'arrow', arc: 'arc', ellipse: 'ellipse', oval: 'ellipse',
 };
-const AI_STAGE = { point: 0, label: 1, segment: 2, line: 2, ray: 2, polygon: 2, circle: 2, arc: 2 };   // 나머지는 3 (점·선을 먼저 읽어야 표시가 가리킬 수 있어요)
+const AI_STAGE = { point: 0, label: 1, segment: 2, line: 2, ray: 2, polygon: 2, circle: 2, arc: 2, ellipse: 2 };   // 나머지는 3 (점·선을 먼저 읽어야 표시가 가리킬 수 있어요)
 function normalizeRecognitionResult(raw, img) {
   if (typeof raw === 'string') {
     const s = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');   // AI가 ```json으로 감싸 줘도 읽어요
@@ -3669,7 +3822,7 @@ function normalizeRecognitionResult(raw, img) {
   };
   const items = list.map((o, i) => {
     const t = AI_TYPE_ALIAS[String((o && (o.type || o.kind)) || '').toLowerCase().replace(/[^a-z]/g, '')];
-    return { o: o || {}, i, t, stage: t in AI_STAGE ? AI_STAGE[t] : 3 };
+    return { o: o || {}, i, t, stage: t === 'ellipse' && o && o.fillTo != null ? 2.5 : t in AI_STAGE ? AI_STAGE[t] : 3 };   // 다른 타원까지 색칠하는 타원은 그 타원 다음에
   }).sort((p, q) => p.stage - q.stage || p.i - q.i);
   for (const { o, i, t } of items) {
     const conf = clamp(isFinite(+(o.confidence ?? o.conf ?? o.score)) ? +(o.confidence ?? o.conf ?? o.score) : 1, 0, 1);
@@ -3705,8 +3858,11 @@ function dropCoveredSegments(cands) {
 /* 결과 종류별 읽는 방법 (후보를 돌려줌, false = 일부러 만들지 않음, null = 정보 부족) */
 const AI_PARSERS = {
   point(o, conf, ctx) {   // 이름(label)이 비어 있고 id가 'A', 'B1' 같은 모양이면 그것을 이름으로
-    const label = o.label || o.name || (/^[A-Z][0-9']*$/.test(String(o.id ?? '')) ? String(o.id) : '');
-    return ctx.pointAt({ x: o.x, y: o.y, label }, conf);
+    const id = String(o.id ?? '');
+    const label = o.label || o.name || (/^[A-Z][0-9']*$/.test(id) && !/^P\d+$/.test(id) ? id : '');   // P1, P2 는 이름 없는 점의 임시 id
+    const c = ctx.pointAt({ x: o.x, y: o.y, label }, conf);
+    if (c && o.dot === false) c.data.dot = false;   // 그림에 동그라미가 찍혀 있지 않은 점
+    return c;
   },
   label(o, conf, ctx) {   // 떨어져 있는 점 이름 글자 → 가장 가까운 이름 없는 점의 이름으로
     const text = String(o.text ?? o.label ?? '').trim(); if (!text || !isFinite(+o.x) || !isFinite(+o.y)) return null;
@@ -3723,6 +3879,7 @@ const AI_PARSERS = {
       s.conf = Math.min(s.conf, conf);
       if (o.dashed || /dash|dot/.test(String(o.style || ''))) s.data.dashed = true;
       if (+o.ticks >= 1) s.data.ticks = clamp(Math.round(+o.ticks), 1, 3);   // 같은 길이 표시 | || |||
+      if (o.caps) s.data.caps = true;                                          // 치수선 양 끝 막대
       if (['end', 'start', 'both'].includes(o.heads)) {   // 끝 모양: 같은 선분을 반대 순서로 적었으면 방향도 바꿔요
         const fromRef = Array.isArray(pts) ? pts[0] : (o.from ?? o.start ?? o.p1);
         const fc = typeof fromRef === 'string' ? ctx.point(fromRef, conf) : null;   // 좌표로 적었으면 방금 만든 순서 그대로
@@ -3757,6 +3914,15 @@ const AI_PARSERS = {
     const c = ctx.point(o.center, conf), a = ctx.point(o.from, conf), b = ctx.point(o.to, conf);
     if (!c || !a || !b || a === c || b === c) return null;
     return ctx.add('arc', { c: c.key, a: a.key, b: b.key }, conf, [c.key, a.key, b.key]);
+  },
+  ellipse(o, conf, ctx) {   // 입체의 밑면·윗면·물 표면: 긴 지름 양 끝 점 + 납작한 정도 + 뒤쪽/앞쪽 선 모양 + 색칠
+    const a = ctx.point(o.from ?? o.p1, conf), b = ctx.point(o.to ?? o.p2, conf); if (!a || !b || a === b) return null;
+    let ft = null;
+    if (o.fillTo != null) { const r = String(o.fillTo), e = ctx.byId.get(r); ft = e && e.kind === 'ellipse' ? e : ctx.point(r, conf); }
+    const sty = v => ['solid', 'dashed', 'none'].includes(v) ? v : 'solid';
+    const color = /^#[0-9a-f]{6}$/i.test(String(o.fillColor || '')) ? o.fillColor : null;
+    return ctx.add('ellipse', { a: a.key, b: b.key, ratio: clamp(+o.ratio > 0 ? +o.ratio : CONFIG.solid.ratio, 0.05, 1), back: sty(o.back), front: o.front === 'dashed' ? 'dashed' : 'solid',
+      fill: !!o.fill, fillTo: ft ? ft.key : null, fillColor: color }, conf, [a.key, b.key, ...(ft ? [ft.key] : [])]);
   },
   angle: (o, conf, ctx) => AI_PARSERS._corner(o, conf, ctx, 'angle'),
   right: (o, conf, ctx) => AI_PARSERS._corner(o, conf, ctx, 'right'),
@@ -3810,18 +3976,19 @@ const AI_KINDS = {
       const near = byType('point').filter(p => isPt(p) && !p.def && V.dist(p, d) <= CONFIG.ai.mergeDist).sort((p, q) => V.dist(p, d) - V.dist(q, d))[0];
       if (near) return near.id;   // 같은 자리에 이미 점이 있으면 그 점을 써요 (다시 인식해도 겹치지 않게)
       const p = addPoint(d.x, d.y);
-      if (d.label) p.name = d.label;
+      if (d.label) p.name = d.label; else p.showLabel = false;   // 원본에 이름이 없던 점은 이름을 숨겨요 (속성창에서 켤 수 있어요)
+      if (d.dot === false) p.dot = false;
       return p.id;
     },
   },
   segment: {
     group: '선', order: 1,
-    title: (d, L) => (d.dashed ? '점선 ' : '선분 ') + L(d.a) + L(d.b) + ({ end: ` (${L(d.a)}→${L(d.b)})`, start: ` (${L(d.b)}→${L(d.a)})`, both: ' (↔)' }[d.heads] || '') + (d.ticks ? ' ' + '|'.repeat(d.ticks) : ''),
+    title: (d, L) => (d.dashed ? '점선 ' : '선분 ') + L(d.a) + L(d.b) + ({ end: ` (${L(d.a)}→${L(d.b)})`, start: ` (${L(d.b)}→${L(d.a)})`, both: ' (↔)' }[d.heads] || '') + (d.ticks ? ' ' + '|'.repeat(d.ticks) : '') + (d.caps ? ' ⊢⊣' : ''),
     create(d, id) {
       const a = id(d.a), b = id(d.b); if (!a || !b || a === b) return null;
       const ex = byType('segment').find(s => (s.p1 === a && s.p2 === b) || (s.p1 === b && s.p2 === a));
       if (ex) return ex.id;
-      const s = addSegment(a, b); if (d.dashed) s.dashed = true; if (d.heads) s.heads = d.heads; if (d.ticks) s.ticks = d.ticks;
+      const s = addSegment(a, b); if (d.dashed) s.dashed = true; if (d.heads) s.heads = d.heads; if (d.ticks) s.ticks = d.ticks; if (d.caps) s.caps = true;
       return s.id;
     },
   },
@@ -3850,6 +4017,17 @@ const AI_KINDS = {
     group: '원', order: 1,
     title: (d, L) => `호 ${L(d.a)}${L(d.b)} (중심 ${L(d.c)})`,
     create(d, id) { const [c, a, b] = [id(d.c), id(d.a), id(d.b)]; return c && a && b ? addArc(c, a, b, false).id : null; },
+  },
+  ellipse: {
+    group: '원', order: 2,
+    title: (d, L) => `타원 ${L(d.a)}${L(d.b)}` + (d.back !== 'solid' ? ` (뒤쪽 ${d.back === 'dashed' ? '점선' : '숨김'})` : '') + (d.fill ? ' · 색칠' : ''),
+    create(d, id) {
+      const a = id(d.a), b = id(d.b); if (!a || !b || a === b) return null;
+      const e = addEllipse({ kind: 'ends', p1: a, p2: b });
+      Object.assign(e, { ratio: d.ratio, back: d.back, front: d.front });
+      if (d.fill) Object.assign(e, { fill: true, fillColor: d.fillColor || CONFIG.solid.liquidColor, fillOpacity: CONFIG.solid.liquidOpacity, fillTo: d.fillTo ? id(d.fillTo) : null });
+      return e.id;
+    },
   },
   polygon: {
     group: '선', order: 2,
@@ -4177,6 +4355,12 @@ function drawAiPreview(ov, k) {
       const ps = d.pts.map(pt); if (ps.every(Boolean)) S('polygon', { ...st, fill: color, 'fill-opacity': .12, points: ps.map(p => `${p.x},${p.y}`).join(' ') }, ov);
     } else if (c.kind === 'arc') {
       const G = arcFromPts(pt(d.c), pt(d.a), pt(d.b), false); if (G) S('path', { ...st, d: arcD(G) }, ov);
+    } else if (c.kind === 'ellipse') {
+      const a = pt(d.a), b = pt(d.b);
+      if (a && b && V.dist(a, b) > 2) {
+        const rx = V.dist(a, b) / 2, dd = V.norm(V.sub(b, a));
+        const G = { rx, ry: rx * d.ratio, rot: Math.atan2(dd.y, dd.x) * 180 / Math.PI, p1: a, p2: b };
+        S('path', { ...st, d: ellFullD(G), ...(d.fill ? { fill: d.fillColor || CONFIG.solid.liquidColor, 'fill-opacity': .3 } : {}) }, ov); }
     } else if (c.kind === 'circle') {
       const C = pt(d.c), p = d.p && pt(d.p), r = p ? V.dist(C, p) : d.r; if (C && r > 0) S('circle', { ...st, cx: C.x, cy: C.y, r }, ov);
     } else if (c.kind === 'right') {   // 직각 표시: 작은 ㄱ자

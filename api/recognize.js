@@ -45,6 +45,7 @@ Points and labels
 - List every vertex, endpoint, intersection, circle center and marked dot as type "point" with an "id". Every other object refers to points by id.
 - A letter written next to a point (A, B, C, P, O, H, M, A', B1, ...) is that point's "label" (also use it as the id). Do not output it again as text.
 - An unlabeled point gets an empty label and an id such as "P1", "P2".
+- "dot": false when no filled dot is actually drawn at the point (corners where lines just meet, vertices of solids); true when a dot is drawn.
 
 Lines and shapes
 - "segment": every drawn straight piece between two points ("from", "to"), including each side of a triangle or quadrilateral.
@@ -53,7 +54,19 @@ Lines and shapes
 - "polygon": closed shapes (triangle, quadrilateral, polygon) with "points" = vertex ids in order, in addition to their sides as segments. "fill": true only if the region is shaded.
 - "line": a line through two points ("from", "to") extending past both. "ray": starts at "from" and extends past "through".
 - "circle": a full circle, "center" id plus "through" (id of a point on it) or "radius". "arc": only part of a circle, "center", "from", "to", going counterclockwise as seen on screen from "from" to "to". Do not confuse circles and arcs.
-- Never turn strokes of letters or digits, right-angle squares, tick marks, arrowheads, angle arcs or dimension lines into segments.
+- Never turn strokes of letters or digits, right-angle squares, tick marks, arrowheads, angle arcs or dimension lines that carry a written value into segments.
+
+3D solids (cone, cylinder, frustum, sphere, cups and containers with liquid)
+- Draw every straight outline edge as "segment" between points (use "dashed": true for hidden back edges).
+- Every elliptical face, rim, cross-section or liquid surface is "ellipse": "from"/"to" = ids of the points at the two ends of its long axis
+  (the left and right ends of a horizontal ellipse, usually the same points where the side edges meet it), "ratio" = short axis / long axis (0-1),
+  "back" = style of its upper (back) half: "solid", "dashed" or "none" if hidden, "front" = style of its lower (front) half: "solid" or "dashed".
+  Give an ellipse an "id" (E1, E2, ...) when another object refers to it.
+- A shaded or liquid-filled part: on the ellipse of its top surface set "fill": true, "fillColor" (e.g. "#8ec9f0" for light blue water),
+  and "fillTo" = the id of the apex point (cone-shaped part) or the id of the bottom ellipse (cylinder-shaped part).
+- A sphere is a "circle" plus its equator "ellipse" (back half dashed).
+- A dimension line without a written value (a separate line beside the figure with short bars at both ends, often with equal-length ticks)
+  is a "segment" between its own unlabeled end points with "caps": true and its "ticks". Split it at every bar, like other segments.
 
 Marks and text
 - "rightAngle": a small square in a corner. "points" = [side point id, vertex id, side point id].
@@ -61,7 +74,7 @@ Marks and text
 - "parallel": arrowheads (>, >>) on two segments meaning they are parallel: "segment" and "otherSegment" (each [id, id]), "count" = number of arrowheads. Report each parallel pair once.
 - "perpendicular": two segments marked perpendicular where no corner square fits ("segment", "otherSegment").
 - "length": a number or expression written beside a segment ("5", "7 cm", "x"): "segment" = its two endpoint ids, "value" = the text. Lengths are numbers/expressions near the middle of a segment; labels are letters next to points - do not confuse them.
-- "dimension": a separate dimension line (arrows or brackets) showing a length between two points: "segment" = [id, id], "value".
+- "dimension": a separate dimension line (arrows or brackets) with a written value showing a length between two points: "segment" = [id, id], "value".
 - "arrow": a free arrow that is not a side of the figure. Use "from"/"to" ids for ends on a point, otherwise "fromPos"/"toPos" as [y, x]. "heads": "end" or "both".
 - "text": any other text (x, y, cm, m, a question number, a variable inside a region): "text" and "point" = its center.
 
@@ -79,14 +92,16 @@ const RESULT_SCHEMA = S('OBJECT', {
     objects: S('ARRAY', {
       items: S('OBJECT', {
         properties: {
-          type: S('STRING', { enum: ['point', 'segment', 'line', 'ray', 'polygon', 'circle', 'arc', 'angle', 'rightAngle', 'parallel', 'perpendicular', 'length', 'dimension', 'arrow', 'text'] }),
+          type: S('STRING', { enum: ['point', 'segment', 'line', 'ray', 'polygon', 'circle', 'arc', 'ellipse', 'angle', 'rightAngle', 'parallel', 'perpendicular', 'length', 'dimension', 'arrow', 'text'] }),
           id: S('STRING'), label: S('STRING'), point: YX,
           from: S('STRING'), to: S('STRING'), through: S('STRING'), center: S('STRING'),
           points: S('ARRAY', { items: S('STRING') }),
           segment: PAIR, otherSegment: PAIR,
           fromPos: YX, toPos: YX,
           radius: S('NUMBER'), value: S('STRING'), text: S('STRING'),
-          dashed: S('BOOLEAN'), fill: S('BOOLEAN'),
+          dashed: S('BOOLEAN'), fill: S('BOOLEAN'), caps: S('BOOLEAN'), dot: S('BOOLEAN'),
+          ratio: S('NUMBER'), fillTo: S('STRING'), fillColor: S('STRING'),
+          back: S('STRING', { enum: ['solid', 'dashed', 'none'] }), front: S('STRING', { enum: ['solid', 'dashed', 'none'] }),
           heads: S('STRING', { enum: ['none', 'end', 'start', 'both'] }),
           ticks: S('INTEGER'), count: S('INTEGER'),
           confidence: S('NUMBER'),
@@ -108,9 +123,11 @@ function toEditorFormat(out, width, height) {
     const c = isFinite(+o.confidence) ? Math.max(0, Math.min(1, +o.confidence)) : 0.5;
     const base = { type: o.type, confidence: c };
     switch (o.type) {
-      case 'point': { const p = px(o.point); if (p) objects.push({ ...base, id: String(o.id || o.label || ''), label: String(o.label || ''), ...p }); break; }
+      case 'point': { const p = px(o.point); if (p) objects.push({ ...base, id: String(o.id || o.label || ''), label: String(o.label || ''), ...(o.dot === false ? { dot: false } : {}), ...p }); break; }
       case 'text': { const p = px(o.point); if (p && o.text) objects.push({ ...base, text: String(o.text), ...p }); break; }
-      case 'segment': objects.push({ ...base, from: o.from, to: o.to, dashed: !!o.dashed, ...(o.heads && o.heads !== 'none' ? { heads: o.heads } : {}), ...(+o.ticks > 0 ? { ticks: +o.ticks } : {}) }); break;
+      case 'segment': objects.push({ ...base, from: o.from, to: o.to, dashed: !!o.dashed, ...(o.heads && o.heads !== 'none' ? { heads: o.heads } : {}), ...(+o.ticks > 0 ? { ticks: +o.ticks } : {}), ...(o.caps ? { caps: true } : {}) }); break;
+      case 'ellipse': objects.push({ ...base, ...(o.id ? { id: String(o.id) } : {}), from: o.from, to: o.to, ratio: +o.ratio || 0, back: o.back || 'solid', front: o.front || 'solid',
+        fill: !!o.fill, ...(o.fillTo ? { fillTo: String(o.fillTo) } : {}), ...(o.fillColor ? { fillColor: String(o.fillColor) } : {}) }); break;
       case 'line': objects.push({ ...base, through: [o.from, o.to], dashed: !!o.dashed }); break;
       case 'ray': objects.push({ ...base, from: o.from, through: o.through || o.to, dashed: !!o.dashed }); break;
       case 'polygon': objects.push({ ...base, points: o.points, fill: !!o.fill }); break;
