@@ -75,7 +75,7 @@ Marks and text
 - "perpendicular": two segments marked perpendicular where no corner square fits ("segment", "otherSegment").
 - "length": a number or expression written beside a segment ("5", "7 cm", "x"): "segment" = its two endpoint ids, "value" = the text. Lengths are numbers/expressions near the middle of a segment; labels are letters next to points - do not confuse them.
 - "dimension": a separate dimension line (arrows or brackets) with a written value showing a length between two points: "segment" = [id, id], "value".
-- "arrow": a free arrow that is not a side of the figure. Use "from"/"to" ids for ends on a point, otherwise "fromPos"/"toPos" as [y, x]. "heads": "end" or "both".
+- "arrow": a free arrow that is not a side of the figure. Use "from"/"to" ids for ends on a point, otherwise "fromPos"/"toPos" as [y, x]. "heads": "end" or "both". "ticks": equal-length tick marks across it (0-3).
 - "text": any other text (x, y, cm, m, a question number, a variable inside a region): "text" and "point" = its center.
 
 Honesty
@@ -142,7 +142,7 @@ function toEditorFormat(out, width, height) {
       case 'arrow': {
         const end = (id, pos) => id || (px(pos) ? [px(pos).x, px(pos).y] : null);
         const a = end(o.from, o.fromPos), b = end(o.to, o.toPos);
-        if (a && b) objects.push({ ...base, from: a, to: b, heads: o.heads === 'both' ? 'both' : 'end' });
+        if (a && b) objects.push({ ...base, from: a, to: b, heads: o.heads === 'both' ? 'both' : 'end', ...(+o.ticks > 0 ? { ticks: +o.ticks } : {}) });
         break;
       }
       default: break;

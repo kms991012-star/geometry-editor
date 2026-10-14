@@ -533,7 +533,7 @@ const TOOLS = {
   sphere:   { label: '구', icon: 'sphere', desc: '중심과 구 위의 한 점', picks: ['point', 'point'], steps: ['구의 중심', '구 위의 한 점'] },
   ellipse:  { label: '타원', icon: 'ellipse', desc: '긴 지름의 양 끝 (밑면·물 표면 등)', picks: ['point', 'point'], steps: ['타원의 한쪽 끝', '반대쪽 끝'], tip: '납작한 정도·점선·색칠은 오른쪽에서 바꿔요.' },
   text:     { label: '문자', key: 't', icon: 'text', hint: '글자를 넣을 곳을 클릭하세요. 이미 있는 글자는 드래그해서 옮겨요.' },
-  equal:    { label: '같은 길이', short: '같은 길이', key: 'e', icon: 'equal', desc: '같은 길이인 선분에 | 표시', picks: ['segment'], steps: ['같은 길이인 선분'] },
+  equal:    { label: '같은 길이', short: '같은 길이', key: 'e', icon: 'equal', desc: '같은 길이인 선분·화살표에 | 표시', picks: ['tickable'], steps: ['같은 길이인 선분(또는 화살표)'] },
   length:   { label: '길이', key: 'd', icon: 'length', desc: '선분 옆에 길이 쓰기', picks: ['segment'], steps: ['길이를 표시할 선분'] },
   angle:    { label: '각', key: 'a', icon: 'angle', desc: '∠ABC에 호와 각도 표시', picks: ['point', 'point', 'point'], steps: ['첫 번째 점(예: A)', '꼭짓점(예: B)', '마지막 점(예: C)'], tip: '∠ABC라면 A → B → C 순서로 클릭해요.' },
   right:    { label: '직각', key: 'r', icon: 'right', desc: '∠ABC에 직각 표시', picks: ['point', 'point', 'point'], steps: ['첫 번째 점(예: A)', '직각인 꼭짓점(예: B)', '마지막 점(예: C)'] },
@@ -878,7 +878,7 @@ const STYLE_KEYS = {
   line: ['width', 'color', 'dashed'], circle: ['width', 'color', 'dashed', 'fill', 'fillColor', 'fillOpacity'], arc: ['width', 'color', 'dashed', 'fill', 'fillColor', 'fillOpacity'],
   polygon: ['fillColor', 'fillOpacity', 'border', 'width', 'color'],
   ellipse: ['width', 'color', 'ratio'],
-  arrow: ['width', 'color', 'dashed', 'heads', 'headSize'],
+  arrow: ['width', 'color', 'dashed', 'heads', 'headSize', 'tickLen', 'tickWidth'],
 };
 const store = {   // 브라우저 저장소 (막혀 있어도 프로그램은 정상 동작)
   get(k) { try { return JSON.parse(localStorage.getItem('geoEditor.' + k)); } catch (_) { return null; } },
@@ -1489,6 +1489,19 @@ const fillColorOf = o => o.fillColor || o.color;
 const fillOpacityOf = o => o.fillOpacity != null ? o.fillOpacity : CONFIG.circle.fillOpacity;
 /* 같은 길이 표시의 크기(길이)와 굵기 — 선분마다 따로, 안 정했으면 기본값 */
 const tickLenOf = o => o.tickLen || CONFIG.segment.tickLen;
+/* 같은 길이 표시 | || ||| — a, b 사이 한가운데에 (선분·화살표 공용) */
+function drawTicks(g, o, a, b) {
+  if (!o.ticks || V.dist(a, b) < 1) return;
+  const d = V.norm(V.sub(b, a)), n = perpOf(d), m = V.lerp(a, b, .5), C = CONFIG.segment;
+  const len = tickLenOf(o), tw = tickWidthOf(o);
+  const gap = Math.max(C.tickGap * len / C.tickLen, tw * 2.2);   // 표시가 커지거나 굵어지면 간격도 함께 넓게
+  let path = '';
+  for (let i = 0; i < o.ticks; i++) {
+    const c = V.add(m, V.mul(d, (i - (o.ticks - 1) / 2) * gap)), h = len / 2;
+    path += `M${c.x + n.x * h} ${c.y + n.y * h}L${c.x - n.x * h} ${c.y - n.y * h}`;
+  }
+  S('path', { d: path, stroke: o.color, 'stroke-width': tw, 'stroke-linecap': 'round', fill: 'none' }, g);
+}
 const tickWidthOf = o => o.tickWidth || Math.max(1.3, o.width * 0.8);
 const DRAW = {
   segment(g, o, { edit, k }) {
@@ -1502,17 +1515,7 @@ const DRAW = {
     S('line', { x1: l1.x, y1: l1.y, x2: l2.x, y2: l2.y, stroke: o.color, 'stroke-width': o.width,
       'stroke-linecap': o.dashed ? 'butt' : 'round', 'stroke-dasharray': dashFor(o) }, g);
     if (hd) S('path', { d: hd.heads, fill: o.color, stroke: o.color, 'stroke-width': Math.min(o.width, 1.2), 'stroke-linejoin': 'round' }, g);
-    if (o.ticks) {   // 같은 길이 표시 | || |||
-      const d = V.norm(V.sub(b, a)), n = perpOf(d), m = V.lerp(a, b, .5), C = CONFIG.segment;
-      const len = tickLenOf(o), tw = tickWidthOf(o);
-      const gap = Math.max(C.tickGap * len / C.tickLen, tw * 2.2);   // 표시가 커지거나 굵어지면 간격도 함께 넓게
-      let path = '';
-      for (let i = 0; i < o.ticks; i++) {
-        const c = V.add(m, V.mul(d, (i - (o.ticks - 1) / 2) * gap)), h = len / 2;
-        path += `M${c.x + n.x * h} ${c.y + n.y * h}L${c.x - n.x * h} ${c.y - n.y * h}`;
-      }
-      S('path', { d: path, stroke: o.color, 'stroke-width': tw, 'stroke-linecap': 'round', fill: 'none' }, g);
-    }
+    drawTicks(g, o, a, b);   // 같은 길이 표시 | || |||
     if (o.caps) {   // 치수선 양 끝 막대 ⊢⊣
       const n = perpOf(V.norm(V.sub(b, a))), h = (o.capLen || CONFIG.solid.capLen) / 2;
       S('path', { d: [a, b].map(q => `M${q.x + n.x * h} ${q.y + n.y * h}L${q.x - n.x * h} ${q.y - n.y * h}`).join(''),
@@ -1636,6 +1639,7 @@ const DRAW = {
     S('line', { x1: G.L1.x, y1: G.L1.y, x2: G.L2.x, y2: G.L2.y, stroke: o.color, 'stroke-width': o.width,
       'stroke-linecap': o.dashed ? 'butt' : 'round', 'stroke-dasharray': dashFor(o) }, g);
     S('path', { d: G.heads, fill: o.color, stroke: o.color, 'stroke-width': Math.min(o.width, 1.2), 'stroke-linejoin': 'round' }, g);
+    drawTicks(g, o, A, B);   // 같은 길이 표시 (화살표 양 끝 사이 한가운데)
   },
 };
 /* 화살표 모양: 선은 화살촉 안쪽에서 끝나게 해서 뾰족한 끝이 뭉개지지 않게 */
@@ -1901,6 +1905,7 @@ function curveD(o) {
   if (o.type === 'arc') { const G = arcGeom(o); return G && (o.sector ? sectorD(G) : arcD(G)); }
   if (o.type === 'polygon') { const pts = o.pts.map(P); return pts.every(Boolean) ? 'M' + pts.map(p => `${p.x} ${p.y}`).join('L') + 'Z' : null; }
   if (o.type === 'ellipse') { const G = ellipseGeom(o); return G && ellFullD(G); }
+  if (o.type === 'arrow') { const [A, B] = arrowEnds(o); return `M${A.x} ${A.y}L${B.x} ${B.y}`; }
   return null;
 }
 
@@ -2004,7 +2009,7 @@ function openCoord() {
 }
 let equalMark = 1;   // '같은 길이' 도구가 지금 붙이는 표시 개수 (1=|, 2=||, 3=|||)
 function nextEqualMark() {
-  const used = new Set(byType('segment').map(s => s.ticks || 0));
+  const used = new Set(doc.objects.filter(x => x.type === 'segment' || x.type === 'arrow').map(x => x.ticks || 0));
   return [1, 2, 3].find(n => !used.has(n)) || 1;
 }
 function setTool(t) {
@@ -2020,7 +2025,7 @@ function pickKind() {
   const T = TOOLS[tool]; if (!T.picks) return null;
   return tool === 'polygon' ? 'point' : T.picks[picks.length] || null;
 }
-const PICK_TYPES = { segment: ['segment'], line: ['segment', 'line'], curve: CURVE_TYPES };
+const PICK_TYPES = { segment: ['segment'], line: ['segment', 'line'], curve: CURVE_TYPES, tickable: ['segment', 'arrow'] };
 function updateHint() {
   const el = $('#hint');
   el.replaceChildren();
@@ -2133,6 +2138,7 @@ function nearestPoint(pt) {
 function nearestSegment(pt) { return nearestCurve(pt, ['segment']); }
 /* 가까운 선·원·호 찾기 (types: 찾을 종류들) */
 function curveDist(o, pt) {
+  if (o.type === 'arrow') { const [A, B] = arrowEnds(o); return distToSegment(pt, A, B); }
   if (o.type === 'segment' || o.type === 'line') {
     const e = o.type === 'segment' ? segEnds(o) : (() => { const G = lineGeom(o); return G && clipToPaper(G); })();
     return e ? distToSegment(pt, e[0], e[1]) : Infinity;
@@ -2278,7 +2284,7 @@ function handlePick(pt) {
   } else {
     const types = PICK_TYPES[kind];
     target = nearestCurve(pt, types);
-    const what = kind === 'segment' ? '선분' : kind === 'line' ? '선' : '선이나 원';
+    const what = kind === 'segment' ? '선분' : kind === 'line' ? '선' : kind === 'tickable' ? '선분이나 화살표' : '선이나 원';
     if (!target) {
       toast(doc.objects.some(o => types.includes(o.type)) ? `${what} 위를 정확히 클릭해 주세요.` : `먼저 ${what}을 그려 주세요.`, 'warn');
       return;
@@ -2325,7 +2331,7 @@ function finishPick(ids, alreadyRecorded) {
       rec();
       sg.ticks = sg.ticks === equalMark ? 0 : equalMark;
       renderAll();
-      toast(sg.ticks ? `선분 ${segmentName(sg)}에 ${'|'.repeat(sg.ticks)} 표시를 넣었어요.` : `선분 ${segmentName(sg)}의 표시를 지웠어요.`);
+      toast(sg.ticks ? `${objLabel(sg)}에 ${'|'.repeat(sg.ticks)} 표시를 넣었어요.` : `${objLabel(sg)}의 표시를 지웠어요.`);
       return;
     }
     // ── 알지오매스식 도구
@@ -2948,14 +2954,15 @@ function fillFields(o) {
 }
 /* 같은 길이 표시의 크기·굵기 칸 */
 function tickFields(o) {
-  const others = () => byType('segment').filter(x => x !== o && x.ticks);
+  const others = () => doc.objects.filter(x => (x.type === 'segment' || x.type === 'arrow') && x !== o && x.ticks);
   return [
     field('표시 크기', slider({ min: 5, max: 36, step: 1, value: tickLenOf(o), onInput: v => setProp(o, 'tickLen', v) })),
     field('표시 굵기', slider({ min: 0.5, max: 6, step: 0.5, value: tickWidthOf(o), onInput: v => setProp(o, 'tickWidth', v) })),
     others().length ? H('div', { class: 'btn-row' }, H('button', { class: 'small-btn', title: '그림 안의 모든 같은 길이 표시를 이 크기·굵기로 맞춰요',
       onclick: () => {
         hist.lastKey = null; record();
-        const list = others(); for (const x of list) { x.tickLen = tickLenOf(o); x.tickWidth = tickWidthOf(o); }
+        const list = others();
+        for (const x of list) for (const key of ['tickLen', 'tickWidth']) { if (o[key]) x[key] = o[key]; else delete x[key]; }   // '자동'(선 굵기에 맞춤)이면 그대로 자동
         renderCanvas(); toast(`다른 같은 길이 표시 ${list.length}개도 이 크기·굵기로 맞췄어요.`, 'ok');
       } }, '다른 같은 길이 표시도 모두 이렇게')) : null,
   ];
@@ -3221,6 +3228,8 @@ const PANELS = {
       field('선 굵기', slider({ min: CONFIG.segment.widthMin, max: CONFIG.segment.widthMax, step: 0.5, value: o.width, onInput: v => setProp(o, 'width', v) })),
       colorField(o, '선 색'),
       field('선 모양', segmented([[false, '━━ 실선'], [true, '╍╍ 점선']], o.dashed, v => setOnce(o, 'dashed', v))),
+      field('같은 길이 표시', segmented([[0, '없음'], [1, '|'], [2, '||'], [3, '|||']], o.ticks || 0, v => setOnce(o, 'ticks', v, renderPanel))),
+      ...(o.ticks ? tickFields(o) : []),
       H('div', { class: 'info' }, '💡 화살표를 끌면 통째로 옮겨지고, 양 끝의 동그라미를 끌면 그쪽 끝만 움직여요. 끝을 점 가까이에 놓으면 그 점에 붙어요. (Shift: 45°씩)'),
       visibleField(o),
       deleteButton(o),
@@ -3569,7 +3578,7 @@ function fromYX1000(list, W, Hh) {
       case 'arrow': {
         const end = (id, pos) => id || (px(pos) ? [px(pos).x, px(pos).y] : null);
         const a = end(o.from, o.fromPos), b = end(o.to, o.toPos);
-        if (a && b) out.push({ ...base, from: a, to: b, heads: o.heads === 'both' ? 'both' : 'end' });
+        if (a && b) out.push({ ...base, from: a, to: b, heads: o.heads === 'both' ? 'both' : 'end', ...(+o.ticks > 0 ? { ticks: +o.ticks } : {}) });
         break;
       }
       default: out.push(o);
@@ -3956,7 +3965,7 @@ const AI_PARSERS = {
     const a = at(o.from ?? o.start ?? o.tail), b = at(o.to ?? o.end ?? o.head);
     if (!a || !b || V.dist(a, b) < 1) return null;
     const both = /double/i.test(String(o.type)) || o.both === true || o.heads === 'both';
-    return ctx.add('arrow', { x1: a.x, y1: a.y, x2: b.x, y2: b.y, a: a.key || null, b: b.key || null, both, dashed: !!o.dashed || /dash|dot/.test(String(o.style || '')) },
+    return ctx.add('arrow', { x1: a.x, y1: a.y, x2: b.x, y2: b.y, a: a.key || null, b: b.key || null, both, ticks: +o.ticks >= 1 ? clamp(Math.round(+o.ticks), 1, 3) : 0, dashed: !!o.dashed || /dash|dot/.test(String(o.style || '')) },
       conf, [a.key, b.key].filter(Boolean));   // 점 이름으로 가리킨 끝은 그 점에 붙어요
   },
   text(o, conf, ctx) {
@@ -4092,7 +4101,7 @@ const AI_KINDS = {
     create(d, id) {
       const p1 = d.a ? id(d.a) : null, p2 = d.b ? id(d.b) : null;
       const o = addArrow(d.x1, d.y1, d.x2, d.y2, p1, p2 !== p1 ? p2 : null);
-      o.heads = d.both ? 'both' : 'end'; if (d.dashed) o.dashed = true;
+      o.heads = d.both ? 'both' : 'end'; if (d.dashed) o.dashed = true; if (d.ticks) o.ticks = d.ticks;
       return o.id;
     },
   },
@@ -4387,7 +4396,7 @@ function drawAiPreview(ov, k) {
    바꾼 값은 지금 있는 개체에 바로 적용되고, 앞으로 새로 만드는 개체의 기본값(userDefaults)도 돼요.
    ================================================================ */
 const STYLE_GROUPS = {
-  figure: ['segment', 'line', 'circle', 'arc', 'arrow', 'polygon'],   // 도형 선
+  figure: ['segment', 'line', 'circle', 'arc', 'ellipse', 'arrow', 'polygon'],   // 도형 선 (타원 = 입체도형의 밑면·물 표면 등)
   marks: ['angle', 'right', 'parallel', 'perp'],                      // 표시 선
   corner: ['right', 'perp'],                                          // 직각·수직 표시 크기
 };
@@ -4416,7 +4425,7 @@ function styleDialog() {
       groupTitle('점'),
       field('점 크기', slider({ min: P.sizeMin, max: 8, step: 0.5, value: cur(['point'], 'size', P.size), onInput: v => apply(['point'], 'size', v, 'pointSize') })),
       groupTitle('선 굵기'),
-      field('도형 선 (선분·직선·원·호·화살표·다각형 테두리)', slider({ min: 0.5, max: 6, step: 0.25, value: cur(STYLE_GROUPS.figure, 'width', CONFIG.segment.width), onInput: v => apply(STYLE_GROUPS.figure, 'width', v, 'figureWidth') })),
+      field('도형 선 (선분·직선·원·호·타원·화살표·다각형 테두리)', slider({ min: 0.5, max: 6, step: 0.25, value: cur(STYLE_GROUPS.figure, 'width', CONFIG.segment.width), onInput: v => apply(STYLE_GROUPS.figure, 'width', v, 'figureWidth') })),
       field('표시 선 (각·직각·평행·수직 표시)', slider({ min: 0.5, max: 4, step: 0.25, value: cur(STYLE_GROUPS.marks, 'width', CONFIG.angle.width), onInput: v => apply(STYLE_GROUPS.marks, 'width', v, 'markWidth') })),
       groupTitle('직각 표시'),
       field('직각·수직 표시 크기', slider({ min: 4, max: 40, value: cur(STYLE_GROUPS.corner, 'size', CONFIG.right.size), onInput: v => apply(STYLE_GROUPS.corner, 'size', v, 'cornerSize') }))),
