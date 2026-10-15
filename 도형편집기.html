@@ -70,6 +70,7 @@ svg.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.9;str
 /* 위쪽 버튼 줄: 화면이 좁으면 간격을 줄이고 로고 아래 설명을 숨겨서 한 줄에 들어가게 */
 .work-info{flex:none}
 @media (max-width:1600px){.brand>div:last-child{display:none}.tb-btn{padding:8px 8px;gap:5px}.tb-group{padding:0 5px}#workTitle{max-width:170px}}
+@media (max-width:1440px){.tb-btn{padding:8px 6px}.tb-group{padding:0 3px}#workTitle{max-width:140px}}
 @media (max-width:1300px){.tb-btn{padding:7px 6px;font-size:13px}}
 .save-state.saved{color:var(--green)}
 .save-state.unsaved{color:#c27311}
@@ -295,7 +296,7 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
   </div>
   <div class="tb-group">
     <button class="tb-btn" id="btnStyle" title="점 이름 글꼴·크기, 점 크기, 선 굵기, 직각 표시 크기를 그림 전체에 한꺼번에"><svg class="ic" viewBox="0 0 24 24"><path d="M4 20l6-6M14 4l6 6-8 8-6-6z"/><path d="M4 20h5"/></svg>전체 모양</button>
-    <button class="tb-btn" id="btnFlip" title="좌우·상하로 뒤집기 (선택한 것이 있으면 그것만, 없으면 그림 전체) — Shift+H / Shift+V"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v18" stroke-dasharray="2 2.5"/><path d="M9 6L3 18h6zM15 6l6 12h-6z"/></svg>뒤집기</button>
+    <button class="tb-btn" id="btnFlip" title="회전·뒤집기 (선택한 것이 있으면 그것만, 없으면 그림 전체) — Shift+R 오른쪽 90°, Shift+H 좌우, Shift+V 상하"><svg class="ic" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v4h-4"/></svg>회전·뒤집기</button>
   </div>
   <div class="tb-group">
     <button class="tb-btn" id="btnOpen" title="저장해 둔 작업 파일 열기 (Ctrl+O)"><svg class="ic" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>작업 열기</button>
@@ -2931,6 +2932,7 @@ function multiPanel(head, body) {
       H('button', { class: 'small-btn', title: 'Ctrl+D', onclick: duplicateSelection }, '⧉ 복제'),
       H('button', { class: 'small-btn', title: '좌우로 뒤집기 (Shift+H)', onclick: () => flipFigure('h') }, '↔ 좌우'),
       H('button', { class: 'small-btn', title: '위아래로 뒤집기 (Shift+V)', onclick: () => flipFigure('v') }, '↕ 상하'),
+      H('button', { class: 'small-btn', title: '시계 방향으로 90° 돌리기 (Shift+R)', onclick: () => rotateFigure(-90) }, '↻ 90°'),
       H('button', { class: 'small-btn', title: 'Ctrl+C', onclick: () => { if (copySelection()) toast('복사했어요. Ctrl+V로 붙여 넣으세요.'); } }, '복사')),
     H('div', { class: 'info' }, '💡 선택한 것 중 하나를 끌면 함께 움직여요. 화살표 키로도 옮길 수 있어요. Shift+클릭으로 더하거나 빼요.'),
     H('button', { class: 'big-btn danger', onclick: deleteSelected }, icon('trash'), `${objs.length}개 모두 지우기`),
@@ -4482,7 +4484,7 @@ function drawAiPreview(ov, k) {
 }
 
 /* ================================================================
-   [뒤집기] 좌우 반전 · 상하 반전
+   [회전 · 뒤집기] 좌우 반전 · 상하 반전 · 회전
    선택한 개체가 있으면 그것만(연결된 점까지), 없으면 그림 전체를 그 자리에서 뒤집어요. 잠긴 배경 그림은 그대로.
    점 이름 위치·길이 글자 쪽·호의 방향·정다각형·교점 순서·원 위의 점처럼 '방향이 있는 것'도 맞춰서 뒤집어요.
    ================================================================ */
@@ -4543,18 +4545,102 @@ function flipFigure(axis) {   // axis: 'h' = 좌우, 'v' = 상하
   renderAll();
   toast(`${ids.length ? '선택한 개체' : '그림 전체'}를 ${H_ ? '좌우' : '상하'}로 뒤집었어요. (되돌리기: Ctrl+Z)`, 'ok');
 }
-function flipDialog() {
+/* 회전: deg 만큼 (+ = 시계 반대 방향, − = 시계 방향). 선택한 것이 있으면 그것만, 없으면 그림 전체.
+   글자(점 이름·문자)는 똑바로 선 채 자리만 돌아요. 배경 그림은 180°일 때만 함께 돌아요(그 밖의 각도는 그대로). */
+function rotateFigure(deg) {
+  deg = ((+deg % 360) + 360) % 360;
+  if (!deg) return;
+  const ids = selectionIds(), half = deg === 180;
+  const targets = ids.length ? ids : doc.objects.filter(o => !(o.type === 'image' && o.locked)).map(o => o.id);
+  let movers = moversFor(targets);
+  const skippedImages = movers.filter(o => o.type === 'image' && !half).length;
+  movers = movers.filter(o => o.type !== 'image' || half);
+  if (!movers.length) { toast(ids.length ? '선택한 것 중에 돌릴 수 있는 것이 없어요.' : '돌릴 도형이 없어요.', 'warn'); return; }
+  // 중심 (격자에 맞추는 중이면 격자점으로 → 격자점이 격자점으로)
+  const xs = [], ys = [];
+  for (const o of movers) {
+    if (o.type === 'image') { xs.push(o.x, o.x + o.w); ys.push(o.y, o.y + o.h); }
+    else if (o.type === 'arrow') for (const q of arrowEnds(o)) { xs.push(q.x); ys.push(q.y); }
+    else { xs.push(o.x); ys.push(o.y); }
+  }
+  // 무게중심: 돌려도 그대로라서 30° 돌린 뒤 −30° 돌리면 정확히 제자리로 와요
+  const c = { x: xs.reduce((t, v) => t + v, 0) / xs.length, y: ys.reduce((t, v) => t + v, 0) / ys.length };
+  if (coordOn() && doc.coord.snap) { const st = doc.coord.unit * doc.coord.snap; c.x = doc.coord.ox + Math.round((c.x - doc.coord.ox) / st) * st; c.y = doc.coord.oy + Math.round((c.y - doc.coord.oy) / st) * st; }
+  const th = deg * Math.PI / 180;
+  let cs = Math.cos(th), sn = Math.sin(th);
+  if (deg % 90 === 0) { cs = Math.round(cs); sn = Math.round(sn); }   // 90°, 180°, 270°는 정확하게
+  const rotVec = v => ({ x: v.x * cs + v.y * sn, y: -v.x * sn + v.y * cs });   // 화면에서 시계 반대 방향
+  const rot = q => V.add(c, rotVec(V.sub(q, c)));
+  const moverSet = new Set(movers.map(o => o.id));
+  const affected = doc.objects.filter(o => !moverSet.has(o.id) && o.type !== 'image' && moversFor([o.id]).every(x => moverSet.has(x.id)));
+
+  record();
+  // 돌리기 전에 기억해 둘 것: 원·선 위의 점과 교점의 돌아간 자리, 점 이름의 자리, 입체 타원의 '뒤쪽' 방향
+  const want = new Map(), labelOff = new Map(), backDir = new Map();
+  for (const o of affected) if (o.type === 'point' && o.def && isPt(o) && (o.def.kind === 'on' || o.def.kind === 'inter')) want.set(o, rot(o));
+  for (const o of [...movers, ...affected]) {
+    if (o.type === 'point' && isPt(o) && o.labelAuto === false) labelOff.set(o, V.sub(pointLabelPos(o), o));
+    if (o.type === 'ellipse') { const G = ellipseGeom(o); if (G) backDir.set(o, ellUpVec(G)); }
+  }
+  // ① 자리 돌리기
+  for (const o of movers) {
+    if (o.type === 'image') { o.x = round1(2 * c.x - o.x - o.w); o.y = round1(2 * c.y - o.y - o.h); o.flipX = !o.flipX; o.flipY = !o.flipY; }   // 180° = 좌우 + 상하
+    else if (o.type === 'arrow') { const [A, B] = arrowEnds(o).map(rot); o.x = round1(A.x); o.y = round1(A.y); o.dx = round1(B.x - A.x); o.dy = round1(B.y - A.y); }
+    else { const q = rot(o); o.x = round1(q.x); o.y = round1(q.y); }
+  }
+  // ② 점 이름: 8방향이면 돌아간 방향(맞는 방향이 없으면 그 자리 그대로), 끌어서 놓은 이름은 같이 돌아요
+  for (const [o, off] of labelOff) {
+    const v = rotVec(off), u = V.norm(v);
+    const key = Object.keys(LABEL_DIRS).find(k => V.dot(V.norm({ x: LABEL_DIRS[k][0], y: LABEL_DIRS[k][1] }), u) > 0.995);
+    if (o.labelDir && key) o.labelDir = key;
+    else { o.labelDir = null; o.labelDx = round1(v.x); o.labelDy = round1(v.y); }
+  }
+  updateDerived();
+  // ③ 원·선 위의 점과 교점: 돌아간 자리에 가장 가깝게 / 입체 타원: 뒤쪽(점선) 반이 그대로 뒤쪽에 오도록
+  for (const [o, q] of want) {
+    if (o.def.kind === 'on') { const obj = getObj(o.def.obj), t = obj && projectParam(obj, q); if (t != null) o.def.t = Math.round(t * 10000) / 10000; }
+    else {
+      const o1 = getObj(o.def.o1), o2 = getObj(o.def.o2); if (!o1 || !o2) continue;
+      let best = o.def.idx, bd = Infinity;
+      for (let i = 0; i < interSlots(o1, o2); i++) { const r = intersectAt(o1, o2, i); if (r && V.dist(r, q) < bd) { bd = V.dist(r, q); best = i; } }
+      o.def.idx = best;
+    }
+  }
+  for (const [o, u0] of backDir) { const G = ellipseGeom(o); if (G && V.dot(rotVec(u0), ellUpVec(G)) < 0) [o.back, o.front] = [o.front, o.back]; }
+  renderAll();
+  const dir = deg === 180 ? '180°' : deg <= 180 ? `시계 반대 방향으로 ${fmtNum(deg)}°` : `시계 방향으로 ${fmtNum(360 - deg)}°`;
+  toast(`${ids.length ? '선택한 개체' : '그림 전체'}를 ${dir} 돌렸어요.` + (skippedImages ? ' 배경 그림은 그대로 두었어요(180°일 때만 함께 돌아요).' : '') + ' (되돌리기: Ctrl+Z)', 'ok');
+}
+/* [회전·뒤집기] 창 */
+function transformDialog() {
   const n = selectionIds().length, locked = byType('image').some(o => o.locked);
-  const big = (label, axis) => H('button', { class: 'big-btn', style: 'margin:0 0 10px', onclick: () => { closeModal(); flipFigure(axis); } }, label);
+  const btn = (label, title, fn) => H('button', { class: 'small-btn', title, style: 'padding:11px 4px;font-size:14px', onclick: () => { closeModal(); fn(); } }, label);
+  const degIn = H('input', { type: 'number', value: 30, step: 1, style: 'width:90px' });
+  const custom = () => {
+    const v = parseFloat(degIn.value);
+    if (!isFinite(v) || !(Math.abs(v) % 360)) { toast('돌릴 각도를 숫자로 입력해 주세요. (예: 30, -45)', 'warn'); return; }
+    closeModal(); rotateFigure(v);
+  };
   openModal({
-    title: '⇋ 뒤집기', width: 400,
+    title: '↻ 회전·뒤집기', width: 460,
     body: H('div', {},
-      H('p', {}, n ? `선택한 개체 ${n}개를 (연결된 점과 함께) 뒤집어요.` : '그림 전체를 그 자리에서 뒤집어요. (일부만 뒤집으려면 먼저 선택하세요)'),
-      big('↔ 좌우로 뒤집기  (Shift+H)', 'h'),
-      big('↕ 위아래로 뒤집기  (Shift+V)', 'v'),
-      !n && locked ? H('div', { class: 'info', style: 'margin:0' }, '🔒 잠긴 배경 그림은 그대로 두어요. 그림도 뒤집으려면 잠금을 풀고 다시 하세요.') : null),
+      H('p', {}, n ? `선택한 개체 ${n}개를 (연결된 점과 함께) 돌리거나 뒤집어요.` : '그림 전체를 그 자리에서 돌리거나 뒤집어요. (일부만 하려면 먼저 선택하세요)'),
+      groupTitle('회전'),
+      H('div', { class: 'btn-row' },
+        btn('↺ 왼쪽 90°', '시계 반대 방향으로 90°', () => rotateFigure(90)),
+        btn('↻ 오른쪽 90°', '시계 방향으로 90° (Shift+R)', () => rotateFigure(-90)),
+        btn('⟲ 180°', '반 바퀴', () => rotateFigure(180))),
+      field('원하는 각도로 (+ 시계 반대 방향, − 시계 방향)', H('div', { class: 'wh' }, degIn, '°',
+        H('button', { class: 'small-btn', style: 'flex:none;padding:8px 14px', onclick: custom }, '돌리기'))),
+      groupTitle('뒤집기'),
+      H('div', { class: 'btn-row' },
+        btn('↔ 좌우로 (Shift+H)', '좌우 반전', () => flipFigure('h')),
+        btn('↕ 상하로 (Shift+V)', '상하 반전', () => flipFigure('v'))),
+      H('div', { class: 'info', style: 'margin:0' }, '글자(점 이름·문자)는 똑바로 선 채 자리만 바뀌어요. 배경 그림은 뒤집기와 180° 회전에서만 함께 바뀌어요.'
+        + (!n && locked ? ' 🔒 잠긴 배경 그림은 그대로 두어요.' : ''))),
     buttons: [{ label: '닫기' }],
   });
+  degIn.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); e.stopPropagation(); custom(); } });
 }
 
 /* ================================================================
@@ -4599,7 +4685,7 @@ function styleDialog() {
   });
 }
 $('#btnStyle').onclick = styleDialog;
-$('#btnFlip').onclick = flipDialog;
+$('#btnFlip').onclick = transformDialog;
 
 /* ================================================================
    [작업 이름 · 저장 상태 표시]
@@ -4953,6 +5039,7 @@ document.addEventListener('keydown', e => {
     return;
   }
   if (e.shiftKey && (key === 'h' || key === 'v')) { e.preventDefault(); flipFigure(key); return; }   // 뒤집기
+  if (e.shiftKey && key === 'r') { e.preventDefault(); rotateFigure(-90); return; }                  // 시계 방향으로 90° 회전
   const t = Object.keys(TOOLS).find(n => TOOLS[n].key === key);
   if (t) { setTool(t); return; }
   const arrows = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
