@@ -57,7 +57,9 @@ AI는 Google의 **Gemini API 무료 등급**만 씁니다. 결제 정보는 필�
 - **[✂ 선택 영역 AI 인식]**: 버튼을 누르고 그림 위를 끌어서 네모로 고르면 그 부분만 인식해요. 복잡한 문제지에서 도형 부분만 고르면 더 정확하고 한도도 아껴요.
 - **[🔄 AI로 다시 인식하기]**: 기존 AI 개체를 지우고 다시 하거나, 그대로 두고 더 인식할 수 있어요.
 - 왼쪽 **[원본 그림]** / **[AI 개체]** 버튼으로 각각 보이기·숨기기 (원본만 / AI 개체만 / 둘 다 보기).
-- **좌표 자동 보정**(AI 설정에서 켜고 끔): AI가 찍은 점을 그림 속 선이 실제로 만나는 곳으로 몇 픽셀 맞춰 줘요.
+- **좌표 자동 보정**(AI 설정에서 켜고 끔): AI가 찍은 점을 그림 속 선이 실제로 만나는 곳으로 맞춰 줘요.
+  AI 점이 크게(수십 픽셀) 어긋나도 선분마다 그림 속 실제 직선을 찾아 겹치고, 점은 그 직선들이 만나는 곳(끝점은 선이 끝나는 곳)으로 옮겨요.
+  AI가 빠뜨린 선분도, 두 점 사이에 실선이 끊김 없이 그어져 있으면 찾아서 더해요(사이에 점이 있으면 그 점에서 나눠서).
 
 **자주 묻는 질문**
 - *"무료 등급을 쓸 수 없다고 나와요"*: Google이 일부 지역·계정에서는 무료 등급을 막아 두었어요. 이때 결제는 설정하지 말고,
@@ -126,7 +128,7 @@ AI는 Google의 **Gemini API 무료 등급**만 씁니다. 결제 정보는 필�
 | AI 모델 바꾸기 | Vercel 환경변수 `GEMINI_MODEL` (기본 `gemini-3.5-flash`, `FREE_TIER_MODELS` 안의 이름만 허용). 다른 AI로 바꾸려면 `api/recognize.js`의 `callModel()`만 |
 | AI에게 주는 지시문·결과 형식 | `api/recognize.js`의 `SYSTEM_PROMPT`, `RESULT_SCHEMA` (서버에서 편집기 형식으로 바꿔 돌려줌: `toEditorFormat`) |
 | 무료 한도 보호(한도 초과 시 멈춤·연속 클릭 방지·횟수) | `aiBlocked`, `aiRememberQuota`, `aiBusy`, `aiCallCount`, `CONFIG.ai.clickGapSec` |
-| 편집기 쪽 AI 호출 흐름 | `[AI 도형 인식]` 구역: `aiStart` → `runRecognition` → `recognitionInput`(그림 준비) → `analyzeGeometryImage`(서버 호출) → `refineRecognition`(좌표 보정) → `normalizeRecognitionResult` → `reviewRecognitionDialog` → `applyRecognition` |
+| 편집기 쪽 AI 호출 흐름 | `[AI 도형 인식]` 구역: `aiStart` → `runRecognition` → `recognitionInput`(그림 준비) → `analyzeGeometryImage`(서버 호출) → `refineRecognition`(좌표 보정: 전체 맞춤 → 선 맞추기 → 점 하나씩 → 빠뜨린 선분 찾기 → 점선 확인) → `normalizeRecognitionResult` → `reviewRecognitionDialog` → `applyRecognition` |
 | AI 서버 주소·오류 안내 문구 | `AI_DEFAULT_SERVER`, `aiServerUrl()`, `AI_ERRORS` |
 | 다른 AI 결과 붙여넣기 요청문 | `AI_PROMPT` |
 | AI가 알아듣는 종류 추가 | 결과 읽기 `AI_PARSERS`(+ 이름 맞추기 `AI_TYPE_ALIAS`) → 개체 만들기·이름 `AI_KINDS` |

@@ -3739,15 +3739,18 @@ function refineRecognition(raw, canvas) {
     else if (o.type === 'ray') link(o.from, o.through);
   }
   // ① 전체 맞춤: AI 좌표가 통째로 늘었거나(그림 크기 착각) 밀려 있으면, 그림 속 선과 가장 잘 겹치도록 가로·세로 배율과 위치를 맞춰요
+  //    (맞춘 것과 안 맞춘 것 둘 다 ②③까지 해 보고, 최종 결과가 그림과 분명히 더 잘 겹칠 때만 맞춘 쪽을 써요)
   raw._aligned = false;
   const edges = []; const seen = new Set();
   for (const [p, set] of nbrs) for (const q of set) { const key = [objs.indexOf(p), objs.indexOf(q)].sort().join(); if (!seen.has(key)) { seen.add(key); edges.push([p, q]); } }
   const allPts = [...pts.values()];
+  const line = (a, b) => { const L = Math.hypot(b.x - a.x, b.y - a.y); if (L < 8) return 0; let h = 0; const n = 24;
+    for (let i = 0; i < n; i++) { const t = 0.1 + 0.8 * i / (n - 1); h += at(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t); } return h / n; };
+  const fitScore = () => edges.length ? edges.reduce((t, [p, q]) => t + line(p, q), 0) / edges.length : 0;
+  let applyAlign = null;
   if (edges.length >= 2 && allPts.length >= 3) {
     const cx = allPts.reduce((t, p) => t + +p.x, 0) / allPts.length, cy = allPts.reduce((t, p) => t + +p.y, 0) / allPts.length;
     const T = (p, f) => ({ x: cx + (+p.x - cx) * f.sx + f.tx, y: cy + (+p.y - cy) * f.sy + f.ty });
-    const line = (a, b) => { const L = Math.hypot(b.x - a.x, b.y - a.y); if (L < 8) return 0; let h = 0; const n = 24;
-      for (let i = 0; i < n; i++) { const t = 0.1 + 0.8 * i / (n - 1); h += at(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t); } return h / n; };
     const score = f => edges.reduce((t, [p, q]) => t + line(T(p, f), T(q, f)), 0) / edges.length;
     const id = { sx: 1, sy: 1, tx: 0, ty: 0 }, base = score(id);
     let best = { ...id }, bs = base;
@@ -3763,7 +3766,7 @@ function refineRecognition(raw, canvas) {
       }
       if (!improved) break;
     }
-    if (bs >= 0.45 && bs > base + 0.15) {
+    if (bs >= 0.45 && bs > base + 0.15) applyAlign = () => {
       const f = best, kr = (f.sx + f.sy) / 2;
       for (const o of objs) {
         if (!o) continue;
@@ -3771,24 +3774,136 @@ function refineRecognition(raw, canvas) {
         for (const k of ['from', 'to']) if (Array.isArray(o[k])) { const q = T({ x: o[k][0], y: o[k][1] }, f); o[k] = [q.x, q.y]; }
         if (+o.radius > 0) o.radius = +o.radius * kr;
       }
-      raw._aligned = true;
+    };
+  }
+  const KEYS = ['x', 'y', 'from', 'to', 'radius'];
+  const save = () => objs.map(o => o && KEYS.filter(k => k in o).map(k => [k, o[k]]));
+  const load = st => objs.forEach((o, i) => { if (o) for (const [k, v] of st[i]) o[k] = v; });
+  // 선 맞추기에 쓰는 도구들
+  const big = Math.max(W, Hh), RHO = big * 0.1, ANG = 20 * Math.PI / 180;
+  const dashedPair = new Set(objs.filter(o => o && o.type === 'segment' && o.dashed).map(o => [ref(o.from), ref(o.to)]).filter(([a, b]) => a && b).map(([a, b]) => objs.indexOf(a) + ',' + objs.indexOf(b)));
+  const isDashed = (p, q) => dashedPair.has(objs.indexOf(p) + ',' + objs.indexOf(q)) || dashedPair.has(objs.indexOf(q) + ',' + objs.indexOf(p));
+  const cover = (m, ux, uy, t0, t1) => {   // 직선(점 m, 방향 u)의 t0~t1 구간이 선 위를 지나는 정도 (가운데 80%만, 옆으로 ±1칸 허용)
+    let h = 0; const n = 30;
+    for (let i = 0; i < n; i++) { const t = t0 + (t1 - t0) * (0.1 + 0.8 * i / (n - 1)), x = m.x + ux * t, y = m.y + uy * t;
+      h += Math.max(at(x, y), at(x - uy, y + ux), at(x + uy, y - ux)); }
+    return h / n;
+  };
+  const fitLine = (p, q) => {   // → { m, ux, uy, s } 또는 null
+    const L = Math.hypot(q.x - p.x, q.y - p.y); if (L < 20) return null;
+    const m0 = { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 }, a0 = Math.atan2(q.y - p.y, q.x - p.x);
+    const evalAt = (da, d) => {
+      const a = a0 + da, ux = Math.cos(a), uy = Math.sin(a), m = { x: m0.x - uy * d, y: m0.y + ux * d };
+      const tp = (p.x - m.x) * ux + (p.y - m.y) * uy, tq = (q.x - m.x) * ux + (q.y - m.y) * uy;
+      return { m, ux, uy, c: cover(m, ux, uy, tp, tq), s: cover(m, ux, uy, tp, tq) - 0.15 * Math.abs(d) / RHO - 0.05 * Math.abs(da) / ANG };
+    };
+    let best = evalAt(0, 0), bda = 0, bd = 0;
+    for (let da = -ANG; da <= ANG + 1e-9; da += Math.PI / 180) for (let d = -RHO; d <= RHO; d += 2) { const r = evalAt(da, d); if (r.s > best.s) { best = r; bda = da; bd = d; } }
+    for (let da = bda - Math.PI / 180; da <= bda + Math.PI / 180 + 1e-9; da += Math.PI / 720) for (let d = bd - 2; d <= bd + 2; d += 0.5) { const r = evalAt(da, d); if (r.s > best.s) best = r; }
+    return best.c >= 0.6 ? best : null;
+  };
+  const inkEnd = (p, ln, nb) => {   // 끝점 p: 직선 ln 위에서, 이웃 nb 쪽에서 이어 온 잉크가 끝나는 자리
+    let ux = ln.ux, uy = ln.uy; if ((p.x - nb.x) * ux + (p.y - nb.y) * uy < 0) { ux = -ux; uy = -uy; }   // nb → p 방향
+    const s0 = (p.x - ln.m.x) * ux + (p.y - ln.m.y) * uy, D = big * 0.08;
+    const pos = s => ({ x: ln.m.x + ux * s, y: ln.m.y + uy * s });
+    const inkS = s => { const q = pos(s); return Math.max(at(q.x, q.y), at(q.x - uy, q.y + ux), at(q.x + uy, q.y - ux)); };
+    let s = s0 - D, gap = 0, last = null;
+    if (inkS(s) < 0.35) return null;   // 시작부터 선 위가 아니면 모름
+    for (; s <= s0 + D; s += 1) { if (inkS(s) > 0.35) { last = s; gap = 0; } else if (++gap > 4) break; }
+    return last === null ? null : pos(last);
+  };
+  const snapAll = () => {
+    const moved = new Set();
+    // ② 선 맞추기: AI 점이 크게(수십 칸) 어긋나도, 선분마다 그림 속 '실제로 그려진 직선'을 찾아 겹치고
+    //    점은 그 직선들이 만나는 곳으로 옮겨요. (선이 하나뿐인 끝점은 그 직선 위, 선이 끝나는 자리로)
+    for (let round = 0; round < 2; round++) {
+      const lines = new Map(), rail = new Map(), failed = [];   // 점 → [그 점에 닿는 맞춘 직선…] / 점이 놓일 직선('pin' = 만나는 곳에 고정) / 못 맞춘 선분
+      for (const [p, q] of edges) {
+        if (isDashed(p, q)) continue;
+        const ln = fitLine(p, q); if (!ln) { failed.push([p, q]); continue; }
+        for (const [a, b] of [[p, q], [q, p]]) { if (!lines.has(a)) lines.set(a, []); lines.get(a).push({ ...ln, nb: b }); }
+      }
+      for (const [p, list] of lines) {
+        const distinct = [];   // 거의 같은 직선(한 줄 위의 이웃 둘 등)은 하나로
+        for (const ln of list) if (!distinct.some(d => Math.abs(d.ux * ln.uy - d.uy * ln.ux) < Math.sin(8 * Math.PI / 180) && Math.abs((ln.m.x - d.m.x) * -d.uy + (ln.m.y - d.m.y) * d.ux) < 4)) distinct.push(ln);
+        let np = null;
+        const crossing = distinct.some((a, i) => distinct.some((b, j) => j > i && Math.abs(a.ux * b.uy - a.uy * b.ux) > Math.sin(15 * Math.PI / 180)));
+        if (crossing) {   // 여러 직선이 만나는 곳 (최소제곱)
+          let a11 = 0, a12 = 0, a22 = 0, b1 = 0, b2 = 0;
+          for (const ln of distinct) { const nx = -ln.uy, ny = ln.ux, c = nx * ln.m.x + ny * ln.m.y; a11 += nx * nx; a12 += nx * ny; a22 += ny * ny; b1 += nx * c; b2 += ny * c; }
+          const det = a11 * a22 - a12 * a12; if (Math.abs(det) > 1e-6) np = { x: (b1 * a22 - b2 * a12) / det, y: (a11 * b2 - a12 * b1) / det };
+        } else if (distinct.length === 1) {
+          const ln = distinct[0], t = (p.x - ln.m.x) * ln.ux + (p.y - ln.m.y) * ln.uy;
+          np = { x: ln.m.x + ln.ux * t, y: ln.m.y + ln.uy * t };   // 직선 위로
+          const nbs = list.map(l => l.nb), dir = q => (q.x - np.x) * ln.ux + (q.y - np.y) * ln.uy;
+          if (nbs.every(q => dir(q) > 0) || nbs.every(q => dir(q) < 0)) { const e = inkEnd(np, ln, nbs[0]); if (e) np = e; }   // 끝점이면 선이 끝나는 곳으로
+        }
+        if (np && Math.hypot(np.x - p.x, np.y - p.y) <= big * 0.15 && Math.hypot(np.x - p.x, np.y - p.y) > 0.5) { p.x = np.x; p.y = np.y; moved.add(p); }
+        rail.set(p, crossing && np ? 'pin' : distinct.length === 1 ? distinct[0] : null);
+      }
+      // 못 맞춘 선분(양 끝이 크게 어긋나 선이 일부만 겹치던 것): 두 끝을 각자 놓인 직선 위로 밀어 보며 선분 전체가 그림 선과 겹치는 자리를 찾아요
+      //   예) 두 대각선의 교점 E와 밑변 위 F를 잇는 선분 EF → E는 대각선 위, F는 밑변 위에서만 움직여요
+      for (const [p, q] of failed) {
+        const rp = rail.get(p), rq = rail.get(q); if (!rp || !rq || (rp === 'pin' && rq === 'pin')) continue;
+        const slides = r => r === 'pin' ? [0] : Array.from({ length: Math.floor(big * 0.3 / 2) + 1 }, (_, i) => -big * 0.15 + i * 2);
+        const at2 = (o, r, s) => r === 'pin' ? { x: +o.x, y: +o.y } : { x: +o.x + r.ux * s, y: +o.y + r.uy * s };
+        let best = null;
+        for (const sp of slides(rp)) for (const sq of slides(rq)) {
+          const a = at2(p, rp, sp), b = at2(q, rq, sq), L = Math.hypot(b.x - a.x, b.y - a.y); if (L < 20) continue;
+          const c = cover(a, (b.x - a.x) / L, (b.y - a.y) / L, 0, L), sc = c - 0.1 * (Math.abs(sp) + Math.abs(sq)) / big;
+          if (!best || sc > best.sc) best = { sc, c, a, b };
+        }
+        if (!best || best.c < 0.6) continue;
+        for (const [o, np] of [[p, best.a], [q, best.b]]) if (Math.hypot(np.x - o.x, np.y - o.y) > 0.5) { o.x = np.x; o.y = np.y; moved.add(o); }
+      }
     }
+    // ③ 점 하나씩: 연결된 선 방향으로 가장 잘 맞는 자리로
+    const R = Math.max(5, Math.round(Math.max(W, Hh) * 0.02));
+    for (const p of nbrs.keys()) p._x0 = +p.x, p._y0 = +p.y;
+    for (let round = 0; round < 2; round++) for (const [p, set] of nbrs) {
+      const list = [...set];
+      const score = (x, y) => list.reduce((s, q) => s + support({ x, y }, q), 0) / list.length + at(x, y) * 0.05 - 0.002 * Math.hypot(x - p._x0, y - p._y0);
+      const cur = score(+p.x, +p.y);
+      let bx = +p.x, by = +p.y, bs = -Infinity;
+      for (let dy = -R; dy <= R; dy += 2) for (let dx = -R; dx <= R; dx += 2) { const s = score(p._x0 + dx, p._y0 + dy); if (s > bs) { bs = s; bx = p._x0 + dx; by = p._y0 + dy; } }
+      const cx = bx, cy = by;   // 2칸 간격으로 찾은 곳 주변을 1칸 간격으로 다시
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const s = score(cx + dx, cy + dy); if (s > bs) { bs = s; bx = cx + dx; by = cy + dy; } }
+      if (bs >= 0.45 && bs > cur + 0.02 && (bx !== +p.x || by !== +p.y)) { p.x = bx; p.y = by; moved.add(p); }
+    }
+    for (const p of nbrs.keys()) { delete p._x0; delete p._y0; }
+    return moved;
+  };
+  const start = save();
+  let moved = snapAll();
+  if (applyAlign) {
+    const plain = save(), plainScore = fitScore();
+    load(start); applyAlign();
+    const m2 = snapAll();
+    if (fitScore() > plainScore + 0.03) { moved = m2; raw._aligned = true; }
+    else load(plain);
   }
-  // ② 점 하나씩: 연결된 선 방향으로 가장 잘 맞는 자리로
-  const R = Math.max(5, Math.round(Math.max(W, Hh) * 0.02));
-  const moved = new Set();
-  for (const p of nbrs.keys()) p._x0 = +p.x, p._y0 = +p.y;
-  for (let round = 0; round < 2; round++) for (const [p, set] of nbrs) {
-    const list = [...set];
-    const score = (x, y) => list.reduce((s, q) => s + support({ x, y }, q), 0) / list.length + at(x, y) * 0.05 - 0.002 * Math.hypot(x - p._x0, y - p._y0);
-    const cur = score(+p.x, +p.y);
-    let bx = +p.x, by = +p.y, bs = -Infinity;
-    for (let dy = -R; dy <= R; dy += 2) for (let dx = -R; dx <= R; dx += 2) { const s = score(p._x0 + dx, p._y0 + dy); if (s > bs) { bs = s; bx = p._x0 + dx; by = p._y0 + dy; } }
-    const cx = bx, cy = by;   // 2칸 간격으로 찾은 곳 주변을 1칸 간격으로 다시
-    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const s = score(cx + dx, cy + dy); if (s > bs) { bs = s; bx = cx + dx; by = cy + dy; } }
-    if (bs >= 0.45 && bs > cur + 0.02 && (bx !== +p.x || by !== +p.y)) { p.x = bx; p.y = by; moved.add(p); }
+  // 빠뜨린 선분 찾기: 이어지지 않은 두 점 사이에 그림의 실선이 끊김 없이 그어져 있으면 선분으로 더해요
+  //   (사이에 다른 점이 있으면 그 점에서 나눠서: A-E-C 위의 E가 있으면 A-E, E-C)
+  raw._added = 0;
+  const linked = (p, q) => nbrs.has(p) && nbrs.get(p).has(q);
+  const solidRun = (p, q) => {   // 다섯 토막 모두 선 위를 지나야 해요
+    const L = Math.hypot(q.x - p.x, q.y - p.y), ux = (q.x - p.x) / L, uy = (q.y - p.y) / L;
+    for (let k = 0; k < 5; k++) { const a = 0.1 + 0.16 * k; if (cover(p, ux, uy, L * a, L * (a + 0.16)) < 0.6) return false; }
+    return true;
+  };
+  for (let i = 0; i < allPts.length; i++) for (let j = i + 1; j < allPts.length; j++) {
+    const p = allPts[i], q = allPts[j], L = Math.hypot(q.x - p.x, q.y - p.y);
+    if (L < 30 || linked(p, q)) continue;
+    const between = allPts.some(r => { if (r === p || r === q) return false;
+      const t = ((r.x - p.x) * (q.x - p.x) + (r.y - p.y) * (q.y - p.y)) / (L * L), d = Math.abs((r.x - p.x) * (q.y - p.y) - (r.y - p.y) * (q.x - p.x)) / L;
+      return t > 0.02 && t < 0.98 && d < 4; });
+    const overlaps = [[p, q], [q, p]].some(([a, b]) => [...(nbrs.get(a) || [])].some(r => {   // 이미 있는 선분과 같은 방향으로 겹치면 아니에요
+      const lr = Math.hypot(r.x - a.x, r.y - a.y); return lr > 0 && ((r.x - a.x) * (b.x - a.x) + (r.y - a.y) * (b.y - a.y)) / (lr * L) > Math.cos(4 * Math.PI / 180); }));
+    if (between || overlaps || !solidRun(p, q)) continue;
+    objs.push({ type: 'segment', from: String(p.id), to: String(q.id), dashed: false, confidence: 0.7 });
+    for (const [a, b] of [[p, q], [q, p]]) { if (!nbrs.has(a)) nbrs.set(a, new Set()); nbrs.get(a).add(b); }
+    raw._added++;
   }
-  for (const p of nbrs.keys()) { delete p._x0; delete p._y0; }
   // 점선 확인: 선분을 따라 그림을 읽어서, 끊김이 여러 번 되풀이되면 점선 / 끊김 없이 이어지면 실선
   //   (AI가 점선을 실선으로 잘못 읽는 일이 많아서 그림의 실제 픽셀로 다시 확인해요. 애매하면 AI 판단 그대로)
   const dashFixed = new Set();
@@ -3841,7 +3956,7 @@ async function runRecognition(img, recognizerId = 'auto', region = null, opt = {
     finished = true;
     if (modalEl !== loading) return;   // 기다리다 창을 닫았으면 아무것도 하지 않아요
     if (!norm.cands.length) { closeModal(); throw new UserError('그림에서 도형을 찾지 못했어요. 그림이 흐리거나 작다면 [✂ 선택 영역 AI 인식]으로 도형 부분만 골라 보세요.'); }
-    Object.assign(norm, { refined: fixed, dashFixed: raw._dashFixed || 0, aligned: !!raw._aligned, replaceAi: !!opt.replace });
+    Object.assign(norm, { refined: fixed, dashFixed: raw._dashFixed || 0, added: raw._added || 0, aligned: !!raw._aligned, replaceAi: !!opt.replace });
     reviewRecognitionDialog(norm);
   } catch (err) {
     finished = true;
@@ -4369,7 +4484,7 @@ function aiPasteDialog(img) {
         if (aiSettings().refine) { try { fixed = refineRecognition(raw, input.canvas); } catch (e) { console.warn(e); } }
         const norm = normalizeRecognitionResult(raw, img);
         if (!norm.cands.length) throw new UserError('결과 안에서 도형을 하나도 찾지 못했어요.');
-        Object.assign(norm, { refined: fixed, dashFixed: raw._dashFixed || 0, aligned: !!raw._aligned });
+        Object.assign(norm, { refined: fixed, dashFixed: raw._dashFixed || 0, added: raw._added || 0, aligned: !!raw._aligned });
         reviewRecognitionDialog(norm);
         return false;   // 검토 창이 이 창 대신 열려 있으니 닫지 않아요
       } },
@@ -4418,8 +4533,9 @@ function reviewRecognitionDialog(norm) {
     body: H('div', {},
       H('p', {}, `${norm.cands.length}개를 찾았어요. 체크한 것만 고칠 수 있는 개체로 만들어요. 그림 위 주황 점선이 미리보기예요.`),
       H('div', { class: 'ai-sub', style: 'margin:-6px 0 10px' }, '% 는 AI가 스스로 매긴 확신도예요. 실제 정확도를 보장하지 않으니 ⚠ 표시 항목은 특히 그림과 비교해 보세요.'),
-      norm.aligned || norm.refined || norm.dashFixed ? H('div', { class: 'info', style: 'margin:0 0 8px' }, '📐 그림으로 다시 확인: '
-        + [norm.aligned ? '어긋나 있던 전체 위치·크기를 그림에 맞췄어요' : '', norm.refined ? `점 ${norm.refined}개를 선이 만나는 곳에 맞췄어요` : '', norm.dashFixed ? `선분 ${norm.dashFixed}개의 실선/점선을 고쳤어요` : ''].filter(Boolean).join(', ') + '.') : null,
+      norm.aligned || norm.refined || norm.dashFixed || norm.added ? H('div', { class: 'info', style: 'margin:0 0 8px' }, '📐 그림으로 다시 확인: '
+        + [norm.aligned ? '어긋나 있던 전체 위치·크기를 그림에 맞췄어요' : '', norm.refined ? `점 ${norm.refined}개를 선이 만나는 곳에 맞췄어요` : '', norm.dashFixed ? `선분 ${norm.dashFixed}개의 실선/점선을 고쳤어요` : '',
+          norm.added ? `AI가 빠뜨린 선분 ${norm.added}개를 그림에서 찾아 더했어요` : ''].filter(Boolean).join(', ') + '.') : null,
       norm.replaceAi ? H('div', { class: 'note', style: 'margin:0 0 8px' }, '🔄 적용하면 이 그림의 기존 AI 개체는 지우고 새 결과로 바꿔요.') : null,
       norm.warnings.length ? H('div', { class: 'note', style: 'margin:0 0 8px' }, norm.warnings.slice(0, 4).join(' ') + (norm.warnings.length > 4 ? ` 외 ${norm.warnings.length - 4}개` : '')) : null,
       H('div', { class: 'btn-row', style: 'margin:0' },
