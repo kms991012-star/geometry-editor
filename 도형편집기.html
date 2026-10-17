@@ -740,10 +740,11 @@ window.addEventListener('unhandledrejection', e => showError(e.reason));
 
 let modalEl = null;
 let modalOnClose = null;   // 창이 닫힐 때 한 번 부를 함수 (예: AI 분석 기다리기를 닫으면 요청 취소)
-function openModal({ title, body, buttons = [], width, side = false, onClose = null }) {
+let modalSticky = false;   // true면 바깥 클릭·Esc로 닫히지 않고 창의 버튼으로만 닫혀요 (AI 분석 중 실수로 취소되지 않게)
+function openModal({ title, body, buttons = [], width, side = false, onClose = null, sticky = false }) {
   closeModal();
   // side: 오른쪽에 띄워 작업 영역(미리보기)이 가려지지 않게
-  const back = H('div', { class: 'modal-back' + (side ? ' side' : ''), onmousedown: e => { if (e.target === back) closeModal(); } });
+  const back = H('div', { class: 'modal-back' + (side ? ' side' : ''), onmousedown: e => { if (e.target === back && !modalSticky) closeModal(); } });
   const actions = buttons.map(b => H('button', {
     class: 'm-btn ' + (b.kind || ''),
     onclick: async () => {
@@ -754,12 +755,13 @@ function openModal({ title, body, buttons = [], width, side = false, onClose = n
   back.appendChild(H('div', { class: 'modal', style: width ? `width:${width}px` : null },
     H('h3', {}, title), H('div', { class: 'modal-body' }, body), H('div', { class: 'modal-actions' }, actions)));
   document.body.appendChild(back);
-  modalEl = back; modalOnClose = onClose;
+  modalEl = back; modalOnClose = onClose; modalSticky = sticky;
   const focusEl = back.querySelector('input[type=text]') || back.querySelector('.m-btn.primary, .m-btn.danger');
   if (focusEl) { focusEl.focus(); if (focusEl.select) focusEl.select(); }
 }
 function closeModal() {
   if (modalEl) { modalEl.remove(); modalEl = null; }
+  modalSticky = false;
   if (modalOnClose) { const f = modalOnClose; modalOnClose = null; f(); }
   if (aiPreview) { aiPreview = null; renderOverlay(); }   // AI 결과 미리보기 지우기
 }
@@ -3958,7 +3960,7 @@ async function runRecognition(img, recognizerId = 'auto', region = null, opt = {
   const elapsed = H('p', { class: 'ai-sub' }, '보통 20초~1분쯤 걸려요.');
   openModal({ title: '🤖 AI 도형 인식', width: 420,
     body: H('div', { class: 'ai-loading' }, H('div', { class: 'ai-spin' }), H('p', { class: 'ai-busy' }, 'AI가 도형을 분석하고 있습니다...'), elapsed),
-    buttons: [{ label: '취소' }], onClose: () => { if (!finished) ctrl.abort(); } });
+    buttons: [{ label: '취소' }], sticky: true, onClose: () => { if (!finished) ctrl.abort(); } });   // [취소] 버튼으로만 멈춰요
   const loading = modalEl;
   const tick = setInterval(() => { elapsed.textContent = `${Math.round((Date.now() - t0) / 1000)}초 지났어요. 보통 20초~1분쯤 걸려요.`; }, 1000);
   const limit = setTimeout(() => { timedOut = true; ctrl.abort(); }, CONFIG.ai.timeoutSec * 1000);
@@ -5167,7 +5169,7 @@ document.addEventListener('keydown', e => {
   const typing = /INPUT|TEXTAREA|SELECT/.test(ae.tagName) && !['range', 'checkbox', 'color'].includes(ae.type);
   const ctrl = e.ctrlKey || e.metaKey, key = e.key.toLowerCase();
   if (modalEl) {
-    if (e.key === 'Escape') closeModal();
+    if (e.key === 'Escape') { if (!modalSticky) closeModal(); }
     else if (e.key === 'Enter' && !e.isComposing && ae.tagName === 'INPUT') {   // 한글 조합 중 Enter는 무시
       e.preventDefault();
       const p = modalEl.querySelector('.m-btn.primary'); if (p) p.click();
