@@ -296,7 +296,7 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
   </div>
   <div class="tb-group">
     <button class="tb-btn" id="btnStyle" title="점 이름 글꼴·크기, 점 크기, 선 굵기, 직각 표시 크기를 그림 전체에 한꺼번에"><svg class="ic" viewBox="0 0 24 24"><path d="M4 20l6-6M14 4l6 6-8 8-6-6z"/><path d="M4 20h5"/></svg>전체 모양</button>
-    <button class="tb-btn" id="btnFlip" title="회전·뒤집기 (선택한 것이 있으면 그것만, 없으면 그림 전체) — Shift+R 오른쪽 90°, Shift+H 좌우, Shift+V 상하"><svg class="ic" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v4h-4"/></svg>회전·뒤집기</button>
+    <button class="tb-btn" id="btnFlip" title="회전·뒤집기·크기 (선택한 것이 있으면 그것만, 없으면 그림 전체) — Shift+R 오른쪽 90°, Shift+H 좌우, Shift+V 상하, Shift++ 크게, Shift+− 작게"><svg class="ic" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v4h-4"/></svg>회전·뒤집기·크기</button>
   </div>
   <div class="tb-group">
     <button class="tb-btn" id="btnOpen" title="저장해 둔 작업 파일 열기 (Ctrl+O)"><svg class="ic" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>작업 열기</button>
@@ -2946,11 +2946,15 @@ function multiPanel(head, body) {
       H('button', { class: 'small-btn', onclick: () => { hist.lastKey = null; setAll('visible', false, objs.filter(o => o.type !== 'image')); renderAll(); } }, '숨기기')),
     points.length + objs.filter(o => o.type === 'segment').length >= 2 ? H('button', { class: 'big-btn accent', title: '고른 점들을 가장 먼 두 점을 잇는 직선 위에 맞추고, 끝점을 옮겨도 계속 한 직선이 되게 묶어요', onclick: alignSelectionToLine }, '📏 한 직선으로 맞추기') : null,
     H('div', { class: 'btn-row' },
-      H('button', { class: 'small-btn', title: 'Ctrl+D', onclick: duplicateSelection }, '⧉ 복제'),
+      H('button', { class: 'small-btn', title: '바로 옆에 똑같은 것을 하나 더 만들어요 (Ctrl+D) — 복사+붙여넣기를 한 번에', onclick: duplicateSelection }, '⧉ 복제'),
+      H('button', { class: 'small-btn', title: '보관만 해 두고, 원하는 때에 Ctrl+V로 붙여 넣어요 (Ctrl+C) — 여러 번 붙여 넣기, 다른 작업 파일로 옮기기', onclick: () => { if (copySelection()) toast('복사했어요. Ctrl+V로 붙여 넣으세요.'); } }, '📋 복사')),
+    H('div', { class: 'btn-row' },
       H('button', { class: 'small-btn', title: '좌우로 뒤집기 (Shift+H)', onclick: () => flipFigure('h') }, '↔ 좌우'),
       H('button', { class: 'small-btn', title: '위아래로 뒤집기 (Shift+V)', onclick: () => flipFigure('v') }, '↕ 상하'),
-      H('button', { class: 'small-btn', title: '시계 방향으로 90° 돌리기 (Shift+R)', onclick: () => rotateFigure(-90) }, '↻ 90°'),
-      H('button', { class: 'small-btn', title: 'Ctrl+C', onclick: () => { if (copySelection()) toast('복사했어요. Ctrl+V로 붙여 넣으세요.'); } }, '복사')),
+      H('button', { class: 'small-btn', title: '시계 방향으로 90° 돌리기 (Shift+R)', onclick: () => rotateFigure(-90) }, '↻ 90°')),
+    H('div', { class: 'btn-row' },
+      H('button', { class: 'small-btn', title: '고른 도형을 한 단계 작게 — [크게]와 정확히 반대 (Shift+−)', onclick: () => scaleFigure(1 / 1.1) }, '－ 작게'),
+      H('button', { class: 'small-btn', title: '고른 도형을 10% 크게 (Shift++)', onclick: () => scaleFigure(1.1) }, '＋ 크게')),
     H('div', { class: 'info' }, '💡 선택한 것 중 하나를 끌면 함께 움직여요. 화살표 키로도 옮길 수 있어요. Shift+클릭으로 더하거나 빼요.'),
     H('button', { class: 'big-btn danger', onclick: deleteSelected }, icon('trash'), `${objs.length}개 모두 지우기`),
   ].filter(Boolean));
@@ -4775,20 +4779,53 @@ function rotateFigure(deg) {
   const dir = deg === 180 ? '180°' : deg <= 180 ? `시계 반대 방향으로 ${fmtNum(deg)}°` : `시계 방향으로 ${fmtNum(360 - deg)}°`;
   toast(`${ids.length ? '선택한 개체' : '그림 전체'}를 ${dir} 돌렸어요.` + (skippedImages ? ' 배경 그림은 그대로 두었어요(180°일 때만 함께 돌아요).' : '') + ' (되돌리기: Ctrl+Z)', 'ok');
 }
-/* [회전·뒤집기] 창 */
+/* 크기: k배로 키우거나 줄여요 (1.1 = 10% 크게). 선택한 것이 있으면 그것만, 없으면 그림 전체 — 가운데를 중심으로.
+   도형의 크기(점 사이 거리·원의 반지름·배경 그림)만 바뀌고, 선 굵기·점 크기·글자 크기는 그대로예요. */
+function scaleFigure(k) {
+  if (!(k > 0) || Math.abs(k - 1) < 1e-9) return;
+  const ids = selectionIds();
+  const targets = ids.length ? ids : doc.objects.filter(o => !(o.type === 'image' && o.locked)).map(o => o.id);
+  const movers = moversFor(targets);
+  if (!movers.length) { toast(ids.length ? '선택한 것 중에 크기를 바꿀 수 있는 것이 없어요.' : '크기를 바꿀 도형이 없어요.', 'warn'); return; }
+  const xs = [], ys = [];
+  for (const o of movers) {
+    if (o.type === 'image') { xs.push(o.x, o.x + o.w); ys.push(o.y, o.y + o.h); }
+    else if (o.type === 'arrow') for (const q of arrowEnds(o)) { xs.push(q.x); ys.push(q.y); }
+    else { xs.push(o.x); ys.push(o.y); }
+  }
+  const c = { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2 };   // 차지한 범위의 한가운데
+  const sc = q => ({ x: c.x + (q.x - c.x) * k, y: c.y + (q.y - c.y) * k });
+  const moverSet = new Set(movers.map(o => o.id));
+  record();
+  for (const o of movers) {
+    if (o.type === 'image') { const q = sc(o); o.x = round1(q.x); o.y = round1(q.y); o.w = round1(o.w * k); o.h = round1(o.h * k); }
+    else if (o.type === 'arrow') { const [A, B] = arrowEnds(o).map(sc); o.x = round1(A.x); o.y = round1(A.y); o.dx = round1(B.x - A.x); o.dy = round1(B.y - A.y); }
+    else { const q = sc(o); o.x = round1(q.x); o.y = round1(q.y); }
+  }
+  for (const o of byType('circle')) if (o.def.kind === 'cr' && moverSet.has(o.def.c)) o.def.r = round1(o.def.r * k);   // 반지름으로 그린 원도 같이
+  renderAll();
+  toast(`${ids.length ? '선택한 개체' : '그림 전체'}를 ${k > 1 ? '크게' : '작게'} 했어요 (${fmtNum(Math.round(k * 1000) / 10)}%). (되돌리기: Ctrl+Z)`, 'ok');
+}
+/* [회전·뒤집기·크기] 창 */
 function transformDialog() {
   const n = selectionIds().length, locked = byType('image').some(o => o.locked);
   const btn = (label, title, fn) => H('button', { class: 'small-btn', title, style: 'padding:11px 4px;font-size:14px', onclick: () => { closeModal(); fn(); } }, label);
   const degIn = H('input', { type: 'number', value: 30, step: 1, style: 'width:90px' });
+  const pctIn = H('input', { type: 'number', value: 120, min: 10, max: 500, step: 5, style: 'width:90px' });
+  const customScale = () => {
+    const v = parseFloat(pctIn.value);
+    if (!(v >= 10 && v <= 500)) { toast('크기는 10~500 사이의 %로 입력해 주세요. (예: 150, 80)', 'warn'); return; }
+    closeModal(); scaleFigure(v / 100);
+  };
   const custom = () => {
     const v = parseFloat(degIn.value);
     if (!isFinite(v) || !(Math.abs(v) % 360)) { toast('돌릴 각도를 숫자로 입력해 주세요. (예: 30, -45)', 'warn'); return; }
     closeModal(); rotateFigure(v);
   };
   openModal({
-    title: '↻ 회전·뒤집기', width: 460,
+    title: '↻ 회전·뒤집기·크기', width: 460,
     body: H('div', {},
-      H('p', {}, n ? `선택한 개체 ${n}개를 (연결된 점과 함께) 돌리거나 뒤집어요.` : '그림 전체를 그 자리에서 돌리거나 뒤집어요. (일부만 하려면 먼저 선택하세요)'),
+      H('p', {}, n ? `선택한 개체 ${n}개를 (연결된 점과 함께) 돌리거나 뒤집거나 크기를 바꿔요.` : '그림 전체를 그 자리에서 돌리거나 뒤집거나 크기를 바꿔요. (일부만 하려면 먼저 선택하세요)'),
       groupTitle('회전'),
       H('div', { class: 'btn-row' },
         btn('↺ 왼쪽 90°', '시계 반대 방향으로 90°', () => rotateFigure(90)),
@@ -4800,11 +4837,18 @@ function transformDialog() {
       H('div', { class: 'btn-row' },
         btn('↔ 좌우로 (Shift+H)', '좌우 반전', () => flipFigure('h')),
         btn('↕ 상하로 (Shift+V)', '상하 반전', () => flipFigure('v'))),
-      H('div', { class: 'info', style: 'margin:0' }, '글자(점 이름·문자)는 똑바로 선 채 자리만 바뀌어요. 배경 그림은 뒤집기와 180° 회전에서만 함께 바뀌어요.'
+      groupTitle('크기 (선 굵기·점·글자 크기는 그대로)'),
+      H('div', { class: 'btn-row' },
+        btn('－ 작게', '한 단계 작게 — [크게]를 한 번 누른 것과 정확히 반대 (Shift+−)', () => scaleFigure(1 / 1.1)),
+        btn('＋ 크게', '10% 크게 (Shift++)', () => scaleFigure(1.1))),
+      field('원하는 크기로 (지금 크기 = 100%)', H('div', { class: 'wh' }, pctIn, '%',
+        H('button', { class: 'small-btn', style: 'flex:none;padding:8px 14px', onclick: customScale }, '바꾸기'))),
+      H('div', { class: 'info', style: 'margin:0' }, '글자(점 이름·문자)는 똑바로 선 채 자리만 바뀌어요. 배경 그림은 뒤집기와 180° 회전에서만 함께 바뀌어요(크기는 함께 바뀌어요).'
         + (!n && locked ? ' 🔒 잠긴 배경 그림은 그대로 두어요.' : ''))),
     buttons: [{ label: '닫기' }],
   });
   degIn.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); e.stopPropagation(); custom(); } });
+  pctIn.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); e.stopPropagation(); customScale(); } });
 }
 
 /* ================================================================
@@ -5203,7 +5247,9 @@ document.addEventListener('keydown', e => {
     return;
   }
   if (e.shiftKey && (key === 'h' || key === 'v')) { e.preventDefault(); flipFigure(key); return; }   // 뒤집기
-  if (e.shiftKey && key === 'r') { e.preventDefault(); rotateFigure(-90); return; }                  // 시계 방향으로 90° 회전
+  if (e.shiftKey && key === 'r') { e.preventDefault(); rotateFigure(-90); return; }
+  if (e.shiftKey && !ctrl && (e.key === '+' || e.code === 'Equal' || e.code === 'NumpadAdd')) { e.preventDefault(); scaleFigure(1.1); return; }   // 10% 크게
+  if (e.shiftKey && !ctrl && (e.key === '_' || e.code === 'Minus' || e.code === 'NumpadSubtract')) { e.preventDefault(); scaleFigure(1 / 1.1); return; }   // 10% 작게                  // 시계 방향으로 90° 회전
   const t = Object.keys(TOOLS).find(n => TOOLS[n].key === key);
   if (t) { setTool(t); return; }
   const arrows = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
