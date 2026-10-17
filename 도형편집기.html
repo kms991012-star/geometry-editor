@@ -4471,10 +4471,10 @@ function aiRegionFinish(a, b) {
   if (img.flipX) region.x = asset.w - region.x - region.width;   // 뒤집은 그림: 원본에서의 자리로
   if (img.flipY) region.y = asset.h - region.y - region.height;
   if (!(region.width >= 16 && region.height >= 16)) { toast('그림 위에서 조금 더 크게 끌어서 골라 주세요.', 'warn'); return; }
-  if (mode === 'crop') cropImage(img, region, { x: x1, y: y1, w: x2 - x1, h: y2 - y1 });
+  if (mode === 'crop') cropImage(img, region);
   else aiStart(img, region);
 }
-/* ---------- 그림 자르기: 끌어서 고른 네모만 남기고 나머지를 잘라 내요 (남긴 부분은 화면에서 그 자리 그대로) ---------- */
+/* ---------- 그림 자르기: 끌어서 고른 네모만 남기고 나머지를 잘라 낸 뒤, 종이에 맞춰요 ---------- */
 function cropStart(img) {
   if (tool !== 'select') setTool('select');
   regionPick = { imgId: img.id, mode: 'crop' };
@@ -4482,8 +4482,8 @@ function cropStart(img) {
   board.classList.add('picking');
   renderOverlay();
 }
-/* region: 원본 그림 픽셀 범위, box: 종이 위에서 남길 자리 */
-async function cropImage(img, region, box) {
+/* region: 원본 그림 픽셀 범위 → 그 부분만 남기고 종이에 맞춰요 */
+async function cropImage(img, region) {
   const a = assets[img.asset]; if (!a) return;
   try {
     const im = await loadImg(a.src);
@@ -4495,11 +4495,11 @@ async function cropImage(img, region, box) {
     const assetId = 'img' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     assets[assetId] = { src, w: region.width, h: region.height };
     hist.lastKey = null; record();
-    const kw = region.width / a.w, kh = region.height / a.h;
-    Object.assign(img, { asset: assetId, x: round1(box.x), y: round1(box.y), w: round1(box.w), h: round1(box.h),
-      baseW: round1(img.baseW * kw), baseH: round1(img.baseH * kh) });
+    img.asset = assetId;
+    fitImage(img);   // 자른 뒤에는 남긴 부분을 종이에 맞게 키워서 가운데로
+    img.baseW = img.w; img.baseH = img.h;
     renderAll();
-    toast('그림을 잘랐어요. 크게 보려면 [종이 맞춤]을 누르세요. 마음에 들지 않으면 Ctrl+Z.', 'ok');
+    toast('그림을 잘라서 종이에 맞췄어요. 마음에 들지 않으면 Ctrl+Z.', 'ok');
   } catch (_) { toast('그림을 자르지 못했어요. 다시 시도해 주세요.', 'error'); }
 }
 /* 지금 방식: 다른 AI에게 그림을 보여 주고 받은 결과(JSON)를 붙여 넣기 */
