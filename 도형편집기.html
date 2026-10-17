@@ -3381,6 +3381,7 @@ const PANELS = {
     const aiMade = doc.objects.filter(x => x.ai && x.ai.image === o.id);
     return [
       lockBtn,
+      H('button', { class: 'big-btn', title: '그림 위를 끌어서 남길 부분을 네모로 고르면, 나머지를 잘라 내요 (Ctrl+Z로 되돌리기)', onclick: () => cropStart(o) }, '✂ 그림 자르기'),
       L ? H('div', { class: 'note' }, '잠긴 동안에는 그림이 움직이지 않아요. 그 위에 점과 선분을 마음껏 그리세요. (투명도는 바꿀 수 있어요)') : null,
       toggle('원본 그림 보이기 (끄면 화면·PNG에서 빠져요)', o.visible !== false, v => { hist.lastKey = null; record(); o.visible = v; renderAll(); }),
       field('투명도 (낮출수록 흐려져요)', slider({ min: 0, max: 100, value: Math.round(o.opacity * 100), unit: '%', onInput: v => setProp(o, 'opacity', v / 100) })),
@@ -3388,7 +3389,7 @@ const PANELS = {
       H('button', { class: 'big-btn accent', disabled: aiBusy, title: '그림 속 점·선·표시를 고칠 수 있는 개체로 바꿔요', onclick: () => aiStart(o) },
         aiBusy ? '⏳ AI가 분석하는 중…' : aiMade.length ? '🔄 AI로 다시 인식하기' : '🤖 AI로 도형 인식하기'),
       H('div', { class: 'btn-row' },
-        H('button', { class: 'small-btn', disabled: aiBusy, title: '그림 위를 끌어서 고른 부분만 AI가 인식해요', onclick: () => aiRegionStart(o) }, '✂ 선택 영역 AI 인식'),
+        H('button', { class: 'small-btn', disabled: aiBusy, title: '그림 위를 끌어서 고른 부분만 AI가 인식해요', onclick: () => aiRegionStart(o) }, '🔲 선택 영역 AI 인식'),
         H('button', { class: 'small-btn', title: '접속 비밀번호·좌표 보정·연결 시험', onclick: () => aiSettingsDialog() }, '⚙ AI 설정')),
       aiMade.length ? H('button', { class: 'big-btn', title: '이 그림에서 인식해 만든 개체만 골라요', onclick: () => { selectMany(aiMade.map(x => x.id)); } },
         `이 그림에서 인식한 개체 ${aiMade.length}개 선택`) : null,
@@ -4447,20 +4448,20 @@ function aiSettingsDialog(then = null, first = false, why = '') {
 }
 
 /* ---------- 영역 골라서 인식: 그림 위를 끌어서 네모로 고르면 그 부분만 AI에게 ---------- */
-let regionPick = null;   // { imgId } — 고르는 중일 때
+let regionPick = null;   // { imgId, mode: 'ai' | 'crop' } — 고르는 중일 때 (AI 영역 인식과 그림 자르기가 함께 써요)
 function aiRegionStart(img) {
   if (aiBusy) { toast('AI가 아직 분석하고 있어요. 조금만 기다려 주세요.', 'warn'); return; }
   const blocked = aiBlocked(); if (blocked) { toast(blocked, 'warn'); return; }
   if (tool !== 'select') setTool('select');
-  regionPick = { imgId: img.id };
-  setTempHint('✂ 그림에서 인식할 부분을 끌어서 네모로 고르세요. (취소: Esc)');
+  regionPick = { imgId: img.id, mode: 'ai' };
+  setTempHint('🔲 그림에서 인식할 부분을 끌어서 네모로 고르세요. (취소: Esc)');
   board.classList.add('picking');
   renderOverlay();
 }
 function aiRegionCancel() { regionPick = null; board.classList.remove('picking'); tempHint = null; updateHint(); renderOverlay(); }
 /* 고른 네모(종이 좌표) → 원본 그림 픽셀 범위 */
 function aiRegionFinish(a, b) {
-  const img = getObj(regionPick && regionPick.imgId), asset = img && assets[img.asset];
+  const img = getObj(regionPick && regionPick.imgId), asset = img && assets[img.asset], mode = regionPick && regionPick.mode;
   aiRegionCancel();
   if (!img || !asset) return;
   const x1 = Math.max(Math.min(a.x, b.x), img.x), x2 = Math.min(Math.max(a.x, b.x), img.x + img.w);
@@ -4470,7 +4471,36 @@ function aiRegionFinish(a, b) {
   if (img.flipX) region.x = asset.w - region.x - region.width;   // 뒤집은 그림: 원본에서의 자리로
   if (img.flipY) region.y = asset.h - region.y - region.height;
   if (!(region.width >= 16 && region.height >= 16)) { toast('그림 위에서 조금 더 크게 끌어서 골라 주세요.', 'warn'); return; }
-  aiStart(img, region);
+  if (mode === 'crop') cropImage(img, region, { x: x1, y: y1, w: x2 - x1, h: y2 - y1 });
+  else aiStart(img, region);
+}
+/* ---------- 그림 자르기: 끌어서 고른 네모만 남기고 나머지를 잘라 내요 (남긴 부분은 화면에서 그 자리 그대로) ---------- */
+function cropStart(img) {
+  if (tool !== 'select') setTool('select');
+  regionPick = { imgId: img.id, mode: 'crop' };
+  setTempHint('✂ 그림에서 남길 부분을 끌어서 네모로 고르세요. 나머지는 잘려요. (취소: Esc)');
+  board.classList.add('picking');
+  renderOverlay();
+}
+/* region: 원본 그림 픽셀 범위, box: 종이 위에서 남길 자리 */
+async function cropImage(img, region, box) {
+  const a = assets[img.asset]; if (!a) return;
+  try {
+    const im = await loadImg(a.src);
+    const c = document.createElement('canvas');
+    c.width = region.width; c.height = region.height;
+    c.getContext('2d').drawImage(im, region.x, region.y, region.width, region.height, 0, 0, region.width, region.height);
+    const jpg = /^data:image\/jpe?g/i.test(a.src);   // 사진(JPG)은 JPG로, 나머지는 PNG로 (글자·선이 뭉개지지 않게)
+    const src = jpg ? c.toDataURL('image/jpeg', 0.95) : c.toDataURL('image/png');
+    const assetId = 'img' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    assets[assetId] = { src, w: region.width, h: region.height };
+    hist.lastKey = null; record();
+    const kw = region.width / a.w, kh = region.height / a.h;
+    Object.assign(img, { asset: assetId, x: round1(box.x), y: round1(box.y), w: round1(box.w), h: round1(box.h),
+      baseW: round1(img.baseW * kw), baseH: round1(img.baseH * kh) });
+    renderAll();
+    toast('그림을 잘랐어요. 크게 보려면 [종이 맞춤]을 누르세요. 마음에 들지 않으면 Ctrl+Z.', 'ok');
+  } catch (_) { toast('그림을 자르지 못했어요. 다시 시도해 주세요.', 'error'); }
 }
 /* 지금 방식: 다른 AI에게 그림을 보여 주고 받은 결과(JSON)를 붙여 넣기 */
 function aiPasteDialog(img) {
