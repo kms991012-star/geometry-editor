@@ -422,7 +422,7 @@ const CONFIG = {
     fillOpacity: 0.15,
   },
   right: { size: 12, width: 1.6, color: INK },       // 직각 표시
-  parallel: { size: 9, width: 1.8, color: INK, count: 1 },   // 평행 표시(화살표 크기, 개수)
+  parallel: { size: 9, width: 1.8, color: INK, count: 1, style: 'fill' },   // 평행 표시(화살표 크기, 개수, 모양: 'fill' 교과서식 채운 화살촉 / 'chevron' 꺾쇠)
   perp: { size: 12, width: 1.6, color: INK },        // 수직 표시
   arrow: { width: 1.8, color: INK, headSize: 11, heads: 'end' },   // 화살표 (heads: 'end' = 한쪽 →, 'both' = 양쪽 ↔)
   coord: {                     // 좌표평면
@@ -467,7 +467,7 @@ const ICONS = {
   length:   '<rect x="2.5" y="8" width="19" height="8" rx="1.5"/><path d="M6.5 8v3M10.5 8v4.5M14.5 8v3M18.5 8v4.5"/>',
   angle:    '<path d="M4 19h16M4 19L14 5"/><path d="M11 19a7 7 0 0 0-2.9-5.7"/>',
   right:    '<path d="M5 4v15h15"/><path d="M5 12h7v7"/>',
-  parallel: '<path d="M3 8h18M3 16h18"/><path d="M10 5.5l2.5 2.5-2.5 2.5M10 13.5l2.5 2.5-2.5 2.5"/>',
+  parallel: '<path d="M3 8h18M3 16h18"/><path d="M14 8l-5-2.6 1.4 2.6-1.4 2.6zM14 16l-5-2.6 1.4 2.6-1.4 2.6z" fill="currentColor"/>',
   perp:     '<path d="M12 4v15M4 19h16"/><path d="M12 14h5v5"/>',
   equal:    '<path d="M3 17L21 7"/><path d="M9.6 9.3l2.2 3.9M12.9 7.5l2.2 3.9"/>',
   ellipse:  '<ellipse cx="12" cy="12" rx="9" ry="4.5"/>',
@@ -880,7 +880,7 @@ function labelStyle(o) {
 const STYLE_KEYS = {
   point: ['size', 'color', 'labelFont', 'labelItalic', 'labelSize', 'labelWeight'], segment: ['width', 'color', 'dashed', 'tickLen', 'tickWidth', 'caps'], text: ['size', 'color', 'bold', 'italic'],
   length: ['size', 'color', 'format', 'style', 'lineWidth', 'braceDashed'], angle: ['radius', 'width', 'color', 'labelSize', 'labelMode', 'fill', 'showArc'],
-  right: ['size', 'width', 'color'], parallel: ['size', 'width', 'color', 'count'], perp: ['size', 'width', 'color'],
+  right: ['size', 'width', 'color'], parallel: ['size', 'width', 'color', 'count', 'style'], perp: ['size', 'width', 'color'],
   line: ['width', 'color', 'dashed'], circle: ['width', 'color', 'dashed', 'fill', 'fillColor', 'fillOpacity'], arc: ['width', 'color', 'dashed', 'fill', 'fillColor', 'fillOpacity'],
   polygon: ['fillColor', 'fillOpacity', 'border', 'width', 'color'],
   ellipse: ['width', 'color', 'ratio'],
@@ -946,7 +946,7 @@ function addRight(p1, vertex, p2) {
 }
 function addParallel(s1, s2) {
   const P = CONFIG.parallel;
-  return push({ id: newId(), type: 'parallel', segs: [s1, s2], count: P.count, size: P.size, t: 0.5, width: P.width, color: P.color, visible: true });
+  return push({ id: newId(), type: 'parallel', segs: [s1, s2], count: P.count, style: P.style, size: P.size, t: 0.5, width: P.width, color: P.color, visible: true });
 }
 /* 화살표: 시작점 (x, y)와 끝까지의 거리 (dx, dy). p1/p2(점 id)를 주면 그 끝이 점에 붙어 점을 따라가요 */
 function addArrow(x1, y1, x2, y2, p1 = null, p2 = null) {
@@ -1230,6 +1230,19 @@ function perpGeom(o) {
   // 교점에서 각 선분의 먼 쪽 끝을 향하도록
   const far = ([a, b]) => V.norm(V.sub(V.dist(X, a) > V.dist(X, b) ? a : b, X));
   return { X, u: far(e1), v: far(e2) };
+}
+/* 평행 표시 화살촉: 'fill' = 교과서처럼 속이 찬 뾰족한 화살촉(뒤쪽이 살짝 파임), 'chevron' = 꺾쇠(›) 모양 선 */
+function parallelHeadPath(A, B, t, count, size, style = 'fill') {
+  if (style === 'chevron') return chevronPath(A, B, t, count, size);
+  const d = V.norm(V.sub(B, A)), n = { x: -d.y, y: d.x }, c = V.lerp(A, B, t);
+  let path = '';
+  for (let i = 0; i < count; i++) {
+    const off = (i - (count - 1) / 2) * size * 1.05;
+    const tip = V.add(c, V.mul(d, off + size * 0.6)), back = V.add(c, V.mul(d, off - size * 0.6)), notch = V.add(c, V.mul(d, off - size * 0.3));
+    const w1 = V.add(back, V.mul(n, size * 0.4)), w2 = V.sub(back, V.mul(n, size * 0.4));
+    path += `M${tip.x} ${tip.y} L${w1.x} ${w1.y} L${notch.x} ${notch.y} L${w2.x} ${w2.y} Z `;
+  }
+  return path;
 }
 function chevronPath(A, B, t, count, size) {
   const d = V.norm(V.sub(B, A)), n = { x: -d.y, y: d.x }, c = V.lerp(A, B, t);
@@ -1699,9 +1712,11 @@ const DRAW = {
     // 두 선분의 화살표가 같은 방향을 가리키도록 맞춥니다
     const d1 = V.sub(e1[1], e1[0]), d2 = V.sub(e2[1], e2[0]);
     const second = V.dot(d1, d2) < 0 ? [e2[1], e2[0]] : e2;
-    const path = chevronPath(e1[0], e1[1], o.t, o.count, o.size) + chevronPath(second[0], second[1], o.t, o.count, o.size);
+    const st = o.style || 'fill';
+    const path = parallelHeadPath(e1[0], e1[1], o.t, o.count, o.size, st) + parallelHeadPath(second[0], second[1], o.t, o.count, o.size, st);
     if (edit) S('path', { class: 'hit', d: path, fill: 'none', stroke: HIT, 'stroke-width': 14 * k, 'pointer-events': 'stroke' }, g);
-    S('path', { d: path, fill: 'none', stroke: o.color, 'stroke-width': o.width, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, g);
+    if (st === 'chevron') S('path', { d: path, fill: 'none', stroke: o.color, 'stroke-width': o.width, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, g);
+    else S('path', { d: path, fill: o.color, stroke: o.color, 'stroke-width': Math.min(o.width, 1), 'stroke-linejoin': 'round' }, g);
   },
   arrow(g, o, { edit, k }) {
     const G = arrowGeom(o); if (!G) return false;
@@ -3324,7 +3339,8 @@ const PANELS = {
 
   parallel(o) {
     return [
-      field('표시 개수', segmented([[1, '›  한 줄'], [2, '››  두 줄'], [3, '›››  세 줄']], o.count, v => setOnce(o, 'count', v))),
+      field('모양', segmented([['fill', '➤ 교과서(채움)'], ['chevron', '› 꺾쇠']], o.style || 'fill', v => setOnce(o, 'style', v))),
+      field('표시 개수', segmented([[1, '한 개'], [2, '두 개'], [3, '세 개']], o.count, v => setOnce(o, 'count', v))),
       field('화살표 크기', slider({ min: 4, max: 24, value: o.size, onInput: v => setProp(o, 'size', v) })),
       field('위치 (선분 위에서)', slider({ min: 15, max: 85, value: Math.round(o.t * 100), unit: '%', onInput: v => setProp(o, 't', v / 100) })),
       widthField(o),
