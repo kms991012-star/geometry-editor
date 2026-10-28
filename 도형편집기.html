@@ -109,6 +109,7 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
 #board.tool-select .obj.image.unlocked{cursor:move}
 #board.tool-select .obj.angle,#board.tool-select .obj.right,#board.tool-select .obj.perp{cursor:nwse-resize}
 #board.tool-select .obj.point .plabel{cursor:move}
+#board.tool-select .obj.angle .alabel{cursor:move}
 #board.tool-select .obj.image.locked{cursor:default}
 #board.tool-text{cursor:text}
 #board.tool-text .obj.text{cursor:move}
@@ -578,7 +579,7 @@ const TOOL_GROUPS = [
             입체도형(원뿔·원기둥·원뿔대·구)은 따로 된 개체가 아니라 선분 + 타원(+ 원)으로 만들어요.
    text     { content, x, y, size, color, bold, italic }                                   addText
    length   { seg (선분 id), value, format, style:'plain'|'brace', t, offset, … }          addLength
-   angle    { p1, vertex, p2 (점 id), labelMode, label, radius, arcs, … }                  addAngle
+   angle    { p1, vertex, p2 (점 id), labelMode, label, labelOff?{x,y}(글자를 끌어서 옮긴 만큼), radius, arcs, … }                  addAngle
    right    { p1, vertex, p2 (점 id), size, … }                                            addRight
    parallel { segs:[선분 id, 선분 id], count, … }                                          addParallel
    perp     { segs:[선분 id, 선분 id], size, … }                                           addPerp
@@ -1692,8 +1693,8 @@ const DRAW = {
     if (label) {
       const mid = G.a1 + G.d / 2, ux = Math.cos(mid), uy = Math.sin(mid);
       const ext = Math.abs(ux) * textWidth(label, o.labelSize) / 2 + Math.abs(uy) * o.labelSize * 0.45;
-      const p = polar(G.B, rOut + 4 + ext, mid);
-      mathText(g, p.x, p.y, label, o.labelSize, o.color, { 'pointer-events': 'bounding-box' });
+      const p = polar(G.B, rOut + 4 + ext, mid), off = o.labelOff || { x: 0, y: 0 };   // 끌어서 옮긴 만큼 비켜서
+      mathText(g, p.x + off.x, p.y + off.y, label, o.labelSize, o.color, { class: 'alabel', 'pointer-events': 'bounding-box' });
     }
   },
   right(g, o, { edit }) {
@@ -2320,6 +2321,12 @@ board.addEventListener('pointerdown', e => {
       beginDrag(e, { kind: 'label', id: hit.id, start: pt, orig: { dx: L.x - hit.x, dy: L.y - hit.y } });
       return;
     }
+    // 각도 글자를 끌면 글자만 옮겨요 (꼭짓점·변을 옮기면 같은 간격으로 따라가요)
+    if (hit.type === 'angle' && e.target.closest('.alabel')) {
+      select(hit.id);
+      beginDrag(e, { kind: 'alabel', id: hit.id, start: pt, orig: { ...(hit.labelOff || { x: 0, y: 0 }) } });
+      return;
+    }
     // 여러 개 선택된 것 중 하나를 끌면 함께 이동
     if (multiSel.includes(hit.id)) { const g = groupDragInfo(multiSel, pt); if (g) beginDrag(e, g); return; }
     select(hit.id);
@@ -2555,6 +2562,7 @@ board.addEventListener('pointermove', e => {
       if (t != null) o.def.t = Math.round(t * 10000) / 10000;
     }
     else if (drag.kind === 'length') dragLengthLabel(o, drag, dx, dy);
+    else if (drag.kind === 'alabel') o.labelOff = { x: round1(drag.orig.x + dx), y: round1(drag.orig.y + dy) };
     else if (drag.kind === 'label') { o.labelAuto = false; o.labelDir = null; o.labelDx = round1(drag.orig.dx + dx); o.labelDy = round1(drag.orig.dy + dy); }
     else if (drag.kind === 'radius') o.radius = round1(clamp(drag.orig.radius + V.dist(pt, drag.center) - drag.d0, 8, 200));
     else if (drag.kind === 'size') o.size = round1(clamp(drag.orig.size * V.dist(pt, drag.center) / drag.d0, 4, 80));
@@ -3278,6 +3286,8 @@ const PANELS = {
         setOnce(o, 'labelMode', v);
         if (v === 'custom') custom.focus();
       }), customWrap),
+      o.labelMode !== 'none' ? H('div', { class: 'info' }, '💡 각도 글자는 끌어서 원하는 자리로 옮길 수 있어요. (호를 끌면 호 크기가 바뀌어요)') : null,
+      o.labelOff ? H('div', { class: 'btn-row' }, H('button', { class: 'small-btn', title: '호 바깥 가운데(처음 자리)로', onclick: () => setOnce(o, 'labelOff', undefined, renderPanel) }, '↺ 글자 자리 처음으로')) : null,
       groupTitle('호'),
       toggle('각의 호 보이기', o.showArc, v => setProp(o, 'showArc', v)),
       field('호 개수 (같은 각 표시)', segmented([[1, '⌒'], [2, '⌒⌒'], [3, '⌒⌒⌒']], o.arcs, v => setOnce(o, 'arcs', v))),
@@ -4697,6 +4707,7 @@ function flipFigure(axis) {   // axis: 'h' = 좌우, 'v' = 상하
     }
     if (o.type === 'arc') [o.a, o.b] = [o.b, o.a];                // 호: 시계 반대 방향 → 거울에 비치면 반대라서 시작·끝을 바꿔요
     if (o.type === 'length') o.offset = -o.offset;                // 길이 글자: 원래 있던 쪽(도형 바깥)에 그대로
+    if (o.type === 'angle' && o.labelOff) o.labelOff = H_ ? { x: -o.labelOff.x, y: o.labelOff.y } : { x: o.labelOff.x, y: -o.labelOff.y };   // 옮긴 각도 글자
     if (o.type === 'ellipse' && !H_) [o.back, o.front] = [o.front, o.back];   // 상하 반전: 위·아래 반의 선 모양도 바꿔요
   }
   // ③ 원·선 위의 점과 교점: 뒤집힌 자리에 가장 가깝게
@@ -4757,6 +4768,7 @@ function rotateFigure(deg) {
     else { const q = rot(o); o.x = round1(q.x); o.y = round1(q.y); }
   }
   // ② 점 이름: 8방향이면 돌아간 방향(맞는 방향이 없으면 그 자리 그대로), 끌어서 놓은 이름은 같이 돌아요
+  for (const o of affected) if (o.type === 'angle' && o.labelOff) { const v = rotVec(o.labelOff); o.labelOff = { x: round1(v.x), y: round1(v.y) }; }   // 옮긴 각도 글자
   for (const [o, off] of labelOff) {
     const v = rotVec(off), u = V.norm(v);
     const key = Object.keys(LABEL_DIRS).find(k => V.dot(V.norm({ x: LABEL_DIRS[k][0], y: LABEL_DIRS[k][1] }), u) > 0.995);
@@ -4803,6 +4815,7 @@ function scaleFigure(k) {
     else { const q = sc(o); o.x = round1(q.x); o.y = round1(q.y); }
   }
   for (const o of byType('circle')) if (o.def.kind === 'cr' && moverSet.has(o.def.c)) o.def.r = round1(o.def.r * k);   // 반지름으로 그린 원도 같이
+  for (const o of byType('angle')) if (o.labelOff && moversFor([o.id]).every(m => moverSet.has(m.id))) o.labelOff = { x: round1(o.labelOff.x * k), y: round1(o.labelOff.y * k) };   // 옮긴 각도 글자
   renderAll();
   toast(`${ids.length ? '선택한 개체' : '그림 전체'}를 ${k > 1 ? '크게' : '작게'} 했어요 (${fmtNum(Math.round(k * 1000) / 10)}%). (되돌리기: Ctrl+Z)`, 'ok');
 }
