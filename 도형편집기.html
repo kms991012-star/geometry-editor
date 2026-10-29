@@ -448,6 +448,7 @@ const CONFIG = {
     markSize: [3, 120],        // 직각·수직 표시, 같은 길이 표시 크기
     headSize: [3, 80],         // 화살촉·평행 화살표 크기
     arcRadius: [4, 300],       // 각의 호 크기
+    textWeight: [0, 3],        // 글자 굵기 (0 = 보통) — 점 이름·문자·각도·길이 글자
   },
   hitRadius: 14,               // 점·선을 클릭하기 쉬운 범위(화면 픽셀)
   historyLimit: 150,           // 실행 취소 가능한 횟수
@@ -587,7 +588,7 @@ const TOOL_GROUPS = [
               back/front:'solid'|'dashed'|'none' (위쪽=뒤쪽 반 / 아래쪽=앞쪽 반), fill, fillColor, fillOpacity,
               fillTo?: 점 id(원뿔 모양으로 꼭짓점까지) | 타원 id(원기둥 모양으로 그 타원까지) }      addEllipse
             입체도형(원뿔·원기둥·원뿔대·구)은 따로 된 개체가 아니라 선분 + 타원(+ 원)으로 만들어요.
-   text     { content, x, y, size, color, bold, font?, italicMode?('auto'|'all'|'none') }  (각도·길이 글자도 font·italicMode)                                   addText
+   text     { content, x, y, size, color, weight?(글자 굵기), font?, italicMode?('auto'|'all'|'none') }  (각도·길이 글자도 font·italicMode)                                   addText
    length   { seg (선분 id), value, format, style:'plain'|'brace', t, offset, … }          addLength
    angle    { p1, vertex, p2 (점 id), labelMode, label, labelOff?{x,y}(글자를 끌어서 옮긴 만큼), radius, arcs, … }                  addAngle
    right    { p1, vertex, p2 (점 id), size, … }                                            addRight
@@ -931,10 +932,13 @@ function setRichText(t, str, mode, font = null) {
   }
 }
 /* 글자 모양 그리기: 글꼴 + 기울임 */
+const textWeightOf = o => +o.weight || (o.bold ? 1 : 0);   // 예전 '굵게' 켜기 = 굵기 1
 function styledText(g, x, y, str, size, color, o, extra = {}) {
-  const t = mathText(g, x, y, str, size, color, { 'font-family': textFontOf(o), ...extra });
-  setRichText(t, str, italicModeOf(o), LABEL_FONTS[o.font] || LABEL_FONTS[CONFIG.textFont]);
-  return t;
+  const w = textWeightOf(o), font = LABEL_FONTS[o.font] || LABEL_FONTS[CONFIG.textFont];
+  const make = (col, more) => { const t = mathText(g, x, y, str, size, col, { 'font-family': textFontOf(o), ...extra, ...more }); setRichText(t, str, italicModeOf(o), font); return t; };
+  if (!w) return make(color, {});
+  if (coordOn()) make('#fff', { class: null, 'pointer-events': 'none', stroke: '#fff', 'stroke-width': 4 + w });   // 격자 위에서도 읽히게 흰 테두리
+  return make(color, { stroke: color, 'stroke-width': w, 'stroke-linejoin': 'round', 'paint-order': 'stroke' });
 }
 /* 점 이름의 글꼴·크기·기울임 (예전 작업 파일처럼 값이 없으면 기본값) */
 function labelStyle(o) {
@@ -943,8 +947,8 @@ function labelStyle(o) {
   return { size: o.labelSize || P.labelSize, family: f.family, italic: known ? (o.labelItalic ?? f.italic) : P.labelItalic, weight: +o.labelWeight || 0 };
 }
 const STYLE_KEYS = {
-  point: ['size', 'color', 'labelFont', 'labelItalic', 'labelSize', 'labelWeight'], segment: ['width', 'color', 'dashed', 'tickLen', 'tickWidth', 'caps'], text: ['size', 'color', 'bold', 'italic', 'font', 'italicMode'],
-  length: ['size', 'color', 'format', 'style', 'lineWidth', 'braceDashed', 'font', 'italicMode'], angle: ['radius', 'width', 'color', 'labelSize', 'labelMode', 'fill', 'showArc', 'font', 'italicMode'],
+  point: ['size', 'color', 'labelFont', 'labelItalic', 'labelSize', 'labelWeight'], segment: ['width', 'color', 'dashed', 'tickLen', 'tickWidth', 'caps'], text: ['size', 'color', 'font', 'italicMode', 'weight'],
+  length: ['size', 'color', 'format', 'style', 'lineWidth', 'braceDashed', 'font', 'italicMode', 'weight'], angle: ['radius', 'width', 'color', 'labelSize', 'labelMode', 'fill', 'showArc', 'font', 'italicMode', 'weight'],
   right: ['size', 'width', 'color'], parallel: ['size', 'width', 'color', 'count', 'style'], perp: ['size', 'width', 'color'],
   line: ['width', 'color', 'dashed'], circle: ['width', 'color', 'dashed', 'fill', 'fillColor', 'fillOpacity'], arc: ['width', 'color', 'dashed', 'fill', 'fillColor', 'fillOpacity'],
   polygon: ['fillColor', 'fillOpacity', 'border', 'width', 'color'],
@@ -1728,7 +1732,7 @@ const DRAW = {
     }
   },
   text(g, o) {
-    styledText(g, o.x, o.y, o.content, o.size, o.color, o, { 'font-weight': o.bold ? 700 : 400, 'pointer-events': 'bounding-box' });
+    styledText(g, o.x, o.y, o.content, o.size, o.color, o, { 'pointer-events': 'bounding-box' });
   },
   length(g, o, { edit, k }) {
     const G = lengthGeom(o); if (!G) return false;
@@ -3147,6 +3151,8 @@ function fontFields(o) {
     field('글꼴', segmented(Object.entries(LABEL_FONTS).map(([k, f]) => [k, f.name]), LABEL_FONTS[o.font] ? o.font : CONFIG.textFont, v => setOnce(o, 'font', v, renderPanel))),
     hwpeqNote(LABEL_FONTS[o.font] ? o.font : CONFIG.textFont),
     field('기울임 (교과서처럼: 문자만)', segmented(ITALIC_MODES, italicModeOf(o), v => setOnce(o, 'italicMode', v))),
+    field('글자 굵기 (0 = 보통)', slider({ min: CONFIG.ranges.textWeight[0], max: CONFIG.ranges.textWeight[1], step: 0.1, value: textWeightOf(o),
+      onInput: v => setProp(o, 'weight', v, () => { if (o.bold) { o.bold = false; renderCanvas(); } }) })),
   ];
 }
 const PANELS = {
@@ -3196,7 +3202,7 @@ const PANELS = {
         v => { hist.lastKey = null; record(); o.labelFont = v; o.labelItalic = LABEL_FONTS[v].italic; renderCanvas(); renderPanel(); })),
       toggle('이름 기울임', labelStyle(o).italic, v => setProp(o, 'labelItalic', v)),
       field('이름 크기', slider({ min: CONFIG.ranges.textSize[0], max: CONFIG.ranges.textSize[1], value: labelStyle(o).size, onInput: v => setProp(o, 'labelSize', v) })),
-      field('이름 굵기 (0 = 보통)', slider({ min: 0, max: 1.6, step: 0.1, value: labelStyle(o).weight, onInput: v => setProp(o, 'labelWeight', v) })),
+      field('이름 굵기 (0 = 보통)', slider({ min: CONFIG.ranges.textWeight[0], max: CONFIG.ranges.textWeight[1], step: 0.1, value: labelStyle(o).weight, onInput: v => setProp(o, 'labelWeight', v) })),
       field('이름 위치 (가운데 = 자동)', labelDirPicker(o)),
       groupTitle('모양'),
       toggle('점(동그라미) 찍기', o.dot !== false, v => setProp(o, 'dot', v ? undefined : false)),
@@ -3305,7 +3311,6 @@ const PANELS = {
     return [
       field('내용', inp, chips),
       field('글자 크기', slider({ min: CONFIG.text.sizeMin, max: CONFIG.text.sizeMax, value: o.size, onInput: v => setProp(o, 'size', v) })),
-      toggle('굵게', o.bold, v => setProp(o, 'bold', v)),
       ...fontFields(o),
       colorField(o, '글자 색'),
       field('위치 (x, y) — 드래그해서 옮겨도 돼요', H('div', { class: 'wh' }, num('x'), '·', num('y'))),
@@ -4967,11 +4972,13 @@ function styleDialog() {
         v => { hist.lastKey = null; apply(['point'], 'labelFont', v, 'font'); hist.lastKey = 'style:font'; apply(['point'], 'labelItalic', LABEL_FONTS[v].italic, 'font'); italicT.querySelector('input').checked = LABEL_FONTS[v].italic; })),
       italicT,
       field('이름 크기', slider({ min: CONFIG.ranges.textSize[0], max: CONFIG.ranges.textSize[1], value: cur(['point'], 'labelSize', P.labelSize), onInput: v => apply(['point'], 'labelSize', v, 'labelSize') })),
-      field('이름 굵기 (0 = 보통)', slider({ min: 0, max: 1.6, step: 0.1, value: cur(['point'], 'labelWeight', 0), onInput: v => apply(['point'], 'labelWeight', v, 'labelWeight') })),
+      field('이름 굵기 (0 = 보통)', slider({ min: CONFIG.ranges.textWeight[0], max: CONFIG.ranges.textWeight[1], step: 0.1, value: cur(['point'], 'labelWeight', 0), onInput: v => apply(['point'], 'labelWeight', v, 'labelWeight') })),
       groupTitle('문자·각도·길이 글자 (x, y, 60°, 5 cm …)'),
       field('글꼴', segmented(Object.entries(LABEL_FONTS).map(([k, f]) => [k, f.name]), LABEL_FONTS[cur(TEXT_TYPES, 'font', CONFIG.textFont)] ? cur(TEXT_TYPES, 'font', CONFIG.textFont) : CONFIG.textFont,
         v => { hist.lastKey = null; apply(TEXT_TYPES, 'font', v, 'textFont'); })),
       field('기울임', segmented(ITALIC_MODES, cur(TEXT_TYPES, 'italicMode', 'auto'), v => { hist.lastKey = null; apply(TEXT_TYPES, 'italicMode', v, 'textItalic'); })),
+      field('글자 굵기 (0 = 보통)', slider({ min: CONFIG.ranges.textWeight[0], max: CONFIG.ranges.textWeight[1], step: 0.1, value: cur(TEXT_TYPES, 'weight', 0),
+        onInput: v => { apply(TEXT_TYPES, 'weight', v, 'textWeight'); for (const o of doc.objects) if (o.type === 'text' && o.bold) o.bold = false; } })),
       groupTitle('점'),
       field('점 크기', slider({ min: P.sizeMin, max: P.sizeMax, step: 0.5, value: cur(['point'], 'size', P.size), onInput: v => apply(['point'], 'size', v, 'pointSize') })),
       groupTitle('선 굵기'),
