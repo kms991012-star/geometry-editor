@@ -508,6 +508,7 @@ const ICONS = {
   parLine:  '<path d="M3 17h18M3 8h18"/><circle cx="12" cy="8" r="2" fill="currentColor"/>',
   pbis:     '<path d="M4 16h16M12 3v18"/><circle cx="4" cy="16" r="1.9" fill="currentColor"/><circle cx="20" cy="16" r="1.9" fill="currentColor"/><path d="M12 12.5h3.5V16" stroke-width="1.4"/>',
   abis:     '<path d="M4 19h16M4 19L12 4.5"/><path d="M4 19L20.5 10" stroke-dasharray="2.6 2.2"/>',
+  tangent:  '<circle cx="9.5" cy="14.5" r="6.5"/><path d="M21.5 3.5L3 8.6M21.5 3.5L15.6 20.4" stroke-width="1.5"/><circle cx="21.5" cy="3.5" r="1.9" fill="currentColor"/>',
   polygon:  '<path d="M5 18.5L3.5 9.5l8.5-5.5 8.5 5.5-2 9z" fill="currentColor" fill-opacity=".22"/>',
   regpoly:  '<path d="M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9z"/>',
   arrow:    '<path d="M4.5 19.5L18 6"/><path d="M10.5 5h8.5v8.5" fill="currentColor" fill-opacity=".15"/>',
@@ -539,6 +540,7 @@ const TOOLS = {
   perpLine: { label: '수선', icon: 'perpLine', desc: '한 점을 지나고 선에 수직인 직선', picks: ['point', 'line'], steps: ['수선이 지날 점', '수직이 될 기준 선'] },
   parLine:  { label: '평행선', icon: 'parLine', desc: '한 점을 지나고 선에 평행한 직선', picks: ['point', 'line'], steps: ['평행선이 지날 점', '평행할 기준 선'] },
   pbis:     { label: '수직이등분선', short: '수직이등분', icon: 'pbis', desc: '두 점(또는 선분)의 수직이등분선', picks: ['point', 'point'], steps: ['첫 번째 점(또는 선분)', '두 번째 점'], tip: '선분을 바로 클릭해도 돼요.' },
+  tangent:  { label: '원의 접선', short: '접선', icon: 'tangent', desc: '원 위의 점 또는 원 밖의 점에서 원에 접하는 선', picks: ['point', 'circle'], steps: ['접선이 지날 점 (원 위나 원 밖)', '접할 원'], tip: '원 밖의 점이면 접선 2개와 접점이 함께 생겨요.' },
   abis:     { label: '각의 이등분선', short: '각 이등분', icon: 'abis', desc: '∠ABC를 반으로 나누는 반직선', picks: ['point', 'point', 'point'], steps: ['각의 한 점(예: A)', '꼭짓점(예: B)', '다른 한 점(예: C)'] },
   // 다각형
   polygon:  { label: '다각형 (색칠)', short: '다각형', key: 'g', icon: 'polygon', desc: '꼭짓점을 차례로 → 색칠한 영역', picks: ['point'], steps: ['꼭짓점'], hint: '꼭짓점을 차례로 클릭하고, 처음 점을 다시 클릭하면 완성돼요. (Enter로도 완성)' },
@@ -565,7 +567,7 @@ const TOOL_GROUPS = [
   { id: 'point',     label: '점', tools: ['point', 'mid', 'inter'] },
   { id: 'line',      label: '선', tools: ['segment', 'line', 'ray', 'arrow'] },
   { id: 'circle',    label: '원', tools: ['circleCP', 'circleCR', 'circle3', 'arc', 'sector'] },
-  { id: 'construct', label: '작도', tools: ['perpLine', 'parLine', 'pbis', 'abis'] },
+  { id: 'construct', label: '작도', tools: ['perpLine', 'parLine', 'pbis', 'abis', 'tangent'] },
   { id: 'poly',      label: '다각형', tools: ['polygon', 'regpoly'] },
   { id: 'solid',     label: '입체', tools: ['cone', 'cylinder', 'frustum', 'sphere', 'ellipse'] },
   { id: 'text',      tools: ['text'] },
@@ -578,9 +580,10 @@ const TOOL_GROUPS = [
 
    ── 개체 구조 (모든 개체 공통: id, type, visible / 만드는 함수는 [개체 만들기]의 add…)
    point    { name, x, y, size, color, showLabel, labelAuto, labelDir, labelCoord, dot?(false=동그라미 안 찍음), def? }  addPoint
-            def가 있으면 따라 움직이는 점: {kind:'mid'|'inter'|'on'|'reg', …}             addDerivedPoint
+            def가 있으면 따라 움직이는 점: {kind:'mid'|'inter'|'on'|'reg'|'col'|'tan'(접점), …}             addDerivedPoint
    segment  { p1, p2 (점 id), width, color, dashed, ticks, heads?:'end'|'start'|'both' (끝 모양), caps?(양 끝 막대 ⊢⊣) }  addSegment
-   line     { def:{kind:'two'|'perp'|'par'|'pbis'|'abis', …}, ray, width, color, dashed }   addLine
+   line     { def:{kind:'two'|'perp'|'par'|'pbis'|'abis'|'tan', …}, ray, width, color, dashed }   addLine
+            tan = 원 위의 점 p에서의 접선 {p, circle}. 원 밖의 점에서의 접선은 접점(점 def {kind:'tan', p, circle, idx})과 이은 선분·직선
    circle   { def:{kind:'cp'|'cr'|'three', …}, width, color, dashed, fill }                addCircle
    arc      { c, a, b (점 id), sector, flip, … }                                           addArc
    polygon  { pts:[점 id…], fillColor, fillOpacity, border, … }                            addPolygon
@@ -1186,9 +1189,9 @@ function refsOf(o) {
     case 'parallel': case 'perp': return o.segs;
     case 'point': {
       const f = o.def; if (!f) return [];
-      return f.kind === 'mid' || f.kind === 'reg' || f.kind === 'col' ? [f.a, f.b] : f.kind === 'inter' ? [f.o1, f.o2] : f.kind === 'on' ? [f.obj] : [];
+      return f.kind === 'mid' || f.kind === 'reg' || f.kind === 'col' ? [f.a, f.b] : f.kind === 'inter' ? [f.o1, f.o2] : f.kind === 'on' ? [f.obj] : f.kind === 'tan' ? [f.p, f.circle] : [];
     }
-    case 'line': { const f = o.def; return f.kind === 'two' ? [f.p1, f.p2] : f.kind === 'pbis' ? [f.a, f.b] : f.kind === 'abis' ? [f.a, f.v, f.b] : [f.p, f.ref]; }
+    case 'line': { const f = o.def; return f.kind === 'two' ? [f.p1, f.p2] : f.kind === 'pbis' ? [f.a, f.b] : f.kind === 'abis' ? [f.a, f.v, f.b] : f.kind === 'tan' ? [f.p, f.circle] : [f.p, f.ref]; }
     case 'circle': { const f = o.def; return f.kind === 'cp' ? [f.c, f.p] : f.kind === 'cr' ? [f.c] : [f.a, f.b, f.c]; }
     case 'arc': return [o.c, o.a, o.b];
     case 'polygon': return o.pts;
@@ -1227,6 +1230,7 @@ function objLabel(o) {
       if (f.kind === 'perp') return '수선 (점 ' + pname(f.p) + ')';
       if (f.kind === 'par') return '평행선 (점 ' + pname(f.p) + ')';
       if (f.kind === 'pbis') return pname(f.a) + pname(f.b) + '의 수직이등분선';
+      if (f.kind === 'tan') return '접선 (점 ' + pname(f.p) + ')';
       return '∠' + pname(f.a) + pname(f.v) + pname(f.b) + '의 이등분선';
     }
     case 'circle': {
@@ -1357,6 +1361,9 @@ function lineGeom(o) {
   } else if (f.kind === 'pbis') {
     const a = P(f.a), b = P(f.b); if (!a || !b || V.dist(a, b) < 1e-6) return null;
     A = V.lerp(a, b, .5); d = perpOf(V.norm(V.sub(b, a)));
+  } else if (f.kind === 'tan') {   // 원 위의 점에서의 접선: 반지름에 수직
+    const q = P(f.p), c = circleGeom(getObj(f.circle)); if (!q || !c || V.dist(q, c.C) < 1e-6) return null;
+    A = q; d = perpOf(V.norm(V.sub(q, c.C)));
   } else if (f.kind === 'abis') {
     const a = P(f.a), v = P(f.v), b = P(f.b);
     if (!a || !v || !b || V.dist(a, v) < 1e-6 || V.dist(b, v) < 1e-6) return null;
@@ -1474,6 +1481,18 @@ function pointOn(o, t) {
   if (o.type === 'segment' || o.type === 'line') { const b = lineBase(o); return b && V.lerp(b.A, b.B, clamp(t, b.lo, b.hi)); }
   const G = circleGeom(o); return G && polar(G.C, G.r, t);
 }
+/* 점 p에서 원에 그은 접선의 접점 (idx 0, 1 = 두 개 중 하나). 원 안의 점이면 없음, 원 위의 점이면 그 점 */
+function tangentPoint(q, circleObj, idx) {
+  const G = circleGeom(circleObj); if (!q || !G) return null;
+  const dv = V.sub(q, G.C), d = V.len(dv);
+  if (d < G.r - 0.5) return null;
+  const al = Math.acos(clamp(G.r / d, -1, 1)) * (idx ? -1 : 1), base = Math.atan2(dv.y, dv.x);
+  return polar(G.C, G.r, base + al);
+}
+const TANGENT_ON = 3;   // 원까지 이만큼(px) 가까우면 '원 위의 점'으로 봐요
+/* 원의 중심이 점이면 그 점 id (세 점을 지나는 원은 중심 점이 없어요) */
+const circleCenterId = c => c.type === 'arc' ? c.c : (c.def.kind === 'cp' || c.def.kind === 'cr') ? c.def.c : null;
+
 /* 정다각형의 k번째 꼭짓점 (A=0번, B=1번에서 시작해 화면 기준 시계 반대 방향으로) */
 function regVertex(a, b, n, k) {
   let prev = a, cur = b; const ext = -TAU / n, c = Math.cos(ext), s = Math.sin(ext);
@@ -1488,6 +1507,7 @@ function computeDerived(p) {
   if (f.kind === 'on') { const o = getObj(f.obj); return o ? pointOn(o, f.t) : null; }
   if (f.kind === 'reg') { const a = P(f.a), b = P(f.b); return a && b ? regVertex(a, b, f.n, f.k) : null; }
   if (f.kind === 'col') { const a = P(f.a), b = P(f.b); return a && b ? V.lerp(a, b, f.t) : null; }   // 직선 위의 점
+  if (f.kind === 'tan') { const c = getObj(f.circle); return c ? tangentPoint(P(f.p), c, f.idx) : null; }   // 접점
   return null;
 }
 /* 그리기 전에 따라 움직이는 점들의 위치를 모두 새로 계산 */
@@ -1500,7 +1520,7 @@ function updateDerived() {
       else o.undef = true;   // 지금은 위치가 없음 (예: 두 원이 만나지 않음) → 그리지 않아요
     }
 }
-const DERIVED_NAME = { mid: '중점', inter: '교점', on: '위의 점', reg: '정다각형 꼭짓점', col: '직선 위의 점' };
+const DERIVED_NAME = { mid: '중점', inter: '교점', on: '위의 점', reg: '정다각형 꼭짓점', col: '직선 위의 점', tan: '접점' };
 
 /* ---------- 타원: 긴 지름의 양 끝(p1, p2) + 납작한 정도(ratio) ---------- */
 function ellipseGeom(o) {
@@ -2181,7 +2201,7 @@ function pickKind() {
   const T = TOOLS[tool]; if (!T.picks) return null;
   return tool === 'polygon' ? 'point' : T.picks[picks.length] || null;
 }
-const PICK_TYPES = { segment: ['segment'], line: ['segment', 'line'], curve: CURVE_TYPES, tickable: ['segment', 'arrow'] };
+const PICK_TYPES = { segment: ['segment'], line: ['segment', 'line'], curve: CURVE_TYPES, tickable: ['segment', 'arrow'], circle: ['circle', 'arc'] };
 function updateHint() {
   const el = $('#hint');
   el.replaceChildren();
@@ -2446,7 +2466,7 @@ function handlePick(pt) {
   } else {
     const types = PICK_TYPES[kind];
     target = nearestCurve(pt, types);
-    const what = kind === 'segment' ? '선분' : kind === 'line' ? '선' : kind === 'tickable' ? '선분이나 화살표' : '선이나 원';
+    const what = kind === 'segment' ? '선분' : kind === 'line' ? '선' : kind === 'tickable' ? '선분이나 화살표' : kind === 'circle' ? '원' : '선이나 원';
     if (!target) {
       toast(doc.objects.some(o => types.includes(o.type)) ? `${what} 위를 정확히 클릭해 주세요.` : `먼저 ${what}을 그려 주세요.`, 'warn');
       return;
@@ -2536,6 +2556,7 @@ function finishPick(ids, alreadyRecorded) {
     case 'perpLine': case 'parLine': rec(); made = addLine({ kind: tool === 'perpLine' ? 'perp' : 'par', p: ids[0], ref: ids[1] }); break;
     case 'pbis': rec(); made = addLine({ kind: 'pbis', a: ids[0], b: ids[1] }); break;
     case 'abis': rec(); made = addLine({ kind: 'abis', a: ids[0], v: ids[1], b: ids[2] }, true); break;
+    case 'tangent': renderAll(); tangentDialog(ids[0], ids[1], alreadyRecorded); return;
     case 'regpoly': renderAll(); regPolyDialog(ids[0], ids[1], alreadyRecorded); return;
     case 'segment': {
       const ex = byType('segment').find(s => (s.p1 === ids[0] && s.p2 === ids[1]) || (s.p1 === ids[1] && s.p2 === ids[0]));
@@ -2752,6 +2773,54 @@ function regPolyDialog(a, b, alreadyRecorded) {
       toast(`정${n}각형을 만들었어요. ${pname(a)}, ${pname(b)}를 옮기면 모양을 유지하며 따라 움직여요.`, 'ok');
     },
   });
+}
+
+/* 원의 접선: 점이 원 위면 접선 1개, 원 밖이면 접점 2개 + 접선 2개 */
+function tangentDialog(pId, cId, alreadyRecorded) {
+  const q = P(pId), circ = getObj(cId), G = circleGeom(circ);
+  if (!q || !G) return;
+  const dist = V.dist(q, G.C);
+  const onCircle = (q.def && q.def.kind === 'on' && q.def.obj === cId) || Math.abs(dist - G.r) <= TANGENT_ON;
+  if (!onCircle && dist < G.r) { toast(`점 ${pname(pId)}이(가) 원 안에 있어서 접선을 그을 수 없어요. 원 위나 원 밖의 점을 골라 주세요.`, 'warn'); renderAll(); return; }
+  const centerId = circleCenterId(circ);
+  const opt = { shape: 'segment', radius: false, ...(store.get('tangentOpt') || {}) };
+  const shapes = onCircle ? null : [['segment', `선분 (${pname(pId)}에서 접점까지)`], ['ray', `반직선 (${pname(pId)}에서 시작)`], ['line', '직선']];
+  const body = H('div', {},
+    H('div', { class: 'info' }, onCircle ? `점 ${pname(pId)}은(는) 원 위의 점이에요. 이 점에서 원에 접하는 직선을 그려요.`
+      : `점 ${pname(pId)}은(는) 원 밖의 점이에요. 접선 2개와 접점 2개를 만들어요. 점이나 원을 옮기면 따라 움직여요.`),
+    shapes ? H('div', { class: 'field' }, H('span', { class: 'field-label' }, '접선 모양'), segmented(shapes, opt.shape, v => { opt.shape = v; })) : null,
+    centerId ? toggle(`반지름과 직각 표시도 넣기 (반지름 ⊥ 접선)`, opt.radius, v => { opt.radius = v; }) : null);
+  openModal({ title: '원의 접선 만들기', body, buttons: [
+    { label: '취소' },
+    { label: '만들기', kind: 'primary', onClick: () => {
+      store.set('tangentOpt', opt);
+      if (!alreadyRecorded) record();
+      const made = [];
+      const radiusMark = (tId, otherId) => {   // 중심–접점 반지름 + 직각 표시
+        if (!centerId || !opt.radius) return;
+        if (!byType('segment').some(sg => (sg.p1 === centerId && sg.p2 === tId) || (sg.p1 === tId && sg.p2 === centerId))) made.push(addSegment(centerId, tId).id);
+        made.push(addRight(centerId, tId, otherId).id);
+      };
+      if (onCircle) {
+        const ln = addLine({ kind: 'tan', p: pId, circle: cId }); made.push(ln.id);
+        if (centerId && opt.radius) {   // 직각 표시에 쓸 보이지 않는 점 (접선 위)
+          const h = addDerivedPoint({ kind: 'on', obj: ln.id, t: 40 }); h.name = ''; h.showLabel = false; h.dot = false; h.visible = false;
+          radiusMark(pId, h.id);
+        }
+        selectMany(made);
+        toast(`점 ${pname(pId)}에서의 접선을 만들었어요. 점을 원을 따라 옮기면 접선도 따라 움직여요.`, 'ok');
+        return;
+      }
+      const ts = [0, 1].map(idx => addDerivedPoint({ kind: 'tan', p: pId, circle: cId, idx }));
+      for (const t of ts) {
+        made.push(t.id);
+        made.push((opt.shape === 'segment' ? addSegment(pId, t.id) : addLine({ kind: 'two', p1: pId, p2: t.id }, opt.shape === 'ray')).id);
+        radiusMark(t.id, pId);
+      }
+      selectMany(made);
+      toast(`접점 ${ts.map(t => t.name).join(', ')}과(와) 접선 2개를 만들었어요. 점 ${pname(pId)}이나 원을 옮기면 따라 움직여요.`, 'ok');
+    } },
+  ] });
 }
 
 /* ================================================================
@@ -3113,6 +3182,7 @@ function derivedInfo(o) {
   if (f.kind === 'mid') return `🔗 ${pname(f.a)}${pname(f.b)}의 중점이에요. ${pname(f.a)}, ${pname(f.b)}을(를) 옮기면 따라 움직여요.`;
   if (f.kind === 'inter') return `🔗 ${objLabel(getObj(f.o1) || { type: '?' })}와(과) ${objLabel(getObj(f.o2) || { type: '?' })}의 교점이에요.` + (o.undef ? ' 지금은 만나지 않아서 보이지 않아요.' : '');
   if (f.kind === 'on') return `🔗 ${objLabel(getObj(f.obj) || { type: '?' })} 위의 점이에요. 끌면 그 위를 따라 움직여요.`;
+  if (f.kind === 'tan') return `🔗 점 ${pname(f.p)}에서 ${objLabel(getObj(f.circle) || { type: '?' })}에 그은 접선의 접점이에요. ${pname(f.p)}이나 원을 옮기면 따라 움직여요.` + (o.undef ? ' 지금은 점이 원 안에 있어서 보이지 않아요.' : '');
   if (f.kind === 'reg') return `🔗 정${f.n}각형의 꼭짓점이에요. ${pname(f.a)}, ${pname(f.b)}을(를) 옮기면 따라 움직여요.`;
   if (f.kind === 'col') return `📏 직선 ${pname(f.a)}${pname(f.b)} 위의 점이에요. 끌면 직선을 따라서만 움직이고, ${pname(f.a)}, ${pname(f.b)}을(를) 옮기면 같이 따라가서 늘 한 직선으로 보여요.`;
   return null;
@@ -3217,7 +3287,7 @@ const PANELS = {
   line(o) {
     const f = o.def;
     const what = { two: o.ray ? '두 점으로 만든 반직선' : '두 점을 지나는 직선', perp: `점 ${pname(f.p)}을(를) 지나는 수선`, par: `점 ${pname(f.p)}을(를) 지나는 평행선`,
-      pbis: `${pname(f.a)}${pname(f.b)}의 수직이등분선`, abis: `∠${pname(f.a)}${pname(f.v)}${pname(f.b)}의 이등분선` }[f.kind];
+      pbis: `${pname(f.a)}${pname(f.b)}의 수직이등분선`, tan: `원 위의 점 ${pname(f.p)}에서의 접선`, abis: `∠${pname(f.a)}${pname(f.v)}${pname(f.b)}의 이등분선` }[f.kind];
     return [
       H('div', { class: 'info' }, `${what} — 연결된 점을 옮기면 따라 움직여요.`),
       f.kind === 'two' ? field('모양', segmented([[false, '↔ 직선'], [true, '→ 반직선']], !!o.ray, v => setOnce(o, 'ray', v, () => refreshTitle(o)))) : null,
