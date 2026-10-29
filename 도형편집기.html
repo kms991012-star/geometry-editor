@@ -382,7 +382,8 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
 const INK = '#222b3c';   // 기본 검정색
 const CONFIG = {
   paper: { width: 800, height: 600, margin: 40 },   // 작업 종이 크기(px)와 바깥 여백
-  mathFont: "'Times New Roman', Batang, serif",     // 수학 글자 글꼴(교과서 느낌)
+  mathFont: "HYhwpEQ, 'HY수식', 'Times New Roman', Batang, serif",   // 수학 글자 기본 글꼴: 한글 수식(HYhwpEQ) — 없는 PC에서는 Times
+  textFont: 'hwpeq',          // 문자·각도·길이 글자의 기본 글꼴 (LABEL_FONTS 의 이름)
   point: {
     size: 3.5,                 // 점 반지름 (작아도 잡는 범위는 hitRadius라서 옮기기 쉬워요)
     color: INK,                // 점 색
@@ -391,13 +392,13 @@ const CONFIG = {
     labelFont: 'hwpeq',        // 점 이름 글꼴: 'hwpeq' = 한글 수식 글꼴(HYhwpEQ, 똑바른 시험지 글씨), 'math' = Times 기울임, 'gothic' = 고딕
     labelGap: 5,               // 점과 이름 사이 간격
     labelDx: 13, labelDy: -14, // 연결된 선분이 없을 때 이름 위치(점 기준 오른쪽 위)
-    sizeMin: 2, sizeMax: 12,
+    sizeMin: 1, sizeMax: 20,
   },
   segment: {
     width: 2,                  // 선 굵기
     color: INK,                // 선 색
     dashPattern: [3.5, 2.5],   // 점선 모양(선 굵기의 배수: 선 길이, 빈칸 길이)
-    widthMin: 0.5, widthMax: 8,
+    widthMin: 0.25, widthMax: 16,
     tickLen: 11, tickGap: 4.5, // 같은 길이 표시(|, ||)의 기본 길이와 간격 (선분마다 속성창에서 바꿀 수 있어요)
     headSize: 11,              // 끝 모양(화살촉) 크기 — 선이 굵으면 그만큼 커져요
   },
@@ -409,7 +410,7 @@ const CONFIG = {
     liquidColor: '#8ec9f0', liquidOpacity: 0.55,   // 물·액체 색칠 기본값
     capLen: 12,                // 치수선 양 끝 막대(⊢⊣)의 길이
   },
-  text: { size: 22, color: INK, bold: false, italic: false, sizeMin: 10, sizeMax: 64 },   // 문자
+  text: { size: 22, color: INK, bold: false, italic: false, sizeMin: 6, sizeMax: 120 },   // 문자
   length: {                    // 길이 표시
     size: 19, color: INK, lineWidth: 1.3,
     format: 'value',           // 'value' = "5"처럼 숫자만,  'named' = "AB = 5"
@@ -439,6 +440,14 @@ const CONFIG = {
   palette: ['#222b3c', '#7c879c', '#e5484d', '#f08c2e', '#2fa36b', '#3b6fe0', '#8b5cf6'],  // 색 고르기 버튼
   quickNames: ['A','B','C','D','E','O','P','Q','R','H','M'],  // 점 이름 빠른 선택 버튼
   symbols: ['∠','△','°','⊥','∥','≡','∽','π','√','²','³','½','□','x','y','a','b','cm'],  // 문자 입력 기호 버튼
+  ranges: {                    // 속성창 슬라이더 범위 [가장 작게, 가장 크게] — 여기만 바꾸면 모든 슬라이더에 적용
+    lineWidth: [0.25, 16],     // 선 굵기 (선분·직선·원·호·타원·화살표·테두리·표시선)
+    textSize: [6, 120],        // 글자 크기 (점 이름·문자·각도·길이 글자)
+    pointSize: [1, 20],        // 점 크기
+    markSize: [3, 120],        // 직각·수직 표시, 같은 길이 표시 크기
+    headSize: [3, 80],         // 화살촉·평행 화살표 크기
+    arcRadius: [4, 300],       // 각의 호 크기
+  },
   hitRadius: 14,               // 점·선을 클릭하기 쉬운 범위(화면 픽셀)
   historyLimit: 150,           // 실행 취소 가능한 횟수
   export: { padding: 24, scale: 2 },   // PNG: 도형 부분만 저장할 때 여백, 기본 선명도
@@ -870,7 +879,7 @@ function nextPointName() {
    HYhwpEQ는 한글(HWP)을 설치하면 함께 깔리는 수식 글꼴이에요. 없는 컴퓨터에서는 바탕으로 보여요.
    italic: 그 글꼴을 고르면 기울임을 함께 맞춰요 */
 const LABEL_FONTS = {
-  hwpeq:  { name: 'HY수식(한글)', family: "HYhwpEQ, 'HY수식', Batang, '바탕', serif", italic: false },
+  hwpeq:  { name: 'HY수식(한글)', family: "HYhwpEQ, 'HY수식', 'Times New Roman', Batang, '바탕', serif", italic: false },
   math:   { name: 'Times 기울임', family: "'Times New Roman', Batang, serif", italic: true },
   gothic: { name: '고딕', family: "'Malgun Gothic', '맑은 고딕', 'Apple SD Gothic Neo', sans-serif", italic: false },
 };
@@ -878,7 +887,20 @@ const LABEL_FONTS = {
    italicMode: 'auto' = 영어 소문자 한 글자(x, y, a …)만 기울임 — 교과서처럼 (숫자·°·cm·점 이름 AB는 똑바로)
                'all'  = 모두 기울임,  'none' = 기울이지 않음 */
 const ITALIC_MODES = [['auto', '문자만 (x, y)'], ['all', '모두'], ['none', '없음']];
-const textFontOf = o => (LABEL_FONTS[o.font] || LABEL_FONTS.math).family;
+const textFontOf = o => (LABEL_FONTS[o.font] || LABEL_FONTS[CONFIG.textFont]).family;
+/* 이 컴퓨터에 그 글꼴이 있는지 (없으면 다른 글꼴로 대신 보여요) — 글자 폭을 비교해서 알아봐요 */
+const fontCheckCache = {};
+function fontInstalled(name) {
+  if (name in fontCheckCache) return fontCheckCache[name];
+  try {
+    const g = document.createElement('canvas').getContext('2d'), str = 'xyab27°ΑΩ가나';
+    const w = f => { g.font = '40px ' + f; return g.measureText(str).width; };
+    return (fontCheckCache[name] = ['monospace', 'serif', 'sans-serif'].some(b => w(`'${name}', ${b}`) !== w(b)));
+  } catch (_) { return true; }
+}
+/* 글꼴 고르는 칸 아래 안내: 한글 수식 글꼴이 없는 PC */
+const hwpeqNote = key => key === 'hwpeq' && !fontInstalled('HYhwpEQ')
+  ? H('div', { class: 'note', style: 'margin:-8px 0 14px' }, '이 컴퓨터에는 HY수식(HYhwpEQ) 글꼴이 없어서 비슷한 글꼴로 보여요. 한글(HWP) 프로그램이 설치된 PC에서는 수식 글꼴로 보여요.') : null;
 const italicModeOf = o => o.italicMode || (o.italic ? 'all' : 'auto');   // 예전 '기울임' 켜기 = 모두
 function setRichText(t, str, mode) {
   t.textContent = '';
@@ -2882,7 +2904,7 @@ function setProp(o, key, value, after) {
 function setOnce(o, key, value, after) { hist.lastKey = null; setProp(o, key, value, after); hist.lastKey = null; }
 /* 여러 표시에서 같이 쓰는 칸들 */
 const colorField = (o, label = '색') => field(label, colorPicker(o.color, c => setProp(o, 'color', c)));
-const widthField = (o, key = 'width', label = '선 굵기') => field(label, slider({ min: 0.5, max: 6, step: 0.5, value: o[key], onInput: v => setProp(o, key, v) }));
+const widthField = (o, key = 'width', label = '선 굵기') => field(label, slider({ min: CONFIG.ranges.lineWidth[0], max: CONFIG.ranges.lineWidth[1], step: 0.25, value: o[key], onInput: v => setProp(o, key, v) }));
 const visibleField = o => toggle('그림에 보이기 (끄면 숨김)', o.visible, v => setProp(o, 'visible', v, renderList));
 
 /* 선분의 끝점 고르기 (AI가 잘못 이은 선분을 고칠 때 등) */
@@ -2968,7 +2990,7 @@ function multiPanel(head, body) {
   body.append(...[
     H('div', { class: 'multi-kinds' }, Object.entries(counts).map(([t, n]) => H('span', {}, `${KIND_NAME[t]} ${n}`))),
     colored.length ? field('색 (모두)', colorPicker(first(colored, 'color', INK), c => setAll('color', c, colored))) : null,
-    widthed.length ? field('선 굵기 (선분·표시 모두)', slider({ min: 0.5, max: 8, step: 0.5, value: first(widthed, 'width', 2), onInput: v => setAll('width', v, widthed) })) : null,
+    widthed.length ? field('선 굵기 (선분·표시 모두)', slider({ min: CONFIG.ranges.lineWidth[0], max: CONFIG.ranges.lineWidth[1], step: 0.25, value: first(widthed, 'width', 2), onInput: v => setAll('width', v, widthed) })) : null,
     points.length ? field('점 크기 (점 모두)', slider({ min: CONFIG.point.sizeMin, max: CONFIG.point.sizeMax, step: 0.5, value: first(points, 'size', 4.5), onInput: v => setAll('size', v, points) })) : null,
     H('div', { class: 'btn-row' },
       H('button', { class: 'small-btn', onclick: () => { hist.lastKey = null; setAll('visible', true, objs.filter(o => o.type !== 'image')); renderAll(); } }, '👁 모두 보이기'),
@@ -3089,8 +3111,8 @@ function fillFields(o) {
 function tickFields(o) {
   const others = () => doc.objects.filter(x => (x.type === 'segment' || x.type === 'arrow') && x !== o && x.ticks);
   return [
-    field('표시 크기', slider({ min: 5, max: 36, step: 1, value: tickLenOf(o), onInput: v => setProp(o, 'tickLen', v) })),
-    field('표시 굵기', slider({ min: 0.5, max: 6, step: 0.5, value: tickWidthOf(o), onInput: v => setProp(o, 'tickWidth', v) })),
+    field('표시 크기', slider({ min: CONFIG.ranges.markSize[0], max: CONFIG.ranges.markSize[1], step: 1, value: tickLenOf(o), onInput: v => setProp(o, 'tickLen', v) })),
+    field('표시 굵기', slider({ min: CONFIG.ranges.lineWidth[0], max: CONFIG.ranges.lineWidth[1], step: 0.25, value: tickWidthOf(o), onInput: v => setProp(o, 'tickWidth', v) })),
     others().length ? H('div', { class: 'btn-row' }, H('button', { class: 'small-btn', title: '그림 안의 모든 같은 길이 표시를 이 크기·굵기로 맞춰요',
       onclick: () => {
         hist.lastKey = null; record();
@@ -3103,7 +3125,8 @@ function tickFields(o) {
 /* 글꼴·기울임 칸 (문자·각도·길이 공통) */
 function fontFields(o) {
   return [
-    field('글꼴', segmented(Object.entries(LABEL_FONTS).map(([k, f]) => [k, f.name]), LABEL_FONTS[o.font] ? o.font : 'math', v => setOnce(o, 'font', v))),
+    field('글꼴', segmented(Object.entries(LABEL_FONTS).map(([k, f]) => [k, f.name]), LABEL_FONTS[o.font] ? o.font : CONFIG.textFont, v => setOnce(o, 'font', v, renderPanel))),
+    hwpeqNote(LABEL_FONTS[o.font] ? o.font : CONFIG.textFont),
     field('기울임 (교과서처럼: 문자만)', segmented(ITALIC_MODES, italicModeOf(o), v => setOnce(o, 'italicMode', v))),
   ];
 }
@@ -3125,7 +3148,7 @@ const PANELS = {
       })),
       ...(o.fill ? [field('색칠 범위', sel), ...fillFields(o)] : []),
       groupTitle('모양'),
-      field('선 굵기', slider({ min: CONFIG.segment.widthMin, max: CONFIG.segment.widthMax, step: 0.5, value: o.width, onInput: v => setProp(o, 'width', v) })),
+      field('선 굵기', slider({ min: CONFIG.segment.widthMin, max: CONFIG.segment.widthMax, step: 0.25, value: o.width, onInput: v => setProp(o, 'width', v) })),
       colorField(o, '선 색'),
       visibleField(o),
       deleteButton(o),
@@ -3153,7 +3176,7 @@ const PANELS = {
       field('이름 글꼴', segmented(Object.entries(LABEL_FONTS).map(([k, f]) => [k, f.name]), LABEL_FONTS[o.labelFont] ? o.labelFont : CONFIG.point.labelFont,
         v => { hist.lastKey = null; record(); o.labelFont = v; o.labelItalic = LABEL_FONTS[v].italic; renderCanvas(); renderPanel(); })),
       toggle('이름 기울임', labelStyle(o).italic, v => setProp(o, 'labelItalic', v)),
-      field('이름 크기', slider({ min: 10, max: 44, value: labelStyle(o).size, onInput: v => setProp(o, 'labelSize', v) })),
+      field('이름 크기', slider({ min: CONFIG.ranges.textSize[0], max: CONFIG.ranges.textSize[1], value: labelStyle(o).size, onInput: v => setProp(o, 'labelSize', v) })),
       field('이름 굵기 (0 = 보통)', slider({ min: 0, max: 1.6, step: 0.1, value: labelStyle(o).weight, onInput: v => setProp(o, 'labelWeight', v) })),
       field('이름 위치 (가운데 = 자동)', labelDirPicker(o)),
       groupTitle('모양'),
@@ -3173,7 +3196,7 @@ const PANELS = {
     return [
       H('div', { class: 'info' }, `${what} — 연결된 점을 옮기면 따라 움직여요.`),
       f.kind === 'two' ? field('모양', segmented([[false, '↔ 직선'], [true, '→ 반직선']], !!o.ray, v => setOnce(o, 'ray', v, () => refreshTitle(o)))) : null,
-      field('선 굵기', slider({ min: CONFIG.segment.widthMin, max: CONFIG.segment.widthMax, step: 0.5, value: o.width, onInput: v => setProp(o, 'width', v) })),
+      field('선 굵기', slider({ min: CONFIG.segment.widthMin, max: CONFIG.segment.widthMax, step: 0.25, value: o.width, onInput: v => setProp(o, 'width', v) })),
       colorField(o, '선 색'),
       field('선 모양', segmented([[false, '━━ 실선'], [true, '╍╍ 점선']], o.dashed, v => setOnce(o, 'dashed', v))),
       visibleField(o),
@@ -3197,7 +3220,7 @@ const PANELS = {
       toggle('안쪽 색칠', o.fill, v => setProp(o, 'fill', v, renderPanel)),
       ...(o.fill ? fillFields(o) : []),
       groupTitle('모양'),
-      field('선 굵기', slider({ min: CONFIG.segment.widthMin, max: CONFIG.segment.widthMax, step: 0.5, value: o.width, onInput: v => setProp(o, 'width', v) })),
+      field('선 굵기', slider({ min: CONFIG.segment.widthMin, max: CONFIG.segment.widthMax, step: 0.25, value: o.width, onInput: v => setProp(o, 'width', v) })),
       colorField(o, '선 색'),
       field('선 모양', segmented([[false, '━━ 실선'], [true, '╍╍ 점선']], o.dashed, v => setOnce(o, 'dashed', v))),
       visibleField(o),
@@ -3212,7 +3235,7 @@ const PANELS = {
       o.sector ? toggle('안쪽 색칠', o.fill, v => setProp(o, 'fill', v, renderPanel)) : null,
       ...(o.sector && o.fill ? fillFields(o) : []),
       groupTitle('모양'),
-      field('선 굵기', slider({ min: CONFIG.segment.widthMin, max: CONFIG.segment.widthMax, step: 0.5, value: o.width, onInput: v => setProp(o, 'width', v) })),
+      field('선 굵기', slider({ min: CONFIG.segment.widthMin, max: CONFIG.segment.widthMax, step: 0.25, value: o.width, onInput: v => setProp(o, 'width', v) })),
       colorField(o, '선 색'),
       field('선 모양', segmented([[false, '━━ 실선'], [true, '╍╍ 점선']], o.dashed, v => setOnce(o, 'dashed', v))),
       H('div', { class: 'info' }, `중심 ${pname(o.c)}에서 ${pname(o.a)}부터 시계 반대 방향으로 그려져요.`),
@@ -3226,7 +3249,7 @@ const PANELS = {
       ...fillFields(o),
       groupTitle('테두리'),
       toggle('테두리 보이기', o.border, v => setProp(o, 'border', v, renderPanel)),
-      o.border ? field('테두리 굵기', slider({ min: CONFIG.segment.widthMin, max: CONFIG.segment.widthMax, step: 0.5, value: o.width, onInput: v => setProp(o, 'width', v) })) : null,
+      o.border ? field('테두리 굵기', slider({ min: CONFIG.segment.widthMin, max: CONFIG.segment.widthMax, step: 0.25, value: o.width, onInput: v => setProp(o, 'width', v) })) : null,
       o.border ? colorField(o, '테두리 색') : null,
       visibleField(o),
       deleteButton(o),
@@ -3238,7 +3261,7 @@ const PANELS = {
     return [
       H('button', { class: 'big-btn accent', onclick: () => len ? select(len.id) : lengthDialog(o.id) },
         icon('length'), len ? '길이 표시 고치기' : '길이 표시 넣기'),
-      field('선 굵기', slider({ min: CONFIG.segment.widthMin, max: CONFIG.segment.widthMax, step: 0.5, value: o.width, onInput: v => setProp(o, 'width', v) })),
+      field('선 굵기', slider({ min: CONFIG.segment.widthMin, max: CONFIG.segment.widthMax, step: 0.25, value: o.width, onInput: v => setProp(o, 'width', v) })),
       colorField(o, '선 색'),
       field('선 모양', segmented([[false, '━━ 실선'], [true, '╍╍ 점선']], o.dashed, v => setOnce(o, 'dashed', v))),
       field('같은 길이 표시', segmented([[0, '없음'], [1, '|'], [2, '||'], [3, '|||']], o.ticks || 0, v => setOnce(o, 'ticks', v, renderPanel))),
@@ -3290,7 +3313,7 @@ const PANELS = {
       H('div', { class: 'btn-row' },
         H('button', { class: 'small-btn', title: '선분 반대쪽으로 옮겨요', onclick: () => { hist.lastKey = null; record(); o.offset = -o.offset; if (o.free) o.ln = -o.ln; renderCanvas(); } }, '⇅ 반대쪽으로'),
         H('button', { class: 'small-btn', title: '글자를 처음 자리(선분 가운데)로', onclick: () => { hist.lastKey = null; record(); o.t = 0.5; o.free = false; renderCanvas(); } }, '가운데로')),
-      field('글자 크기', slider({ min: 10, max: 48, value: o.size, onInput: v => setProp(o, 'size', v) })),
+      field('글자 크기', slider({ min: CONFIG.ranges.textSize[0], max: CONFIG.ranges.textSize[1], value: o.size, onInput: v => setProp(o, 'size', v) })),
       ...fontFields(o),
       o.style === 'brace' ? field('괄호선 모양', segmented([[false, '━━ 실선'], [true, '╍╍ 점선']], !!o.braceDashed, v => setOnce(o, 'braceDashed', v))) : null,
       o.style === 'brace' ? field('괄호선 휘는 정도', slider({ min: 4, max: 80, value: Math.abs(o.offset), onInput: v => setProp(o, 'offset', (o.offset >= 0 ? 1 : -1) * v) })) : null,
@@ -3320,11 +3343,11 @@ const PANELS = {
       groupTitle('호'),
       toggle('각의 호 보이기', o.showArc, v => setProp(o, 'showArc', v)),
       field('호 개수 (같은 각 표시)', segmented([[1, '⌒'], [2, '⌒⌒'], [3, '⌒⌒⌒']], o.arcs, v => setOnce(o, 'arcs', v))),
-      field('호 크기 (드래그로도 조절)', slider({ min: 8, max: 120, value: o.radius, onInput: v => setProp(o, 'radius', v) })),
+      field('호 크기 (드래그로도 조절)', slider({ min: CONFIG.ranges.arcRadius[0], max: CONFIG.ranges.arcRadius[1], value: o.radius, onInput: v => setProp(o, 'radius', v) })),
       toggle('안쪽 색칠', o.fill, v => setProp(o, 'fill', v)),
       groupTitle('모양'),
       widthField(o),
-      field('글자 크기', slider({ min: 10, max: 40, value: o.labelSize, onInput: v => setProp(o, 'labelSize', v) })),
+      field('글자 크기', slider({ min: CONFIG.ranges.textSize[0], max: CONFIG.ranges.textSize[1], value: o.labelSize, onInput: v => setProp(o, 'labelSize', v) })),
       ...fontFields(o),
       colorField(o),
       visibleField(o),
@@ -3336,7 +3359,7 @@ const PANELS = {
     const G = angleGeom(o);
     return [
       G ? H('div', { class: 'info' }, `그림에서 잰 각도: 약 ${Math.round(G.deg)}°`) : null,
-      field('크기 (드래그로도 조절)', slider({ min: 4, max: 60, value: o.size, onInput: v => setProp(o, 'size', v) })),
+      field('크기 (드래그로도 조절)', slider({ min: CONFIG.ranges.markSize[0], max: CONFIG.ranges.markSize[1], value: o.size, onInput: v => setProp(o, 'size', v) })),
       widthField(o),
       colorField(o),
       visibleField(o),
@@ -3347,7 +3370,7 @@ const PANELS = {
   perp(o) {
     return [
       H('div', { class: 'info' }, '두 선분(또는 연장선)이 만나는 곳에 표시돼요.'),
-      field('크기 (드래그로도 조절)', slider({ min: 4, max: 60, value: o.size, onInput: v => setProp(o, 'size', v) })),
+      field('크기 (드래그로도 조절)', slider({ min: CONFIG.ranges.markSize[0], max: CONFIG.ranges.markSize[1], value: o.size, onInput: v => setProp(o, 'size', v) })),
       widthField(o),
       colorField(o),
       visibleField(o),
@@ -3371,8 +3394,8 @@ const PANELS = {
           hist.lastKey = null; record(); bakeArrow(o); renderAll();
           toast('화살표를 점에서 뗐어요. 이제 점을 옮겨도 화살표는 그 자리에 있어요.');
         } }, '점에서 떼기') : null),
-      field('화살촉 크기', slider({ min: 4, max: 30, value: o.headSize, onInput: v => setProp(o, 'headSize', v) })),
-      field('선 굵기', slider({ min: CONFIG.segment.widthMin, max: CONFIG.segment.widthMax, step: 0.5, value: o.width, onInput: v => setProp(o, 'width', v) })),
+      field('화살촉 크기', slider({ min: CONFIG.ranges.headSize[0], max: CONFIG.ranges.headSize[1], value: o.headSize, onInput: v => setProp(o, 'headSize', v) })),
+      field('선 굵기', slider({ min: CONFIG.segment.widthMin, max: CONFIG.segment.widthMax, step: 0.25, value: o.width, onInput: v => setProp(o, 'width', v) })),
       colorField(o, '선 색'),
       field('선 모양', segmented([[false, '━━ 실선'], [true, '╍╍ 점선']], o.dashed, v => setOnce(o, 'dashed', v))),
       field('같은 길이 표시', segmented([[0, '없음'], [1, '|'], [2, '||'], [3, '|||']], o.ticks || 0, v => setOnce(o, 'ticks', v, renderPanel))),
@@ -3387,7 +3410,7 @@ const PANELS = {
     return [
       field('모양', segmented([['fill', '➤ 교과서(채움)'], ['chevron', '› 꺾쇠']], o.style || 'fill', v => setOnce(o, 'style', v))),
       field('표시 개수', segmented([[1, '한 개'], [2, '두 개'], [3, '세 개']], o.count, v => setOnce(o, 'count', v))),
-      field('화살표 크기', slider({ min: 4, max: 24, value: o.size, onInput: v => setProp(o, 'size', v) })),
+      field('화살표 크기', slider({ min: CONFIG.ranges.headSize[0], max: CONFIG.ranges.headSize[1], value: o.size, onInput: v => setProp(o, 'size', v) })),
       field('위치 (선분 위에서)', slider({ min: 15, max: 85, value: Math.round(o.t * 100), unit: '%', onInput: v => setProp(o, 't', v / 100) })),
       widthField(o),
       colorField(o),
@@ -4924,19 +4947,19 @@ function styleDialog() {
       field('글꼴', segmented(Object.entries(LABEL_FONTS).map(([k, f]) => [k, f.name]), LABEL_FONTS[cur(['point'], 'labelFont', P.labelFont)] ? cur(['point'], 'labelFont', P.labelFont) : P.labelFont,
         v => { hist.lastKey = null; apply(['point'], 'labelFont', v, 'font'); hist.lastKey = 'style:font'; apply(['point'], 'labelItalic', LABEL_FONTS[v].italic, 'font'); italicT.querySelector('input').checked = LABEL_FONTS[v].italic; })),
       italicT,
-      field('이름 크기', slider({ min: 10, max: 44, value: cur(['point'], 'labelSize', P.labelSize), onInput: v => apply(['point'], 'labelSize', v, 'labelSize') })),
+      field('이름 크기', slider({ min: CONFIG.ranges.textSize[0], max: CONFIG.ranges.textSize[1], value: cur(['point'], 'labelSize', P.labelSize), onInput: v => apply(['point'], 'labelSize', v, 'labelSize') })),
       field('이름 굵기 (0 = 보통)', slider({ min: 0, max: 1.6, step: 0.1, value: cur(['point'], 'labelWeight', 0), onInput: v => apply(['point'], 'labelWeight', v, 'labelWeight') })),
       groupTitle('문자·각도·길이 글자 (x, y, 60°, 5 cm …)'),
-      field('글꼴', segmented(Object.entries(LABEL_FONTS).map(([k, f]) => [k, f.name]), LABEL_FONTS[cur(TEXT_TYPES, 'font', 'math')] ? cur(TEXT_TYPES, 'font', 'math') : 'math',
+      field('글꼴', segmented(Object.entries(LABEL_FONTS).map(([k, f]) => [k, f.name]), LABEL_FONTS[cur(TEXT_TYPES, 'font', CONFIG.textFont)] ? cur(TEXT_TYPES, 'font', CONFIG.textFont) : CONFIG.textFont,
         v => { hist.lastKey = null; apply(TEXT_TYPES, 'font', v, 'textFont'); })),
       field('기울임', segmented(ITALIC_MODES, cur(TEXT_TYPES, 'italicMode', 'auto'), v => { hist.lastKey = null; apply(TEXT_TYPES, 'italicMode', v, 'textItalic'); })),
       groupTitle('점'),
-      field('점 크기', slider({ min: P.sizeMin, max: 8, step: 0.5, value: cur(['point'], 'size', P.size), onInput: v => apply(['point'], 'size', v, 'pointSize') })),
+      field('점 크기', slider({ min: P.sizeMin, max: P.sizeMax, step: 0.5, value: cur(['point'], 'size', P.size), onInput: v => apply(['point'], 'size', v, 'pointSize') })),
       groupTitle('선 굵기'),
-      field('도형 선 (선분·직선·원·호·타원·화살표·다각형 테두리)', slider({ min: 0.5, max: 6, step: 0.25, value: cur(STYLE_GROUPS.figure, 'width', CONFIG.segment.width), onInput: v => apply(STYLE_GROUPS.figure, 'width', v, 'figureWidth') })),
-      field('표시 선 (각·직각·평행·수직 표시)', slider({ min: 0.5, max: 4, step: 0.25, value: cur(STYLE_GROUPS.marks, 'width', CONFIG.angle.width), onInput: v => apply(STYLE_GROUPS.marks, 'width', v, 'markWidth') })),
+      field('도형 선 (선분·직선·원·호·타원·화살표·다각형 테두리)', slider({ min: CONFIG.ranges.lineWidth[0], max: CONFIG.ranges.lineWidth[1], step: 0.25, value: cur(STYLE_GROUPS.figure, 'width', CONFIG.segment.width), onInput: v => apply(STYLE_GROUPS.figure, 'width', v, 'figureWidth') })),
+      field('표시 선 (각·직각·평행·수직 표시)', slider({ min: CONFIG.ranges.lineWidth[0], max: CONFIG.ranges.lineWidth[1], step: 0.25, value: cur(STYLE_GROUPS.marks, 'width', CONFIG.angle.width), onInput: v => apply(STYLE_GROUPS.marks, 'width', v, 'markWidth') })),
       groupTitle('직각 표시'),
-      field('직각·수직 표시 크기', slider({ min: 4, max: 40, value: cur(STYLE_GROUPS.corner, 'size', CONFIG.right.size), onInput: v => apply(STYLE_GROUPS.corner, 'size', v, 'cornerSize') }))),
+      field('직각·수직 표시 크기', slider({ min: CONFIG.ranges.markSize[0], max: CONFIG.ranges.markSize[1], value: cur(STYLE_GROUPS.corner, 'size', CONFIG.right.size), onInput: v => apply(STYLE_GROUPS.corner, 'size', v, 'cornerSize') }))),
     buttons: [{ label: '닫기', kind: 'primary' }],
   });
 }
