@@ -15,3 +15,9 @@ Copyright (c) 2026 kms991012-star
 This work is licensed under the Creative Commons Attribution-NonCommercial 4.0
 International License (CC BY-NC 4.0).
 Full license text: https://creativecommons.org/licenses/by-nc/4.0/legalcode
+
+---
+
+편집기 안에 들어 있는 수식 글꼴(GE Math Roman / GE Math Italic)은 Latin Modern Math(GUST e-foundry)에서
+필요한 글자만 골라 이름을 바꾼 것으로, GUST Font License(LaTeX Project Public License 1.3c)를 따릅니다.
+자세한 내용: fonts/README-GE-Math.txt, fonts/GUST-FONT-LICENSE.txt
