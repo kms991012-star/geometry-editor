@@ -92,7 +92,7 @@ svg.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.75;st
 .save-state.unsaved{color:#B07A2E}
 .multi-kinds{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:14px}
 .multi-kinds span{background:var(--soft);border-radius:99px;padding:2px 9px;font-size:12.5px;font-weight:600;color:var(--text-2)}
-.group-title{display:flex;align-items:center;gap:8px;margin:4px 0 10px;font-size:12px;font-weight:800;color:var(--accent-dark);letter-spacing:.02em}
+.group-title{display:flex;align-items:center;gap:8px;margin:4px 0 10px;font-size:12px;font-weight:700;color:var(--text-2);letter-spacing:.01em}
 .group-title::after{content:'';flex:1;height:1px;background:var(--line)}
 .default-row{display:flex;gap:6px;margin:4px 0 6px}
 .default-row .small-btn{font-size:12px}
@@ -100,6 +100,8 @@ svg.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.75;st
 /* ---------- 3단 레이아웃 ---------- */
 .main{flex:1;display:grid;grid-template-columns:216px 1fr 300px;gap:10px;padding:10px;min-height:0;transition:grid-template-columns .2s var(--ease)}
 .main.left-min{grid-template-columns:58px 1fr 300px}
+.main.right-min{grid-template-columns:216px 1fr 46px}
+.main.left-min.right-min{grid-template-columns:58px 1fr 46px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);min-height:0}
 
 /* ---------- 왼쪽: 도구 모음 ---------- */
@@ -223,13 +225,31 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
 
 /* ---------- 오른쪽: 속성창 ---------- */
 .props{display:flex;flex-direction:column;overflow:hidden}
-.props-head{display:flex;align-items:center;gap:9px;padding:13px 15px;border-bottom:1px solid var(--line)}
+.props-bar{display:flex;align-items:center;gap:2px;padding:10px 8px 10px 14px;border-bottom:1px solid var(--line);flex:none}
+.props-head{flex:1;min-width:0;display:flex;align-items:center;gap:10px}
+.props-head>div:last-child{min-width:0}
 .props-head .badge{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent-dark);flex:none}
-.props-head .t1{font-weight:800;font-size:15px}
+.props-head .badge svg.ic{width:18px;height:18px}
+.props-head .t1{font-weight:700;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .props-head .t2{font-size:12px;color:var(--muted)}
-.props-body{flex:1;overflow:auto;padding:14px 15px}
-.field{margin-bottom:15px}
-.field-label{display:block;font-size:12.5px;font-weight:700;color:var(--muted);margin-bottom:6px}
+.props-body{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:12px 14px 14px}
+.props.pf .props-body{display:none}
+.props.pf .props-bar .fold svg.ic{transform:rotate(-90deg)}
+.props-bar .fold svg.ic{transition:transform .2s var(--ease)}
+.field{margin-bottom:14px;min-width:0}
+.field-label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px}
+/* 속성 묶음: 제목을 눌러 접고 펼쳐요 */
+.pgroup{margin:0 -6px 6px;padding:0 6px}
+.pgroup-h{display:flex;align-items:center;gap:6px;width:100%;margin:2px 0 8px;padding:6px 6px;border:none;border-radius:8px;background:none;font-size:12px;font-weight:700;color:var(--text-2);text-align:left}
+.pgroup-h:hover{background:var(--soft)}
+.pgroup-h::before{content:'';width:3px;height:12px;border-radius:2px;background:var(--accent);opacity:.7}
+.pgroup-h svg.ic{width:14px;height:14px;margin-left:auto;color:var(--muted);transition:transform .2s var(--ease)}
+.pgroup.closed .pgroup-h svg.ic{transform:rotate(-90deg)}
+.pgroup.closed .pgroup-b{display:none}
+.pgroup-h .cnt{font-weight:500;color:var(--faint);font-size:11.5px}
+/* 패널을 접으면 단추만 */
+.right-min .props-head,.right-min .props-body,.right-min .list-wrap,.right-min .props-bar .fold{display:none}
+.right-min .props-bar{justify-content:center;padding:10px 0;border-bottom:none}
 .props input[type=text],.props input[type=number],.modal input[type=text],.modal input[type=password]{width:100%;padding:8px 10px;border:1px solid var(--line-strong);border-radius:var(--rb);transition:border-color .15s,box-shadow .15s;font:inherit;background:#fff;color:var(--text)}
 .modal input[type=text],.modal input[type=password]{font-size:17px;padding:10px 12px}
 .props input:focus,.modal input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
@@ -248,8 +268,8 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
 .sw:hover{transform:scale(1.08)}
 .sw.on{box-shadow:0 0 0 2.5px var(--accent)}
 .swatches input[type=color]{width:32px;height:28px;padding:0;border:none;background:none;cursor:pointer}
-.seg{display:flex;gap:2px;padding:3px;background:var(--soft);border-radius:10px}
-.seg button{flex:1;padding:6px 4px;border:none;border-radius:7px;background:transparent;font-weight:600;font-size:13px;color:var(--muted);white-space:nowrap;transition:background .15s var(--ease),color .15s var(--ease)}
+.seg{display:flex;flex-wrap:wrap;gap:2px;padding:3px;background:var(--soft);border-radius:10px}
+.seg button{flex:1 0 auto;padding:6px 8px;border:none;border-radius:7px;background:transparent;font-weight:600;font-size:13px;color:var(--muted);white-space:nowrap;transition:background .15s var(--ease),color .15s var(--ease)}
 .seg button:hover:not(.on){color:var(--text-2)}
 .seg button.on{background:#fff;color:var(--accent-dark);box-shadow:0 1px 3px rgba(40,38,70,.1),inset 0 0 0 1px var(--accent-line)}
 .props select{width:100%;padding:8px 10px;border:1px solid var(--line-strong);border-radius:var(--rb);font:inherit;background:#fff;color:var(--text)}
@@ -258,7 +278,7 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
 .dir-grid button:hover{border-color:var(--accent-line);color:var(--accent-dark)}
 .dir-grid button.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-dark)}
 .dir-grid button:nth-child(5){font-size:11.5px}
-.switch-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;margin-bottom:4px;cursor:pointer;font-weight:600}
+.switch-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0;margin-bottom:6px;cursor:pointer;font-weight:600;font-size:13px;color:var(--text-2)}
 .switch{position:relative;width:42px;height:24px;flex:none}
 .switch input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer}
 .switch i{position:absolute;inset:0;border-radius:99px;background:#D9D8E1;transition:background .2s var(--ease);pointer-events:none}
@@ -282,14 +302,24 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
 .guide h4{margin:2px 0 10px;font-size:14px}
 .guide ol{margin:0;padding-left:20px;line-height:1.85;color:var(--text-2)}
 .guide .tip{margin-top:12px;padding:10px 12px;border-radius:10px;background:var(--soft);color:var(--text-2);font-size:12.5px;line-height:1.7}
-.list-wrap{border-top:1px solid var(--line);max-height:30%;display:flex;flex-direction:column}
-.list-wrap .section-title{padding:10px 15px 4px}
-.obj-list{overflow:auto;padding:2px 8px 10px}
-.list-item{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:9px;cursor:pointer}
+.list-wrap{border-top:1px solid var(--line);flex:none;max-height:36%;min-height:0;display:flex;flex-direction:column}
+.props.pf .list-wrap{flex:1;max-height:none}
+.list-wrap.lf{max-height:none}
+.list-wrap.lf .obj-list{display:none}
+.list-head{display:flex;align-items:center;gap:6px;width:100%;padding:9px 14px 7px;border:none;background:none;font-size:12px;font-weight:700;color:var(--text-2);text-align:left;flex:none}
+.list-head:hover{color:var(--text)}
+.list-head .cnt{font-weight:500;color:var(--muted)}
+.list-head svg.ic{width:14px;height:14px;margin-left:auto;color:var(--muted);transition:transform .2s var(--ease)}
+.list-wrap.lf .list-head svg.ic{transform:rotate(-90deg)}
+.obj-list{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:0 8px 10px}
+.list-item{display:flex;align-items:center;gap:8px;min-width:0;height:32px;padding:0 8px;border-radius:8px;cursor:pointer;font-size:13px;color:var(--text-2);transition:background .12s var(--ease)}
 .list-item:hover{background:var(--soft)}
-.list-item.on{background:var(--accent-soft);color:var(--accent-dark);font-weight:700}
-.list-item .li-ic{width:20px;text-align:center;color:var(--muted)}
-.list-item .tag{margin-left:auto;font-size:11px;color:var(--muted);font-weight:500;white-space:nowrap}
+.list-item.on{background:var(--accent-soft);color:var(--accent-dark);font-weight:600}
+.list-item .li-ic{width:18px;display:grid;place-items:center;color:var(--faint);flex:none}
+.list-item .li-ic svg.ic{width:16px;height:16px}
+.list-item.on .li-ic{color:var(--accent)}
+.list-item .li-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.list-item .tag{margin-left:auto;flex:none;font-size:11px;color:var(--muted);font-weight:500;white-space:nowrap}
 .list-empty{padding:6px 10px;color:var(--muted);font-size:12.5px}
 
 /* ---------- 알림(토스트) ---------- */
@@ -419,11 +449,15 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
   <!-- ================================================================
        [화면 뼈대] 오른쪽 — 속성창 + 개체 목록
        ================================================================ -->
-  <aside class="card props">
-    <div class="props-head" id="propsHead"></div>
+  <aside class="card props" id="propsPanel">
+    <div class="props-bar">
+      <div class="props-head" id="propsHead"></div>
+      <button class="icon-btn fold" id="btnPropsFold" title="속성 접기/펴기"></button>
+      <button class="icon-btn" id="btnRightMin" title="속성 패널 접기"></button>
+    </div>
     <div class="props-body" id="propsBody"></div>
-    <div class="list-wrap">
-      <div class="section-title">개체 목록 <span style="font-weight:500">(클릭해서 선택)</span></div>
+    <div class="list-wrap" id="listWrap">
+      <button class="list-head" id="listHead" title="개체 목록 접기/펴기 — 항목을 클릭하면 선택, Shift+클릭하면 여러 개"><span>개체 목록</span> <span class="cnt" id="listCount"></span></button>
       <div class="obj-list" id="objList"></div>
     </div>
   </aside>
@@ -545,6 +579,8 @@ const ICONS = {
   keyboard: '<rect width="20" height="16" x="2" y="4" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"/>',
   chevDown: '<path d="m6 9 6 6 6-6"/>',
   panelL:   '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m16 15-3-3 3-3"/>',
+  panelR:   '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18"/><path d="m8 9 3 3-3 3"/>',
+  panelRo:  '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18"/><path d="m10 15-3-3 3-3"/>',
   panelLo:  '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m14 9 3 3-3 3"/>',
   select:   '<path d="M6 3.5l12 7.2-5.3 1.4L9.8 17z" fill="currentColor" fill-opacity=".15"/><path d="M12.7 12.1l3.6 5.4"/>',
   point:    '<circle cx="12" cy="12" r="4" fill="currentColor"/>',
@@ -3162,6 +3198,7 @@ function renderPanel() {
   if (selectedId === COORD_ID) {
     head.append(H('div', { class: 'badge' }, icon('coord')), H('div', {}, H('div', { class: 't1' }, '좌표평면'), H('div', { class: 't2' }, '좌표평면 설정')));
     body.append(...coordPanel().filter(Boolean));
+    foldGroups(body, 'coord');
     return;
   }
   if (multiSel.length) { multiPanel(head, body); return; }
@@ -3185,18 +3222,50 @@ function renderPanel() {
   const parts = PANELS[o.type](o).filter(Boolean);
   if (o.ai) parts.unshift(H('div', { class: 'info' }, `🤖 AI가 그림에서 인식해 만든 개체예요 (확신도 ${Math.round((o.ai.conf ?? 1) * 100)}%). 직접 만든 것과 똑같이 고칠 수 있어요.`));
   // 지우기 버튼 바로 위에 '기본값으로' 버튼
-  if (STYLE_KEYS[o.type]) parts.splice(parts.length - 1, 0, defaultsRow(o));
+  if (STYLE_KEYS[o.type]) parts.splice(parts.length - 1, 0, ...defaultsRow(o));
   body.append(...parts);
+  foldGroups(body, o.type);
 }
+/* 속성 묶음(작은 제목 아래 항목들)을 접고 펼칠 수 있게 — 접은 상태는 종류별로 기억해요 */
+const FOLD_DEFAULT_CLOSED = ['기본 모양'];   // 자주 안 쓰는 묶음은 처음에 접어 둬요
+function foldGroups(body, kind) {
+  panelUi.pg = panelUi.pg || {};
+  let cur = null;
+  for (const el of [...body.children]) {
+    if (el.classList.contains('group-title')) {
+      const title = el.textContent, key = kind + '|' + title;
+      const closed = key in panelUi.pg ? panelUi.pg[key] : FOLD_DEFAULT_CLOSED.includes(title);
+      const b = H('div', { class: 'pgroup-b' });
+      const g = H('div', { class: 'pgroup' + (closed ? ' closed' : '') },
+        H('button', { class: 'pgroup-h', title: title + ' 접기/펴기', onclick: () => { const c = !g.classList.contains('closed'); g.classList.toggle('closed', c); panelUi.pg[key] = c; savePanelUi(); } }, title, icon('chevDown')), b);
+      el.replaceWith(g); cur = b;
+    } else if (cur) cur.appendChild(el);
+  }
+}
+/* 오른쪽 패널: 속성 접기 · 개체 목록 접기 · 패널 전체 접기 */
+function applyRightUi() {
+  const pnl = $('#propsPanel');
+  pnl.classList.toggle('pf', !!panelUi.propsFold);
+  $('#listWrap').classList.toggle('lf', !!panelUi.listFold);
+  $('.main').classList.toggle('right-min', !!panelUi.rightMin);
+  $('#btnPropsFold').replaceChildren(icon('chevDown'));
+  $('#btnRightMin').replaceChildren(icon(panelUi.rightMin ? 'panelRo' : 'panelR'));
+  $('#btnRightMin').title = panelUi.rightMin ? '속성 패널 펼치기' : '속성 패널 접기';
+}
+$('#btnPropsFold').onclick = () => { panelUi.propsFold = !panelUi.propsFold; savePanelUi(); applyRightUi(); };
+$('#listHead').onclick = () => { panelUi.listFold = !panelUi.listFold; savePanelUi(); applyRightUi(); };
+$('#btnRightMin').onclick = () => { panelUi.rightMin = !panelUi.rightMin; savePanelUi(); applyRightUi(); };
+$('#listHead').append(icon('chevDown'));
+applyRightUi();
 /* 속성창 안의 작은 묶음 제목 */
 const groupTitle = t => H('div', { class: 'group-title' }, t);
 /* "이 모양을 기본값으로": 지금 색·크기를 앞으로 만들 같은 종류에 그대로 */
 function defaultsRow(o) {
-  return H('div', {},
+  return [
     groupTitle('기본 모양'),
     H('div', { class: 'default-row' },
       H('button', { class: 'small-btn', title: `앞으로 만드는 ${KIND_NAME[o.type]}이(가) 이 색·크기로 만들어져요`, onclick: () => saveAsDefault(o) }, '⭐ 이 모양을 기본값으로'),
-      userDefaults[o.type] ? H('button', { class: 'small-btn', title: '처음 설정으로', onclick: () => resetDefault(o.type) }, '기본값 초기화') : null));
+      userDefaults[o.type] ? H('button', { class: 'small-btn', title: '처음 설정으로', onclick: () => resetDefault(o.type) }, '기본값 초기화') : null)];
 }
 
 /* 여러 개를 골랐을 때: 공통으로 바꿀 수 있는 것들 */
@@ -3710,6 +3779,7 @@ const PANELS = {
 const LIST_ORDER = ['image', 'point', 'segment', 'line', 'circle', 'arc', 'ellipse', 'polygon', 'arrow', 'text', 'length', 'angle', 'right', 'parallel', 'perp'];
 function renderList() {
   const box = $('#objList'); box.replaceChildren();
+  $('#listCount').textContent = doc.objects.length ? doc.objects.length + '개' : '';
   if (!doc.objects.length) { box.append(H('div', { class: 'list-empty' }, '아직 아무것도 없어요.')); return; }
   const items = [...doc.objects].sort((a, b) => LIST_ORDER.indexOf(a.type) - LIST_ORDER.indexOf(b.type));
   for (const o of items) {
@@ -3718,7 +3788,7 @@ function renderList() {
     if (o.visible === false) tags.push('숨김');
     if (o.ai) tags.push('AI');
     box.append(H('div', { class: 'list-item' + (isSelected(o.id) ? ' on' : ''), title: 'Shift+클릭: 여러 개 고르기', onclick: ev => { if (tool !== 'select') setTool('select'); ev.shiftKey ? toggleSelect(o.id) : select(o.id); } },
-      H('span', { class: 'li-ic' }, icon(o.type, 'ic')), objLabel(o), H('span', { class: 'tag' }, tags.join(' · '))));
+      H('span', { class: 'li-ic' }, icon(o.type, 'ic')), H('span', { class: 'li-name' }, objLabel(o)), H('span', { class: 'tag' }, tags.join(' · '))));
   }
   const on = box.querySelector('.on'); if (on) on.scrollIntoView({ block: 'nearest' });
 }
