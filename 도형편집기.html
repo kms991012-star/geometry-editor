@@ -322,6 +322,10 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
 .list-item .tag{margin-left:auto;flex:none;font-size:11px;color:var(--muted);font-weight:500;white-space:nowrap}
 .list-empty{padding:6px 10px;color:var(--muted);font-size:12.5px}
 
+/* ---------- 말풍선 도움말 (버튼에 마우스를 올리면) ---------- */
+#tip{position:fixed;z-index:60;max-width:280px;padding:6px 10px;border-radius:8px;background:#303447;color:#fff;font-size:12px;font-weight:500;line-height:1.45;box-shadow:0 6px 18px rgba(40,38,70,.18);pointer-events:none;opacity:0;transform:translateY(2px);transition:opacity .12s var(--ease),transform .12s var(--ease)}
+#tip.show{opacity:1;transform:none}
+
 /* ---------- 알림(토스트) ---------- */
 #toasts{position:fixed;left:50%;bottom:70px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;z-index:50;pointer-events:none}
 .toast{padding:10px 18px;border-radius:12px;background:#303447;color:#fff;font-weight:500;font-size:13.5px;box-shadow:0 8px 24px rgba(40,38,70,.2);transition:opacity .3s,transform .3s;max-width:560px;text-align:center}
@@ -499,6 +503,7 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
 <input type="file" id="fileImage" accept="image/png,image/jpeg,image/gif,image/webp,image/bmp" hidden>
 <input type="file" id="fileProject" accept=".json,application/json,.png,image/png" hidden>
 <div id="toasts"></div>
+<div id="tip" role="tooltip"></div>
 
 <script>
 'use strict';
@@ -5392,6 +5397,30 @@ function styleDialog() {
   nameIn.blur();
 }
 $('#btnStyle').onclick = styleDialog;
+/* 말풍선 도움말: title 대신 같은 디자인의 말풍선으로 (title은 그때그때 바뀔 수 있어 마우스를 올릴 때마다 읽어요) */
+(function setupTips() {
+  const tip = $('#tip'); let timer = null, cur = null;
+  const hide = () => { clearTimeout(timer); timer = null; cur = null; tip.classList.remove('show'); };
+  document.addEventListener('mouseover', e => {
+    const el = e.target.closest && e.target.closest('button[title], [data-tip], .tbtn, .list-item, .zoom, label.switch-row[title]');
+    if (!el || el === cur) return;
+    if (el.hasAttribute('title')) { if (el.title) el.dataset.tip = el.title; el.removeAttribute('title'); }
+    const text = el.dataset.tip; hide(); if (!text) return;
+    cur = el;
+    timer = setTimeout(() => {
+      if (cur !== el || !el.isConnected) return;
+      tip.textContent = text; tip.classList.add('show');
+      const r = el.getBoundingClientRect(), t = tip.getBoundingClientRect();
+      const side = el.closest('#toolbar') && !el.closest('.tp-top');   // 왼쪽 도구는 오른쪽에
+      let x = side ? r.right + 8 : r.left + r.width / 2 - t.width / 2, y = side ? r.top + r.height / 2 - t.height / 2 : r.bottom + 8;
+      if (!side && y + t.height > innerHeight - 6) y = r.top - t.height - 8;
+      tip.style.left = Math.max(6, Math.min(innerWidth - t.width - 6, x)) + 'px'; tip.style.top = Math.max(6, y) + 'px';
+    }, 380);
+  });
+  document.addEventListener('mouseout', e => { if (cur && !cur.contains(e.relatedTarget)) hide(); });
+  document.addEventListener('pointerdown', hide, true);
+  document.addEventListener('wheel', hide, { passive: true });
+})();
 $('#btnFlip').onclick = transformDialog;
 
 /* ================================================================
