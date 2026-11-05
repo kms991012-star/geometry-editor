@@ -295,6 +295,8 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
 .btn-row{display:flex;gap:6px;margin-bottom:15px}
 .small-btn{flex:1;padding:7px 4px;border:1px solid var(--line-strong);border-radius:var(--rb);background:#fff;font-size:12.5px;font-weight:600;color:var(--text-2);transition:background .15s var(--ease)}
 .small-btn:hover:not(:disabled){background:var(--soft);color:var(--text)}
+.small-btn{display:inline-flex;align-items:center;justify-content:center;gap:5px}
+.small-btn svg.ic,.big-btn svg.ic{width:16px;height:16px}
 .small-btn:disabled{opacity:.45}
 .wh{display:flex;align-items:center;gap:6px;color:var(--muted)}
 .note{font-size:12.5px;color:#9A6A28;background:var(--orange-soft);border-radius:9px;padding:8px 10px;margin:-6px 0 14px}
@@ -461,7 +463,7 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
     <div class="canvas-wrap" id="canvasWrap">
       <svg id="board" xmlns="http://www.w3.org/2000/svg"></svg>
       <div class="empty-hint" id="emptyHint">
-        <b>여기에 그림을 그려요 ✏️</b>
+        <b>여기에 그림을 그려요</b>
         위쪽 <b style="display:inline;font-size:inherit">[그림 불러오기]</b>를 누르거나<br>
         그림 파일을 이 곳으로 끌어다 놓으세요. (캡처 후 <kbd>Ctrl</kbd>+<kbd>V</kbd>도 돼요)<br>
         왼쪽 <b style="display:inline;font-size:inherit">[점]</b> 도구로 바로 그려도 좋아요.
@@ -617,6 +619,7 @@ const ICONS = {
   keyboard: '<rect width="20" height="16" x="2" y="4" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"/>',
   chevDown: '<path d="m6 9 6 6 6-6"/>',
   panelL:   '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m16 15-3-3 3-3"/>',
+  scissors: '<circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/>',
   x:        '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
   palette:  '<circle cx="13.5" cy="6.5" r="1" fill="currentColor"/><circle cx="17.5" cy="10.5" r="1" fill="currentColor"/><circle cx="8.5" cy="7.5" r="1" fill="currentColor"/><circle cx="6.5" cy="12.5" r="1" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.65-.75 1.65-1.69 0-.44-.18-.84-.44-1.13-.29-.29-.44-.65-.44-1.13a1.64 1.64 0 0 1 1.67-1.67h2c3.05 0 5.55-2.5 5.55-5.55C21.97 6.01 17.46 2 12 2z"/>',
   panelR:   '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18"/><path d="m8 9 3 3-3 3"/>',
@@ -1308,7 +1311,7 @@ function bindCollinearRuns(segIds) {
   for (const [pid, [q, r]] of mid) { const e1 = endFrom(pid, q), e2 = endFrom(pid, r); if (e1 !== e2 && bindToLine(getObj(pid), P(e1), P(e2))) n++; }
   return n;
 }
-/* [📏 한 직선으로 맞추기] 고른 점(또는 선분의 끝점)들을 가장 먼 두 점을 잇는 직선 위로 옮기고 묶어요 */
+/* [한 직선으로 맞추기] 고른 점(또는 선분의 끝점)들을 가장 먼 두 점을 잇는 직선 위로 옮기고 묶어요 */
 function alignSelectionToLine() {
   const pts = new Set();
   for (const o of selectionIds().map(getObj)) {
@@ -2165,7 +2168,7 @@ function renderOverlay() {
       const g = S('g', { transform: `translate(${sel.x + 6 * k},${sel.y + 6 * k}) scale(${k})` }, ov);
       S('rect', { width: 64, height: 24, rx: 12, fill: orange }, g);
       const t = S('text', { x: 32, y: 16.5, 'text-anchor': 'middle', 'font-size': 12.5, 'font-weight': 700, fill: '#fff', 'font-family': 'Malgun Gothic, sans-serif' }, g);
-      t.textContent = '🔒 잠김';
+      t.textContent = '잠김';
     } else {
       const pos = { nw: [0, 0], n: [.5, 0], ne: [1, 0], e: [1, .5], se: [1, 1], s: [.5, 1], sw: [0, 1], w: [0, .5] };
       const hs = 11 * k;
@@ -2297,7 +2300,7 @@ function aiTargetImage() {
 function shortcutsDialog() {
   const row = (k, d) => H('div', {}, H('span', {}, d), H('span', {}, ...k.split(' ').map((x, i) => [i ? ' ' : null, x === '+' || x === '/' ? x : H('kbd', {}, x)]).flat()));
   const toolKeys = Object.values(TOOLS).filter(T => T.key).map(T => row(T.key.toUpperCase(), T.label));
-  openModal({ title: '⌨ 단축키', width: 660, body: H('div', { class: 'keys' },
+  openModal({ title: H('span', {}, icon('keyboard'), '단축키'), width: 660, body: H('div', { class: 'keys' },
     H('h4', {}, '파일 · 편집'),
     row('Ctrl + S', '저장'), row('Ctrl + Shift + S', '다른 이름으로 저장'), row('Ctrl + O', '작업 열기'), row('Ctrl + V', '그림·개체 붙여넣기'),
     row('Ctrl + Z', '실행 취소'), row('Ctrl + Y', '다시 실행'), row('Ctrl + C / X', '복사 · 잘라내기'), row('Ctrl + D', '복제'),
@@ -2322,7 +2325,7 @@ function toggleImages() {
 /* AI가 만든 개체 모두 보이기/숨기기 (숨기면 편집 화면엔 흐리게, PNG에서는 빠져요) */
 function toggleAiObjects() {
   const list = doc.objects.filter(o => o.ai);
-  if (!list.length) { toast('아직 AI로 만든 개체가 없어요. 그림을 선택하고 [🤖 AI로 도형 인식하기]를 눌러 보세요.'); return; }
+  if (!list.length) { toast('아직 AI로 만든 개체가 없어요. 그림을 선택하고 [AI로 도형 인식하기]를 눌러 보세요.'); return; }
   const show = list.some(o => o.visible === false);
   hist.lastKey = null; record();
   list.forEach(o => { o.visible = show; });
@@ -2907,7 +2910,7 @@ function endDrag() {
     if (!moved) {   // 그냥 클릭: 선택 해제 (잠긴 그림 위였다면 그림 선택)
       if (d.add) return;
       select(d.clickId);
-      if (d.clickId) setTempHint('🔒 잠긴 그림이라 움직이지 않아요. 옮기려면 오른쪽 속성창에서 잠금을 해제하세요. (끌면 여러 개를 고를 수 있어요)');
+      if (d.clickId) setTempHint('잠긴 그림이라 움직이지 않아요. 옮기려면 오른쪽 속성창에서 잠금을 해제하세요. (끌면 여러 개를 고를 수 있어요)');
       return;
     }
     const ids = objectsInBox(d.start, d.cur || d.start);
@@ -3067,7 +3070,7 @@ function deleteSelected() {
   if (!all.length) { toast('지울 개체를 먼저 클릭해서 선택하세요.'); return; }
   const locked = all.filter(o => o.type === 'image' && o.locked);
   const targets = all.filter(o => !locked.includes(o));
-  if (!targets.length) { toast('🔒 잠긴 그림은 지울 수 없어요. 먼저 잠금을 해제하세요.', 'warn'); return; }
+  if (!targets.length) { toast('잠긴 그림은 지울 수 없어요. 먼저 잠금을 해제하세요.', 'warn'); return; }
   const label = targets.length === 1 ? objLabel(targets[0]) : `개체 ${targets.length}개`;
   record();
   const gone = new Set();
@@ -3229,8 +3232,8 @@ function labelDirPicker(o) {
     H('div', { class: 'dir-grid' }, cells.map(([k, label]) => H('button', { class: k === cur ? 'on' : '', title: k === 'auto' ? '선분을 피해 자동으로 (끌어 둔 위치도 처음으로)' : '이 방향에 이름 두기',
       onclick: () => { hist.lastKey = null; record(); o.labelAuto = k === 'auto'; if (k !== 'auto') o.labelDir = k; renderCanvas(); renderPanel(); } }, label))),
     H('div', { class: 'ai-sub', style: 'margin-top:6px' }, o.labelAuto === false && !o.labelDir
-      ? '✋ 지금은 직접 끌어 둔 위치예요. [자동]을 누르면 처음처럼 돌아가요.'
-      : '💡 그림에서 이름 글자를 직접 끌어서 원하는 곳에 둘 수도 있어요.'));
+      ? '지금은 직접 끌어 둔 위치예요. [자동]을 누르면 처음처럼 돌아가요.'
+      : '그림에서 이름 글자를 직접 끌어서 원하는 곳에 둘 수도 있어요.'));
 }
 
 function renderPanel() {
@@ -3247,21 +3250,21 @@ function renderPanel() {
   if (!o) {
     head.append(H('div', { class: 'badge' }, icon('info')), H('div', {}, H('div', { class: 't1' }, '속성'), H('div', { class: 't2' }, '선택된 개체가 없어요')));
     body.append(H('div', { class: 'guide' },
-      H('h4', {}, '이렇게 시작해 보세요 😊'),
+      H('h4', {}, '이렇게 시작해 보세요'),
       H('ol', {},
         H('li', {}, '위쪽 [그림 불러오기]로 문제 그림을 넣어요.'),
-        H('li', {}, '그림 위치·크기를 맞춘 뒤 🔒 잠금을 눌러요.'),
+        H('li', {}, '그림 위치·크기를 맞춘 뒤 잠금을 눌러요.'),
         H('li', {}, '[점] 도구로 꼭짓점을 찍고 [선분]으로 이어요.'),
         H('li', {}, '[길이]·[각]·[직각]·[평행]·[수직]으로 표시를 더해요.'),
         H('li', {}, '[PNG로 내보내기]로 저장해요.')),
-      H('div', { class: 'tip' }, '💡 개체를 클릭하면 여기에서 글자·크기·색을 바꿀 수 있어요. 실수했다면 Ctrl+Z로 되돌리세요.'),
-      H('div', { class: 'tip' }, '🖱 빈 곳에서 끌거나 Shift+클릭하면 여러 개를 한꺼번에 고를 수 있어요. Ctrl+C·V로 복사, Ctrl+D로 복제해요.')));
+      H('div', { class: 'tip' }, '개체를 클릭하면 여기에서 글자·크기·색을 바꿀 수 있어요. 실수했다면 Ctrl+Z로 되돌리세요.'),
+      H('div', { class: 'tip' }, '빈 곳에서 끌거나 Shift+클릭하면 여러 개를 한꺼번에 고를 수 있어요. Ctrl+C·V로 복사, Ctrl+D로 복제해요.')));
     return;
   }
   const t1 = H('div', { class: 't1', id: 'propsTitle' }, objLabel(o));
   head.append(H('div', { class: 'badge' }, icon(o.type)), H('div', {}, t1, H('div', { class: 't2' }, KIND_NAME[o.type] + ' 속성')));
   const parts = PANELS[o.type](o).filter(Boolean);
-  if (o.ai) parts.unshift(H('div', { class: 'info' }, `🤖 AI가 그림에서 인식해 만든 개체예요 (확신도 ${Math.round((o.ai.conf ?? 1) * 100)}%). 직접 만든 것과 똑같이 고칠 수 있어요.`));
+  if (o.ai) parts.unshift(H('div', { class: 'info' }, `AI가 그림에서 인식해 만든 개체예요 (확신도 ${Math.round((o.ai.conf ?? 1) * 100)}%). 직접 만든 것과 똑같이 고칠 수 있어요.`));
   // 지우기 버튼 바로 위에 '기본값으로' 버튼
   if (STYLE_KEYS[o.type]) parts.splice(parts.length - 1, 0, ...defaultsRow(o));
   body.append(...parts);
@@ -3305,7 +3308,7 @@ function defaultsRow(o) {
   return [
     groupTitle('기본 모양'),
     H('div', { class: 'default-row' },
-      H('button', { class: 'small-btn', title: `앞으로 만드는 ${KIND_NAME[o.type]}이(가) 이 색·크기로 만들어져요`, onclick: () => saveAsDefault(o) }, '⭐ 이 모양을 기본값으로'),
+      H('button', { class: 'small-btn', title: `앞으로 만드는 ${KIND_NAME[o.type]}이(가) 이 색·크기로 만들어져요`, onclick: () => saveAsDefault(o) }, '이 모양을 기본값으로'),
       userDefaults[o.type] ? H('button', { class: 'small-btn', title: '처음 설정으로', onclick: () => resetDefault(o.type) }, '기본값 초기화') : null)];
 }
 
@@ -3328,12 +3331,12 @@ function multiPanel(head, body) {
     widthed.length ? field('선 굵기 (선분·표시 모두)', slider({ min: CONFIG.ranges.lineWidth[0], max: CONFIG.ranges.lineWidth[1], step: 0.25, value: first(widthed, 'width', 2), onInput: v => setAll('width', v, widthed) })) : null,
     points.length ? field('점 크기 (점 모두)', slider({ min: CONFIG.point.sizeMin, max: CONFIG.point.sizeMax, step: 0.5, value: first(points, 'size', 4.5), onInput: v => setAll('size', v, points) })) : null,
     H('div', { class: 'btn-row' },
-      H('button', { class: 'small-btn', onclick: () => { hist.lastKey = null; setAll('visible', true, objs.filter(o => o.type !== 'image')); renderAll(); } }, '👁 모두 보이기'),
+      H('button', { class: 'small-btn', onclick: () => { hist.lastKey = null; setAll('visible', true, objs.filter(o => o.type !== 'image')); renderAll(); } }, '모두 보이기'),
       H('button', { class: 'small-btn', onclick: () => { hist.lastKey = null; setAll('visible', false, objs.filter(o => o.type !== 'image')); renderAll(); } }, '숨기기')),
-    points.length + objs.filter(o => o.type === 'segment').length >= 2 ? H('button', { class: 'big-btn accent', title: '고른 점들을 가장 먼 두 점을 잇는 직선 위에 맞추고, 끝점을 옮겨도 계속 한 직선이 되게 묶어요', onclick: alignSelectionToLine }, '📏 한 직선으로 맞추기') : null,
+    points.length + objs.filter(o => o.type === 'segment').length >= 2 ? H('button', { class: 'big-btn accent', title: '고른 점들을 가장 먼 두 점을 잇는 직선 위에 맞추고, 끝점을 옮겨도 계속 한 직선이 되게 묶어요', onclick: alignSelectionToLine }, '한 직선으로 맞추기') : null,
     H('div', { class: 'btn-row' },
       H('button', { class: 'small-btn', title: '바로 옆에 똑같은 것을 하나 더 만들어요 (Ctrl+D) — 복사+붙여넣기를 한 번에', onclick: duplicateSelection }, '⧉ 복제'),
-      H('button', { class: 'small-btn', title: '보관만 해 두고, 원하는 때에 Ctrl+V로 붙여 넣어요 (Ctrl+C) — 여러 번 붙여 넣기, 다른 작업 파일로 옮기기', onclick: () => { if (copySelection()) toast('복사했어요. Ctrl+V로 붙여 넣으세요.'); } }, '📋 복사')),
+      H('button', { class: 'small-btn', title: '보관만 해 두고, 원하는 때에 Ctrl+V로 붙여 넣어요 (Ctrl+C) — 여러 번 붙여 넣기, 다른 작업 파일로 옮기기', onclick: () => { if (copySelection()) toast('복사했어요. Ctrl+V로 붙여 넣으세요.'); } }, '복사')),
     H('div', { class: 'btn-row' },
       H('button', { class: 'small-btn', title: '좌우로 뒤집기 (Shift+H)', onclick: () => flipFigure('h') }, '↔ 좌우'),
       H('button', { class: 'small-btn', title: '위아래로 뒤집기 (Shift+V)', onclick: () => flipFigure('v') }, '↕ 상하'),
@@ -3341,7 +3344,7 @@ function multiPanel(head, body) {
     H('div', { class: 'btn-row' },
       H('button', { class: 'small-btn', title: '고른 도형을 한 단계 작게 — [크게]와 정확히 반대 (Shift+−)', onclick: () => scaleFigure(1 / 1.1) }, '－ 작게'),
       H('button', { class: 'small-btn', title: '고른 도형을 10% 크게 (Shift++)', onclick: () => scaleFigure(1.1) }, '＋ 크게')),
-    H('div', { class: 'info' }, '💡 선택한 것 중 하나를 끌면 함께 움직여요. 화살표 키로도 옮길 수 있어요. Shift+클릭으로 더하거나 빼요.'),
+    H('div', { class: 'info' }, '선택한 것 중 하나를 끌면 함께 움직여요. 화살표 키로도 옮길 수 있어요. Shift+클릭으로 더하거나 빼요.'),
     H('button', { class: 'big-btn danger', onclick: deleteSelected }, icon('trash'), `${objs.length}개 모두 지우기`),
   ].filter(Boolean));
 }
@@ -3411,7 +3414,7 @@ function coordPanel() {
     flag('좌표 숫자', 'numbers'),
     flag('원점 O 표시', 'origin'),
     flag('축 이름 (x, y)', 'axisNames'),
-    H('div', { class: 'info' }, '💡 점과 문자는 좌표를 그대로 유지한 채 함께 움직여요. 배경 그림은 움직이지 않아요.'),
+    H('div', { class: 'info' }, '점과 문자는 좌표를 그대로 유지한 채 함께 움직여요. 배경 그림은 움직이지 않아요.'),
   ];
   function rangeText() {
     const a = toMath({ x: 0, y: Hh }), b = toMath({ x: W, y: 0 });
@@ -3422,12 +3425,12 @@ function coordPanel() {
 /* 따라 움직이는 점 설명 */
 function derivedInfo(o) {
   const f = o.def;
-  if (f.kind === 'mid') return `🔗 ${pname(f.a)}${pname(f.b)}의 중점이에요. ${pname(f.a)}, ${pname(f.b)}을(를) 옮기면 따라 움직여요.`;
-  if (f.kind === 'inter') return `🔗 ${objLabel(getObj(f.o1) || { type: '?' })}와(과) ${objLabel(getObj(f.o2) || { type: '?' })}의 교점이에요.` + (o.undef ? ' 지금은 만나지 않아서 보이지 않아요.' : '');
-  if (f.kind === 'on') return `🔗 ${objLabel(getObj(f.obj) || { type: '?' })} 위의 점이에요. 끌면 그 위를 따라 움직여요.`;
-  if (f.kind === 'tan') return `🔗 점 ${pname(f.p)}에서 ${objLabel(getObj(f.circle) || { type: '?' })}에 그은 접선의 접점이에요. ${pname(f.p)}이나 원을 옮기면 따라 움직여요.` + (o.undef ? ' 지금은 점이 원 안에 있어서 보이지 않아요.' : '');
-  if (f.kind === 'reg') return `🔗 정${f.n}각형의 꼭짓점이에요. ${pname(f.a)}, ${pname(f.b)}을(를) 옮기면 따라 움직여요.`;
-  if (f.kind === 'col') return `📏 직선 ${pname(f.a)}${pname(f.b)} 위의 점이에요. 끌면 직선을 따라서만 움직이고, ${pname(f.a)}, ${pname(f.b)}을(를) 옮기면 같이 따라가서 늘 한 직선으로 보여요.`;
+  if (f.kind === 'mid') return `${pname(f.a)}${pname(f.b)}의 중점이에요. ${pname(f.a)}, ${pname(f.b)}을(를) 옮기면 따라 움직여요.`;
+  if (f.kind === 'inter') return `${objLabel(getObj(f.o1) || { type: '?' })}와(과) ${objLabel(getObj(f.o2) || { type: '?' })}의 교점이에요.` + (o.undef ? ' 지금은 만나지 않아서 보이지 않아요.' : '');
+  if (f.kind === 'on') return `${objLabel(getObj(f.obj) || { type: '?' })} 위의 점이에요. 끌면 그 위를 따라 움직여요.`;
+  if (f.kind === 'tan') return `점 ${pname(f.p)}에서 ${objLabel(getObj(f.circle) || { type: '?' })}에 그은 접선의 접점이에요. ${pname(f.p)}이나 원을 옮기면 따라 움직여요.` + (o.undef ? ' 지금은 점이 원 안에 있어서 보이지 않아요.' : '');
+  if (f.kind === 'reg') return `정${f.n}각형의 꼭짓점이에요. ${pname(f.a)}, ${pname(f.b)}을(를) 옮기면 따라 움직여요.`;
+  if (f.kind === 'col') return `직선 ${pname(f.a)}${pname(f.b)} 위의 점이에요. 끌면 직선을 따라서만 움직이고, ${pname(f.a)}, ${pname(f.b)}을(를) 옮기면 같이 따라가서 늘 한 직선으로 보여요.`;
   return null;
 }
 /* 색칠 칸 (다각형·원·부채꼴 공통): 색칠 색, 색 진하기, 빠른 버튼 */
@@ -3505,7 +3508,7 @@ const PANELS = {
       dv ? H('div', { class: 'note', style: 'margin:0 0 14px' }, dv) : null,
       o.def && o.def.kind === 'col' ? H('button', { class: 'big-btn', title: '이 점을 직선에서 풀어서 자유롭게 옮길 수 있게 해요', onclick: () => {
         hist.lastKey = null; record(); delete o.def; renderAll(); toast(`${o.name}을(를) 직선에서 뗐어요. 이제 어디로든 옮길 수 있어요.`);
-      } }, '✂ 직선에서 떼기') : null,
+      } }, '직선에서 떼기') : null,
       field('이름', nameInput, chips),
       coordOn() ? pointCoordField(o) : null,
       coordOn() ? toggle(`이름 옆에 좌표 쓰기  ${pointLabelText({ ...o, labelCoord: true })}`, o.labelCoord, v => setProp(o, 'labelCoord', v)) : null,
@@ -3522,7 +3525,7 @@ const PANELS = {
       field('점 크기', slider({ min: CONFIG.point.sizeMin, max: CONFIG.point.sizeMax, step: 0.5, value: o.size, onInput: v => setProp(o, 'size', v) })),
       colorField(o),
       visibleField(o),
-      coordOn() ? null : H('div', { class: 'info' }, '💡 왼쪽 [좌표평면]을 켜면 이 점의 실제 좌표(x, y)를 볼 수 있어요.'),
+      coordOn() ? null : H('div', { class: 'info' }, '왼쪽 [좌표평면]을 켜면 이 점의 실제 좌표(x, y)를 볼 수 있어요.'),
       deleteButton(o),
     ];
   },
@@ -3656,7 +3659,7 @@ const PANELS = {
       o.style === 'brace' ? field('괄호선 휘는 정도', slider({ min: 4, max: 80, value: Math.abs(o.offset), onInput: v => setProp(o, 'offset', (o.offset >= 0 ? 1 : -1) * v) })) : null,
       o.style === 'brace' ? widthField(o, 'lineWidth', '괄호선 굵기') : null,
       colorField(o),
-      H('div', { class: 'info' }, '💡 글자를 끌어서 어디든 옮길 수 있어요. 괄호선 위에 놓으면 글자 자리만 선이 비워져요. [가운데로]를 누르면 처음 자리로 돌아가요.'),
+      H('div', { class: 'info' }, '글자를 끌어서 어디든 옮길 수 있어요. 괄호선 위에 놓으면 글자 자리만 선이 비워져요. [가운데로]를 누르면 처음 자리로 돌아가요.'),
       visibleField(o),
       deleteButton(o),
     ];
@@ -3675,7 +3678,7 @@ const PANELS = {
         setOnce(o, 'labelMode', v);
         if (v === 'custom') custom.focus();
       }), customWrap),
-      o.labelMode !== 'none' ? H('div', { class: 'info' }, '💡 각도 글자는 끌어서 원하는 자리로 옮길 수 있어요. (호를 끌면 호 크기가 바뀌어요)') : null,
+      o.labelMode !== 'none' ? H('div', { class: 'info' }, '각도 글자는 끌어서 원하는 자리로 옮길 수 있어요. (호를 끌면 호 크기가 바뀌어요)') : null,
       o.labelOff ? H('div', { class: 'btn-row' }, H('button', { class: 'small-btn', title: '호 바깥 가운데(처음 자리)로', onclick: () => setOnce(o, 'labelOff', undefined, renderPanel) }, '↺ 글자 자리 처음으로')) : null,
       ...(o.labelMode !== 'none' ? [groupTitle('글자 (크기·글꼴·굵기)'),
         field('글자 크기', slider({ min: CONFIG.ranges.textSize[0], max: CONFIG.ranges.textSize[1], value: o.labelSize, onInput: v => setProp(o, 'labelSize', v) })),
@@ -3718,7 +3721,7 @@ const PANELS = {
 
   arrow(o) {
     return [
-      (o.p1 || o.p2) ? H('div', { class: 'info' }, `🔗 ${[o.p1 ? `시작이 점 ${pname(o.p1)}` : '', o.p2 ? `끝이 점 ${pname(o.p2)}` : ''].filter(Boolean).join(', ')}에 붙어 있어요. 점을 옮기면 따라가요.`) : null,
+      (o.p1 || o.p2) ? H('div', { class: 'info' }, `${[o.p1 ? `시작이 점 ${pname(o.p1)}` : '', o.p2 ? `끝이 점 ${pname(o.p2)}` : ''].filter(Boolean).join(', ')}에 붙어 있어요. 점을 옮기면 따라가요.`) : null,
       field('화살촉', segmented([['end', '→ 한쪽'], ['both', '↔ 양쪽']], o.heads, v => setOnce(o, 'heads', v, () => refreshTitle(o)))),
       H('div', { class: 'btn-row' },
         H('button', { class: 'small-btn', title: '시작과 끝을 바꿔요', onclick: () => {
@@ -3738,7 +3741,7 @@ const PANELS = {
       field('선 모양', segmented([[false, '━━ 실선'], [true, '╍╍ 점선']], o.dashed, v => setOnce(o, 'dashed', v))),
       field('같은 길이 표시', segmented([[0, '없음'], [1, '|'], [2, '||'], [3, '|||']], o.ticks || 0, v => setOnce(o, 'ticks', v, renderPanel))),
       ...(o.ticks ? tickFields(o) : []),
-      H('div', { class: 'info' }, '💡 화살표를 끌면 통째로 옮겨지고, 양 끝의 동그라미를 끌면 그쪽 끝만 움직여요. 끝을 점 가까이에 놓으면 그 점에 붙어요. (Shift: 45°씩)'),
+      H('div', { class: 'info' }, '화살표를 끌면 통째로 옮겨지고, 양 끝의 동그라미를 끌면 그쪽 끝만 움직여요. 끝을 점 가까이에 놓으면 그 점에 붙어요. (Shift: 45°씩)'),
       visibleField(o),
       deleteButton(o),
     ];
@@ -3761,7 +3764,7 @@ const PANELS = {
     const L = o.locked;
     const lockBtn = H('button', { class: 'big-btn' + (L ? ' lock-on' : ''),
       onclick: () => { record(); o.locked = !o.locked; renderAll();
-        toast(o.locked ? '🔒 그림을 잠갔어요. 이제 움직이거나 지워지지 않아요.' : '🔓 잠금을 풀었어요. 그림을 옮기거나 크기를 바꿀 수 있어요.', 'ok'); } },
+        toast(o.locked ? '그림을 잠갔어요. 이제 움직이거나 지워지지 않아요.' : '잠금을 풀었어요. 그림을 옮기거나 크기를 바꿀 수 있어요.', 'ok'); } },
       icon(L ? 'lock' : 'unlock'), L ? '잠김 — 눌러서 잠금 해제' : '잠금 해제됨 — 눌러서 잠그기');
 
     const wIn = H('input', { type: 'number', min: 10, step: 1, value: Math.round(o.w), disabled: L, onchange: e => setSize('w', +e.target.value) });
@@ -3788,21 +3791,21 @@ const PANELS = {
     const aiMade = doc.objects.filter(x => x.ai && x.ai.image === o.id);
     return [
       lockBtn,
-      H('button', { class: 'big-btn', title: '그림 위를 끌어서 남길 부분을 네모로 고르면, 나머지를 잘라 내요 (Ctrl+Z로 되돌리기)', onclick: () => cropStart(o) }, '✂ 그림 자르기'),
+      H('button', { class: 'big-btn', title: '그림 위를 끌어서 남길 부분을 네모로 고르면, 나머지를 잘라 내요 (Ctrl+Z로 되돌리기)', onclick: () => cropStart(o) }, icon('scissors'), '그림 자르기'),
       L ? H('div', { class: 'note' }, '잠긴 동안에는 그림이 움직이지 않아요. 그 위에 점과 선분을 마음껏 그리세요. (투명도는 바꿀 수 있어요)') : null,
       toggle('원본 그림 보이기 (끄면 화면·PNG에서 빠져요)', o.visible !== false, v => { hist.lastKey = null; record(); o.visible = v; renderAll(); }),
       field('투명도 (낮출수록 흐려져요)', slider({ min: 0, max: 100, value: Math.round(o.opacity * 100), unit: '%', onInput: v => setProp(o, 'opacity', v / 100) })),
-      groupTitle('🤖 AI 도형 인식'),
+      groupTitle('AI 도형 인식'),
       H('button', { class: 'big-btn accent', disabled: aiBusy, title: '그림 속 점·선·표시를 고칠 수 있는 개체로 바꿔요', onclick: () => aiStart(o) },
-        aiBusy ? '⏳ AI가 분석하는 중…' : aiMade.length ? '🔄 AI로 다시 인식하기' : '🤖 AI로 도형 인식하기'),
+        icon('sparkles'), aiBusy ? 'AI가 분석하는 중…' : aiMade.length ? 'AI로 다시 인식하기' : 'AI로 도형 인식하기'),
       H('div', { class: 'btn-row' },
-        H('button', { class: 'small-btn', disabled: aiBusy, title: '그림 위를 끌어서 고른 부분만 AI가 인식해요', onclick: () => aiRegionStart(o) }, '🔲 선택 영역 AI 인식'),
-        H('button', { class: 'small-btn', title: '접속 비밀번호·좌표 보정·연결 시험', onclick: () => aiSettingsDialog() }, '⚙ AI 설정')),
+        H('button', { class: 'small-btn', disabled: aiBusy, title: '그림 위를 끌어서 고른 부분만 AI가 인식해요', onclick: () => aiRegionStart(o) }, icon('scan'), '선택 영역 AI 인식'),
+        H('button', { class: 'small-btn', title: '접속 비밀번호·좌표 보정·연결 시험', onclick: () => aiSettingsDialog() }, icon('sliders'), 'AI 설정')),
       aiMade.length ? H('button', { class: 'big-btn', title: '이 그림에서 인식해 만든 개체만 골라요', onclick: () => { selectMany(aiMade.map(x => x.id)); } },
         `이 그림에서 인식한 개체 ${aiMade.length}개 선택`) : null,
-      H('div', { class: 'info' }, `💡 AI(Google Gemini 무료 등급)는 버튼을 누를 때만 그림을 분석해요. 무료 한도를 넘으면 멈추고 알려 드려요. 결과를 확인하고 고른 것만 개체로 만들어요.`,
+      H('div', { class: 'info' }, `AI(Google Gemini 무료 등급)는 버튼을 누를 때만 그림을 분석해요. 무료 한도를 넘으면 멈추고 알려 드려요. 결과를 확인하고 고른 것만 개체로 만들어요.`,
         H('div', { class: 'ai-count' }, `이번 사용: AI 인식 ${aiCallCount()}회 (이 창에서 보낸 횟수, 남은 무료 한도 아님)`)),
-      H('button', { class: 'small-btn', style: 'width:100%;margin:-6px 0 15px', title: '다른 AI 채팅(Gemini 앱 등)에서 받은 결과를 붙여 넣어요', onclick: () => aiPasteDialog(o) }, '📋 다른 AI 결과 붙여넣기'),
+      H('button', { class: 'small-btn', style: 'width:100%;margin:-6px 0 15px', title: '다른 AI 채팅(Gemini 앱 등)에서 받은 결과를 붙여 넣어요', onclick: () => aiPasteDialog(o) }, icon('clip'), '다른 AI 결과 붙여넣기'),
       groupTitle('그림 크기·위치'),
       field('크기', scale),
       field('너비 × 높이 (픽셀)', H('div', { class: 'wh' }, wIn, '×', hIn)),
@@ -3825,7 +3828,7 @@ function renderList() {
   const items = [...doc.objects].sort((a, b) => LIST_ORDER.indexOf(a.type) - LIST_ORDER.indexOf(b.type));
   for (const o of items) {
     const tags = [];
-    if (o.type === 'image') tags.push(o.locked ? '🔒 잠김' : '잠금 해제');
+    if (o.type === 'image') tags.push(o.locked ? '잠김' : '잠금 해제');
     if (o.visible === false) tags.push('숨김');
     if (o.ai) tags.push('AI');
     box.append(H('div', { class: 'list-item' + (isSelected(o.id) ? ' on' : ''), title: 'Shift+클릭: 여러 개 고르기', onclick: ev => { if (tool !== 'select') setTool('select'); ev.shiftKey ? toggleSelect(o.id) : select(o.id); } },
@@ -3863,7 +3866,7 @@ function insertImageFile(file) {
       doc.objects.splice(lastImg + 1, 0, o);
       if (tool !== 'select') setTool('select');
       select(o.id);
-      toast('그림을 불러왔어요! 위치·크기를 맞춘 뒤 오른쪽의 🔒 잠금을 누르면 편해요.', 'ok');
+      toast('그림을 불러왔어요! 위치·크기를 맞춘 뒤 오른쪽의 잠금을 누르면 편해요.', 'ok');
     } catch (err) { showError(err); }
   };
   reader.readAsDataURL(file);
@@ -3976,24 +3979,24 @@ function aiServerUrl() {
 /* 서버가 알려 준 오류 종류 → 쉬운 안내 */
 const AI_ERRORS = {
   not_configured: 'AI 서버에 Gemini API 키가 아직 설정되지 않았어요. README의 "AI 도형 인식 설정"을 따라 설정해 주세요.',
-  bad_code: 'AI 접속 비밀번호가 맞지 않아요. 그림 속성창의 [⚙ AI 설정]에서 다시 입력해 주세요.',
-  code_required: '이 AI 서버는 접속 비밀번호가 필요해요. [⚙ AI 설정]에 비밀번호를 입력해 주세요.',
+  bad_code: 'AI 접속 비밀번호가 맞지 않아요. 그림 속성창의 [AI 설정]에서 다시 입력해 주세요.',
+  code_required: '이 AI 서버는 접속 비밀번호가 필요해요. [AI 설정]에 비밀번호를 입력해 주세요.',
   quota_minute: '잠깐 사이에 너무 많이 요청해서 Gemini 무료 등급의 1분 한도에 걸렸어요. 1분쯤 뒤에 다시 눌러 주세요. (요금은 들지 않아요)',
   quota_day: '오늘 쓸 수 있는 Gemini 무료 등급 한도를 다 썼어요. 내일 다시 쓸 수 있어요. (유료로 바뀌지 않으니 요금은 들지 않아요)',
   free_unavailable: 'Google이 이 계정·지역에서는 Gemini 무료 등급을 쓸 수 없다고 해요. 결제 설정은 하지 않았으니 요금은 들지 않아요. README의 "자주 묻는 질문"을 봐 주세요.',
   model_not_free: '서버에 정한 모델(GEMINI_MODEL)이 무료 등급 목록에 없어서 부르지 않았어요. Vercel 설정에서 GEMINI_MODEL을 지워 주세요.',
-  too_large: '그림이 너무 커요. [✂ 선택 영역 AI 인식]으로 필요한 부분만 골라 주세요.',
+  too_large: '그림이 너무 커요. [선택 영역 AI 인식]으로 필요한 부분만 골라 주세요.',
   busy: '지금 Google Gemini에 사용자가 몰려 있어요(일시적). 잠시 후 다시 눌러 주세요. (요금은 들지 않아요)',
-  timeout: 'AI 분석이 너무 오래 걸려서 멈췄어요. [✂ 선택 영역 AI 인식]으로 작은 부분만 골라 보세요.',
+  timeout: 'AI 분석이 너무 오래 걸려서 멈췄어요. [선택 영역 AI 인식]으로 작은 부분만 골라 보세요.',
   refused: 'AI가 이 그림을 분석하지 않았어요. 다른 그림이나 일부 영역으로 시도해 주세요.',
-  too_long: '그림 속 개체가 너무 많아요. [✂ 선택 영역 AI 인식]으로 나눠서 인식해 보세요.',
+  too_long: '그림 속 개체가 너무 많아요. [선택 영역 AI 인식]으로 나눠서 인식해 보세요.',
   bad_output: 'AI 응답을 이해하지 못했어요. 다시 인식해 주세요.',
   ai_auth: 'Gemini API 키가 올바르지 않아요. Vercel 설정의 GEMINI_API_KEY를 확인하고 다시 배포(Redeploy)해 주세요.',
   ai_model: '이 Gemini 모델을 지금 쓸 수 없어요. Vercel 설정의 GEMINI_MODEL을 지우거나 README의 무료 모델 목록에서 골라 주세요.',
-  ai_rejected: 'Gemini가 요청을 받아들이지 않았어요. 잠시 후 다시 시도하거나 [✂ 선택 영역 AI 인식]으로 작게 골라 보세요.',
+  ai_rejected: 'Gemini가 요청을 받아들이지 않았어요. 잠시 후 다시 시도하거나 [선택 영역 AI 인식]으로 작게 골라 보세요.',
   ai_down: 'Gemini 서버가 지금 바빠요. 잠시 후 다시 시도해 주세요.',
   network: 'AI 인식에 실패했어요. 인터넷 연결이나 AI 설정을 확인해 주세요.',
-  not_found: 'AI 서버를 찾을 수 없어요. [⚙ AI 설정]의 서버 주소를 확인해 주세요.',
+  not_found: 'AI 서버를 찾을 수 없어요. [AI 설정]의 서버 주소를 확인해 주세요.',
   server: 'AI 인식에 실패했어요. 잠시 후 다시 시도해 주세요.',
 };
 class AiError extends UserError { constructor(code, retryAfter = null) { super(AI_ERRORS[code] || AI_ERRORS.server); this.code = code; this.retryAfter = retryAfter; } }
@@ -4364,7 +4367,7 @@ async function runRecognition(img, recognizerId = 'auto', region = null, opt = {
   let finished = false, timedOut = false;
   const t0 = Date.now();
   const elapsed = H('p', { class: 'ai-sub' }, '보통 20초~1분쯤 걸려요.');
-  openModal({ title: '🤖 AI 도형 인식', width: 420,
+  openModal({ title: H('span', {}, icon('sparkles'), 'AI 도형 인식'), width: 420,
     body: H('div', { class: 'ai-loading' }, H('div', { class: 'ai-spin' }), H('p', { class: 'ai-busy' }, 'AI가 도형을 분석하고 있습니다...'), elapsed),
     buttons: [{ label: '취소' }], sticky: true, onClose: () => { if (!finished) ctrl.abort(); } });   // [취소] 버튼으로만 멈춰요
   const loading = modalEl;
@@ -4380,7 +4383,7 @@ async function runRecognition(img, recognizerId = 'auto', region = null, opt = {
     const norm = normalizeRecognitionResult(raw, img);
     finished = true;
     if (modalEl !== loading) return;   // 기다리다 창을 닫았으면 아무것도 하지 않아요
-    if (!norm.cands.length) { closeModal(); throw new UserError('그림에서 도형을 찾지 못했어요. 그림이 흐리거나 작다면 [✂ 선택 영역 AI 인식]으로 도형 부분만 골라 보세요.'); }
+    if (!norm.cands.length) { closeModal(); throw new UserError('그림에서 도형을 찾지 못했어요. 그림이 흐리거나 작다면 [선택 영역 AI 인식]으로 도형 부분만 골라 보세요.'); }
     Object.assign(norm, { refined: fixed, dashFixed: raw._dashFixed || 0, added: raw._added || 0, aligned: !!raw._aligned, replaceAi: !!opt.replace });
     reviewRecognitionDialog(norm);
   } catch (err) {
@@ -4794,7 +4797,7 @@ function removeAiObjects(imageId) {
   return gone.size;
 }
 
-/* ---------- 화면: [🤖 AI 도형 인식] → (처음이면 설정) → (이미 인식했으면 다시 인식 방법) → 분석 → 검토 ---------- */
+/* ---------- 화면: [AI 도형 인식] → (처음이면 설정) → (이미 인식했으면 다시 인식 방법) → 분석 → 검토 ---------- */
 function aiStart(img, region = null) {
   if (aiBusy) { toast('AI가 아직 분석하고 있어요. 조금만 기다려 주세요.', 'warn'); return; }
   if (Date.now() - aiLastStart < CONFIG.ai.clickGapSec * 1000) return;   // 빠른 연속 클릭은 무시
@@ -4808,10 +4811,10 @@ function aiStart(img, region = null) {
   const go = replace => setTimeout(() => runRecognition(img, 'auto', region, { replace }).catch(fail));   // 이 창이 닫힌 뒤에 시작
   if (!old.length) { go(false); return; }
   openModal({
-    title: '🔄 다시 인식할까요?', width: 500,
+    title: '다시 인식할까요?', width: 500,
     body: H('div', {},
       H('p', {}, `이 그림에서 이미 인식한 개체가 ${old.length}개 있어요. 새 결과를 적용할 때 기존 AI 개체를 어떻게 할까요?`),
-      H('div', { class: 'info' }, '💡 "삭제하고 다시 인식"은 결과를 적용하는 순간에 지워요. 그 전에 취소하면 그대로 남아요. (AI 개체에 이어 그린 표시도 함께 지워지고, Ctrl+Z로 되돌릴 수 있어요)')),
+      H('div', { class: 'info' }, '"삭제하고 다시 인식"은 결과를 적용하는 순간에 지워요. 그 전에 취소하면 그대로 남아요. (AI 개체에 이어 그린 표시도 함께 지워지고, Ctrl+Z로 되돌릴 수 있어요)')),
     buttons: [
       { label: '취소' },
       { label: '기존 개체 유지하고 추가 인식', onClick: () => go(false) },
@@ -4829,11 +4832,11 @@ function aiSettingsDialog(then = null, first = false, why = '') {
   const save = () => store.set('aiSettings', { code: codeIn.value.trim(), server: serverIn.value.trim(), refine });
   const testBtn = H('button', { class: 'small-btn', onclick: async () => {
     save(); status.textContent = '연결을 확인하고 있어요...';
-    try { const d = await postAi({ code: aiSettings().code, ping: true }); status.textContent = `✓ 연결됐어요. 이제 [🤖 AI로 도형 인식하기]를 쓸 수 있어요. (Gemini 무료 등급 모델: ${d.model})`; }
+    try { const d = await postAi({ code: aiSettings().code, ping: true }); status.textContent = `✓ 연결됐어요. 이제 [AI로 도형 인식하기]를 쓸 수 있어요. (Gemini 무료 등급 모델: ${d.model})`; }
     catch (e) { status.textContent = '✗ ' + (e instanceof UserError ? e.message : '연결하지 못했어요.'); }
-  } }, '🔌 연결 시험 (한도 안 씀)');
+  } }, '연결 시험 (한도 안 씀)');
   openModal({
-    title: '⚙ AI 설정', width: 540,
+    title: H('span', {}, icon('sliders'), 'AI 설정'), width: 540,
     body: H('div', {},
       why ? H('div', { class: 'note', style: 'margin:0 0 12px' }, why) : null,
       H('div', { class: 'field' }, H('span', { class: 'field-label' }, 'AI 접속 비밀번호 (선택)'), codeIn,
@@ -4843,7 +4846,7 @@ function aiSettingsDialog(then = null, first = false, why = '') {
       H('div', { class: 'btn-row', style: 'margin:12px 0 0' }, testBtn),
       status,
       H('div', { class: 'info', style: 'margin:10px 0 0' }, `이번 사용: AI 인식 ${aiCallCount()}회 — 이 창에서 보낸 횟수예요. Google의 남은 무료 한도가 아니에요.`),
-      H('div', { class: 'note', style: 'margin:12px 0 0' }, '🔑 Gemini API 키는 여기에 넣지 않아요. 키는 서버(Vercel 설정)에만 있어서 브라우저에 보이지 않아요. 무료 등급만 쓰고, 한도를 넘으면 멈춰요. 설정 방법은 README의 "AI 도형 인식 설정"에 있어요.')),
+      H('div', { class: 'note', style: 'margin:12px 0 0' }, 'Gemini API 키는 여기에 넣지 않아요. 키는 서버(Vercel 설정)에만 있어서 브라우저에 보이지 않아요. 무료 등급만 쓰고, 한도를 넘으면 멈춰요. 설정 방법은 README의 "AI 도형 인식 설정"에 있어요.')),
     buttons: [
       { label: '취소' },
       { label: then ? '저장하고 인식 시작' : '저장', kind: 'primary', onClick: () => {
@@ -4862,7 +4865,7 @@ function aiRegionStart(img) {
   const blocked = aiBlocked(); if (blocked) { toast(blocked, 'warn'); return; }
   if (tool !== 'select') setTool('select');
   regionPick = { imgId: img.id, mode: 'ai' };
-  setTempHint('🔲 그림에서 인식할 부분을 끌어서 네모로 고르세요. (취소: Esc)');
+  setTempHint('그림에서 인식할 부분을 끌어서 네모로 고르세요. (취소: Esc)');
   board.classList.add('picking');
   renderOverlay();
 }
@@ -4886,7 +4889,7 @@ function aiRegionFinish(a, b) {
 function cropStart(img) {
   if (tool !== 'select') setTool('select');
   regionPick = { imgId: img.id, mode: 'crop' };
-  setTempHint('✂ 그림에서 남길 부분을 끌어서 네모로 고르세요. 나머지는 잘려요. (취소: Esc)');
+  setTempHint('그림에서 남길 부분을 끌어서 네모로 고르세요. 나머지는 잘려요. (취소: Esc)');
   board.classList.add('picking');
   renderOverlay();
 }
@@ -4916,10 +4919,10 @@ function aiPasteDialog(img) {
   const copyBtn = H('button', { class: 'small-btn', onclick: async () => {
     try { await navigator.clipboard.writeText(AI_PROMPT); toast('요청문을 복사했어요. AI 채팅창에 그림과 함께 붙여 넣으세요.', 'ok'); }
     catch (_) { ta.value = AI_PROMPT; ta.select(); toast('복사가 막혀 있어서 아래 칸에 요청문을 넣었어요. 직접 복사(Ctrl+C)해 주세요.', 'warn'); }
-  } }, '📋 AI에게 보낼 요청문 복사');
+  } }, 'AI에게 보낼 요청문 복사');
   const sampleBtn = H('button', { class: 'small-btn', title: '이 그림 위에 예시 결과(직각삼각형)를 넣어 시험해 봐요', onclick: () => { ta.value = JSON.stringify(aiSample(img), null, 1); } }, '예시 결과로 시험');
   openModal({
-    title: '🤖 AI 도형 인식', width: 580,
+    title: H('span', {}, icon('sparkles'), 'AI 도형 인식'), width: 580,
     body: H('div', {},
       H('ol', { class: 'ai-steps' },
         H('li', {}, '[요청문 복사]를 누르고, AI 채팅(gemini.google.com 등)에 이 그림 파일과 함께 붙여 넣어 보내요.'),
@@ -4927,7 +4930,7 @@ function aiPasteDialog(img) {
         H('li', {}, '[인식 결과 확인]에서 맞는 것만 골라 적용하면, 직접 그린 것처럼 고칠 수 있어요.')),
       H('div', { class: 'btn-row' }, copyBtn, sampleBtn),
       ta,
-      H('div', { class: 'info', style: 'margin:10px 0 0' }, '💡 붙여 넣은 결과도 그림 속 선에 맞춰 위치를 자동으로 바로잡아요. 무료 한도가 다 찼을 때 쓰기 좋아요.')),
+      H('div', { class: 'info', style: 'margin:10px 0 0' }, '붙여 넣은 결과도 그림 속 선에 맞춰 위치를 자동으로 바로잡아요. 무료 한도가 다 찼을 때 쓰기 좋아요.')),
     buttons: [
       { label: '취소' },
       { label: '인식 결과 확인', kind: 'primary', onClick: async () => {
@@ -4983,18 +4986,18 @@ function reviewRecognitionDialog(norm) {
   const setAll = v => { for (const [k, cb] of boxes) { cb.checked = v; v ? on.add(k) : on.delete(k); } renderOverlay(); };
   const opt = { lockImage: true, dimImage: true };
   openModal({
-    title: '🤖 AI 인식 결과', width: 470, side: true,
+    title: H('span', {}, icon('sparkles'), 'AI 인식 결과'), width: 470, side: true,
     body: H('div', {},
       H('p', {}, `${norm.cands.length}개를 찾았어요. 체크한 것만 고칠 수 있는 개체로 만들어요. 그림 위 주황 점선이 미리보기예요.`),
       H('div', { class: 'ai-sub', style: 'margin:-6px 0 10px' }, '% 는 AI가 스스로 매긴 확신도예요. 실제 정확도를 보장하지 않으니 ⚠ 표시 항목은 특히 그림과 비교해 보세요.'),
-      norm.aligned || norm.refined || norm.dashFixed || norm.added ? H('div', { class: 'info', style: 'margin:0 0 8px' }, '📐 그림으로 다시 확인: '
+      norm.aligned || norm.refined || norm.dashFixed || norm.added ? H('div', { class: 'info', style: 'margin:0 0 8px' }, '그림으로 다시 확인: '
         + [norm.aligned ? '어긋나 있던 전체 위치·크기를 그림에 맞췄어요' : '', norm.refined ? `점 ${norm.refined}개를 선이 만나는 곳에 맞췄어요` : '', norm.dashFixed ? `선분 ${norm.dashFixed}개의 실선/점선을 고쳤어요` : '',
           norm.added ? `AI가 빠뜨린 선분 ${norm.added}개를 그림에서 찾아 더했어요` : ''].filter(Boolean).join(', ') + '.') : null,
-      norm.replaceAi ? H('div', { class: 'note', style: 'margin:0 0 8px' }, '🔄 적용하면 이 그림의 기존 AI 개체는 지우고 새 결과로 바꿔요.') : null,
+      norm.replaceAi ? H('div', { class: 'note', style: 'margin:0 0 8px' }, '적용하면 이 그림의 기존 AI 개체는 지우고 새 결과로 바꿔요.') : null,
       norm.warnings.length ? H('div', { class: 'note', style: 'margin:0 0 8px' }, norm.warnings.slice(0, 4).join(' ') + (norm.warnings.length > 4 ? ` 외 ${norm.warnings.length - 4}개` : '')) : null,
       H('div', { class: 'btn-row', style: 'margin:0' },
-        H('button', { class: 'small-btn', onclick: () => setAll(true) }, '☑ 전체 선택'),
-        H('button', { class: 'small-btn', onclick: () => setAll(false) }, '☐ 전체 해제')),
+        H('button', { class: 'small-btn', onclick: () => setAll(true) }, '전체 선택'),
+        H('button', { class: 'small-btn', onclick: () => setAll(false) }, '전체 해제')),
       listEl,
       toggle('적용한 뒤 원본 그림 잠그기 (인식한 개체만 고치기 편해요)', opt.lockImage, v => { opt.lockImage = v; }),
       toggle(`적용한 뒤 원본 그림 흐리게 (${Math.round(CONFIG.ai.dimOpacity * 100)}%)`, opt.dimImage, v => { opt.dimImage = v; })),
@@ -5249,7 +5252,7 @@ function transformDialog() {
       field('원하는 크기로 (지금 크기 = 100%)', H('div', { class: 'wh' }, pctIn, '%',
         H('button', { class: 'small-btn', style: 'flex:none;padding:8px 14px', onclick: customScale }, '바꾸기'))),
       H('div', { class: 'info', style: 'margin:0' }, '글자(점 이름·문자)는 똑바로 선 채 자리만 바뀌어요. 배경 그림은 뒤집기와 180° 회전에서만 함께 바뀌어요(크기는 함께 바뀌어요).'
-        + (!n && locked ? ' 🔒 잠긴 배경 그림은 그대로 두어요.' : ''))),
+        + (!n && locked ? ' 잠긴 배경 그림은 그대로 두어요.' : ''))),
     buttons: [{ label: '닫기' }],
   });
   degIn.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); e.stopPropagation(); custom(); } });
@@ -5706,7 +5709,7 @@ function openExportDialog() {
     field('바탕', segmented([['white', '흰색'], ['transparent', '투명']], opt.background, upd('background'))),
     field('선명도', segmented([[1, '보통'], [2, '선명 (추천)'], [3, '아주 선명']], opt.scale, upd('scale'))),
     toggle('나중에 다시 고칠 수 있게 작업 정보 넣기 (추천)', opt.embed, v => { opt.embed = v; }),
-    H('p', { style: 'font-size:12.5px;color:var(--muted);margin:4px 0 0' }, '💡 한글(HWP)·PPT에 바로 넣으려면 [클립보드에 복사] 후 Ctrl+V 하세요.'));
+    H('p', { style: 'font-size:12.5px;color:var(--muted);margin:4px 0 0' }, '한글(HWP)·PPT에 바로 넣으려면 [클립보드에 복사] 후 Ctrl+V 하세요.'));
   openModal({ title: 'PNG 이미지로 내보내기', body, width: 470, buttons: [
     { label: '취소' },
     { label: '클립보드에 복사', onClick: async () => {
@@ -5788,7 +5791,7 @@ document.addEventListener('keydown', e => {
     const ids = selectionIds(), one = ids.length === 1 ? getObj(ids[0]) : null;
     if (!ids.length || (one && !('x' in one) && one.type !== 'segment')) return;   // 표시 하나만 골랐을 땐 움직이지 않아요
     e.preventDefault();
-    if (one && one.type === 'image' && one.locked) { toast('🔒 잠긴 그림은 움직이지 않아요.', 'warn'); return; }
+    if (one && one.type === 'image' && one.locked) { toast('잠긴 그림은 움직이지 않아요.', 'warn'); return; }
     if (one && one.type === 'point' && one.def) { toast(`${one.name}은(는) 따라 움직이는 점이라 화살표로 옮길 수 없어요.`, 'warn'); return; }
     const movers = moversFor(ids); if (!movers.length) return;
     // 격자에 맞추는 중이면 점은 한 칸(또는 반 칸)씩 움직입니다
