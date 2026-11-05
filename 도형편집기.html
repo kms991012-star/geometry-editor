@@ -338,6 +338,39 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
 @keyframes popin{from{opacity:0;transform:translateY(6px) scale(.985)}}
 .modal-body{flex:1 1 auto;min-height:0;overflow:auto;margin:0 -6px;padding:0 6px}   /* 창이 화면보다 길면 내용만 스크롤 — 아래 버튼은 항상 보이게 */
 .modal h3{margin:0 0 14px;font-size:17px;font-weight:700;letter-spacing:-.01em}
+.modal-head{display:flex;align-items:flex-start;gap:8px;flex:none}
+.modal-head h3{flex:1;min-width:0;display:flex;align-items:center;gap:8px}
+.modal-head h3 svg.ic{width:20px;height:20px;color:var(--accent-dark)}
+.modal-head h3>span{display:inline-flex;align-items:center;gap:8px}
+.modal-x{margin:-4px -6px 0 0}
+.m-btn.left{margin-right:auto}
+.m-btn.ghost{border-color:transparent;background:transparent;color:var(--muted)}
+.m-btn.ghost:hover{background:var(--soft);color:var(--text)}
+.m-btn.warn-now{color:var(--danger);background:var(--danger-soft);border-color:#F1CACD}
+/* 전체 모양 창 */
+.sd-intro{margin:0 0 12px !important;font-size:12.5px;color:var(--muted) !important;line-height:1.6}
+.sd-presets{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:10px 12px;margin-bottom:10px;border-radius:12px;background:var(--soft)}
+.sd-presets b{font-size:12.5px;font-weight:700;color:var(--text-2);margin-right:2px}
+.sd-presets select,.sd-presets input{flex:1 1 120px;min-width:0;height:32px;padding:0 9px;border:1px solid var(--line-strong);border-radius:8px;background:#fff;font:inherit;font-size:13px;color:var(--text)}
+.modal .sd-presets input[type=text]{font-size:13px;padding:0 9px}
+.sd-presets select:focus,.sd-presets input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.sd-presets .small-btn{flex:none;height:32px;padding:0 11px}
+.sd-sec{border:1px solid var(--line);border-radius:12px;margin-bottom:8px;background:#fff}
+.sd-sec-h{display:flex;align-items:center;gap:8px;width:100%;padding:11px 12px;border:none;border-radius:12px;background:none;text-align:left}
+.sd-sec-h:hover{background:#FBFBFD}
+.sd-sec-h .ttl{font-weight:700;font-size:13.5px;color:var(--text);white-space:nowrap}
+.sd-sec-h .sum{min-width:0;margin-left:auto;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.sd-sec-h .sum i{display:inline-block;width:12px;height:12px;border-radius:50%;box-shadow:0 0 0 1px var(--line-strong)}
+.sd-sec-h>svg.ic{width:15px;height:15px;color:var(--muted);flex:none;transition:transform .2s var(--ease)}
+.sd-sec.closed .sd-sec-h>svg.ic{transform:rotate(-90deg)}
+.sd-sec-b{padding:0 12px 8px;border-top:1px solid var(--line)}
+.sd-sec.closed .sd-sec-b{display:none}
+.srow{display:grid;grid-template-columns:118px minmax(0,1fr);align-items:center;gap:12px;padding:8px 0;border-bottom:1px dashed var(--line)}
+.srow:last-child{border-bottom:none}
+.srow-l{font-size:12.5px;font-weight:600;color:var(--text-2);line-height:1.35}
+.srow-l small{display:block;margin-top:2px;font-size:11px;font-weight:500;color:var(--muted)}
+.srow .switch-row{margin:0;padding:0;justify-content:flex-start}
+.srow .swatches{gap:5px}
 .modal p{margin:0 0 12px;color:var(--text-2)}
 .modal .field-label{display:block;font-size:12.5px;font-weight:700;color:var(--muted);margin-bottom:6px}
 .modal .field{margin:12px 0 0}
@@ -579,6 +612,8 @@ const ICONS = {
   keyboard: '<rect width="20" height="16" x="2" y="4" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"/>',
   chevDown: '<path d="m6 9 6 6 6-6"/>',
   panelL:   '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m16 15-3-3 3-3"/>',
+  x:        '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  palette:  '<circle cx="13.5" cy="6.5" r="1" fill="currentColor"/><circle cx="17.5" cy="10.5" r="1" fill="currentColor"/><circle cx="8.5" cy="7.5" r="1" fill="currentColor"/><circle cx="6.5" cy="12.5" r="1" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.65-.75 1.65-1.69 0-.44-.18-.84-.44-1.13-.29-.29-.44-.65-.44-1.13a1.64 1.64 0 0 1 1.67-1.67h2c3.05 0 5.55-2.5 5.55-5.55C21.97 6.01 17.46 2 12 2z"/>',
   panelR:   '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18"/><path d="m8 9 3 3-3 3"/>',
   panelRo:  '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18"/><path d="m10 15-3-3 3-3"/>',
   panelLo:  '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m14 9 3 3-3 3"/>',
@@ -879,7 +914,8 @@ function openModal({ title, body, buttons = [], width, side = false, onClose = n
     },
   }, b.label));
   back.appendChild(H('div', { class: 'modal', style: width ? `width:${width}px` : null },
-    H('h3', {}, title), H('div', { class: 'modal-body' }, body), H('div', { class: 'modal-actions' }, actions)));
+    H('div', { class: 'modal-head' }, H('h3', {}, title), sticky ? null : H('button', { class: 'icon-btn modal-x', title: '닫기 (Esc)', onclick: () => closeModal() }, icon('x'))),
+    H('div', { class: 'modal-body' }, body), H('div', { class: 'modal-actions' }, actions)));
   document.body.appendChild(back);
   modalEl = back; modalOnClose = onClose; modalSticky = sticky;
   const focusEl = back.querySelector('input[type=text]') || back.querySelector('.m-btn.primary, .m-btn.danger');
@@ -5225,43 +5261,135 @@ const STYLE_GROUPS = {
   corner: ['right', 'perp'],                                          // 직각·수직 표시 크기
 };
 const TEXT_TYPES = ['text', 'angle', 'length'];   // 전체 모양: 글자 글꼴을 함께 바꾸는 종류
-function styleDialog() {
-  const of = types => doc.objects.filter(o => types.includes(o.type));
-  const cur = (types, key, def) => { const o = of(types).find(x => x[key] != null); return o ? o[key] : ((userDefaults[types[0]] || {})[key] ?? def); };
-  const apply = (types, key, value, recKey) => {
-    record('style:' + recKey);
-    for (const o of of(types)) o[key] = value;
-    for (const t of types) userDefaults[t] = { ...(userDefaults[t] || {}), [key]: value };
-    store.set('defaults', userDefaults);
-    renderCanvas();
+const COLOR_TYPES = ['point', 'segment', 'line', 'circle', 'arc', 'ellipse', 'arrow', 'polygon', 'text', 'angle', 'length', 'right', 'parallel', 'perp'];   // 그림 전체 색 (색칠 안쪽은 그대로)
+const cfgOf = t => CONFIG[t === 'arc' || t === 'ellipse' ? 'circle' : t];
+/* 전체 모양의 항목: [종류, 속성, 처음 설정값] 묶음 — 처음 설정값이 undefined면 '자동' */
+const STYLE_FIELDS = (() => {
+  const P = CONFIG.point, each = (types, key, def) => types.map(t => [t, key, typeof def === 'function' ? def(t) : def]);
+  return {
+    labelFont: [['point', 'labelFont', P.labelFont]],
+    labelItalic: [['point', 'labelItalic', P.labelItalic]],
+    labelSize: [['point', 'labelSize', P.labelSize]],
+    labelWeight: [['point', 'labelWeight', 0]],
+    textFont: each(TEXT_TYPES, 'font', CONFIG.textFont),
+    textItalic: each(TEXT_TYPES, 'italicMode', 'auto'),
+    textSize: [['text', 'size', CONFIG.text.size], ['angle', 'labelSize', CONFIG.angle.labelSize], ['length', 'size', CONFIG.length.size]],
+    textWeight: each(TEXT_TYPES, 'weight', 0),
+    pointSize: [['point', 'size', P.size]],
+    figureWidth: each(STYLE_GROUPS.figure, 'width', t => cfgOf(t).width),
+    markWidth: each(STYLE_GROUPS.marks, 'width', t => CONFIG[t].width),
+    cornerSize: each(STYLE_GROUPS.corner, 'size', t => CONFIG[t].size),
+    tickLen: each(['segment', 'arrow'], 'tickLen', undefined),
+    parallelSize: [['parallel', 'size', CONFIG.parallel.size]],
+    color: each(COLOR_TYPES, 'color', t => cfgOf(t).color),
   };
+})();
+const styleCur = id => {
+  const F = STYLE_FIELDS[id];
+  for (const [t, k] of F) { const o = doc.objects.find(x => x.type === t && x[k] != null); if (o) return o[k]; }
+  for (const [t, k] of F) { const v = (userDefaults[t] || {})[k]; if (v != null) return v; }
+  return F[0][2];
+};
+/* 값을 그림 전체 + 앞으로 만들 개체(기본값)에 (실행 취소 기록은 부르는 쪽에서) */
+function styleSet(id, value) {
+  for (const [t, k] of STYLE_FIELDS[id]) {
+    for (const o of doc.objects) if (o.type === t) o[k] = value;
+    userDefaults[t] = { ...(userDefaults[t] || {}), [k]: value };
+  }
+  if (id === 'textWeight') for (const o of doc.objects) if (o.type === 'text' && o.bold) o.bold = false;   // 예전 '굵게'는 굵기로
+}
+const stylePresets = () => store.get('stylePresets') || [];
+function styleDialog() {
   const P = CONFIG.point;
-  const italicT = toggle('기울임', cur(['point'], 'labelItalic', P.labelItalic), v => { hist.lastKey = null; apply(['point'], 'labelItalic', v, 'italic'); });
+  const apply = (id, value) => { record('style:' + id); styleSet(id, value); store.set('defaults', userDefaults); renderCanvas(); refreshSums(); };
+  const once = (id, value) => { hist.lastKey = null; apply(id, value); };
+  const fontName = k => (LABEL_FONTS[k] || {}).name || k;
+  const fontOpts = Object.entries(LABEL_FONTS).map(([k, f]) => [k, f.name]);
+  const srow = (label, sub, control) => H('div', { class: 'srow' }, H('div', { class: 'srow-l' }, label, sub ? H('small', {}, sub) : null), control);
+  const sl = (id, min, max, step = 1) => slider({ min, max, step, value: styleCur(id) ?? CONFIG.segment.tickLen, onInput: v => apply(id, v) });
+  const R = CONFIG.ranges;
+  panelUi.sd = panelUi.sd || {};
+  const sums = [];
+  const refreshSums = () => sums.forEach(f => f());
+  const section = (id, title, sum, rows) => {
+    const sumEl = H('span', { class: 'sum' }), box = H('div', { class: 'sd-sec' + (panelUi.sd[id] ? ' closed' : '') });
+    const upd = () => sumEl.replaceChildren(...[].concat(sum())); upd(); sums.push(upd);
+    box.append(H('button', { class: 'sd-sec-h', onclick: () => { panelUi.sd[id] = !panelUi.sd[id]; box.classList.toggle('closed', panelUi.sd[id]); savePanelUi(); } },
+      H('span', { class: 'ttl' }, title), sumEl, icon('chevDown')), H('div', { class: 'sd-sec-b' }, ...rows));
+    return box;
+  };
+  const italicT = toggle('', styleCur('labelItalic'), v => once('labelItalic', v));
+  const validFont = (id, def) => LABEL_FONTS[styleCur(id)] ? styleCur(id) : def;
+
+  // 내 스타일: 지금 모양을 이름 붙여 저장 → 다른 그림에서 한 번에 적용
+  const presetSel = H('select', { title: '저장해 둔 스타일' }, H('option', { value: '' }, stylePresets().length ? '저장한 스타일 고르기' : '저장한 스타일 없음'),
+    ...stylePresets().map((pr, i) => H('option', { value: i }, pr.name)));
+  const nameIn = H('input', { type: 'text', placeholder: '예: 교과서용', maxlength: 20, onkeydown: e => { if (e.key === 'Enter' && !e.isComposing) { e.stopPropagation(); e.preventDefault(); savePreset(); } } });
+  function savePreset() {
+    const name = nameIn.value.trim(); if (!name) { toast('스타일 이름을 적어 주세요.', 'warn'); nameIn.focus(); return; }
+    const values = Object.fromEntries(Object.keys(STYLE_FIELDS).map(id => [id, styleCur(id)]));
+    const list = stylePresets().filter(x => x.name !== name); list.push({ name, values });
+    if (!store.set('stylePresets', list)) { toast('이 브라우저에서는 저장할 수 없어요.', 'error'); return; }
+    toast(`'${name}' 스타일을 저장했어요. 다른 그림에서도 [불러오기]로 한 번에 적용할 수 있어요.`, 'ok'); styleDialog();
+  }
+  const pick = () => { const i = presetSel.value; const pr = i === '' ? null : stylePresets()[+i]; if (!pr) toast('먼저 저장한 스타일을 골라 주세요.', 'warn'); return pr; };
+  const presetBar = H('div', { class: 'sd-presets' }, H('b', {}, '내 스타일'), presetSel,
+    H('button', { class: 'small-btn', title: '고른 스타일을 그림 전체에 적용', onclick: () => {
+      const pr = pick(); if (!pr) return;
+      hist.lastKey = null; record();
+      for (const [id, v] of Object.entries(pr.values)) if (STYLE_FIELDS[id] && v !== undefined) styleSet(id, v);
+      store.set('defaults', userDefaults); renderAll(); toast(`'${pr.name}' 스타일을 적용했어요. (되돌리기: Ctrl+Z)`, 'ok'); styleDialog();
+    } }, '불러오기'),
+    H('button', { class: 'small-btn', title: '고른 스타일 지우기', onclick: () => {
+      const pr = pick(); if (!pr) return;
+      store.set('stylePresets', stylePresets().filter(x => x.name !== pr.name)); toast(`'${pr.name}' 스타일을 지웠어요.`); styleDialog();
+    } }, '지우기'),
+    nameIn, H('button', { class: 'small-btn', title: '지금 모양을 이 이름으로 저장', onclick: savePreset }, '지금 모양 저장'));
+
+  let resetArmed = false;
   openModal({
-    title: '🎨 전체 모양', width: 460, side: true,
+    title: H('span', {}, icon('palette'), '전체 모양'), width: 540, side: true,
     body: H('div', {},
-      H('p', { class: 'ai-sub', style: 'margin:0 0 12px' }, '그림 전체에 바로 적용돼요. 앞으로 새로 만드는 점·선도 이 모양으로 만들어져요. (하나만 바꾸려면 그 개체를 클릭해서 오른쪽에서)'),
-      groupTitle('점 이름'),
-      field('글꼴', segmented(Object.entries(LABEL_FONTS).map(([k, f]) => [k, f.name]), LABEL_FONTS[cur(['point'], 'labelFont', P.labelFont)] ? cur(['point'], 'labelFont', P.labelFont) : P.labelFont,
-        v => { hist.lastKey = null; apply(['point'], 'labelFont', v, 'font'); hist.lastKey = 'style:font'; apply(['point'], 'labelItalic', LABEL_FONTS[v].italic, 'font'); italicT.querySelector('input').checked = LABEL_FONTS[v].italic; })),
-      italicT,
-      field('이름 크기', slider({ min: CONFIG.ranges.textSize[0], max: CONFIG.ranges.textSize[1], value: cur(['point'], 'labelSize', P.labelSize), onInput: v => apply(['point'], 'labelSize', v, 'labelSize') })),
-      field('이름 굵기 (0 = 보통)', slider({ min: CONFIG.ranges.textWeight[0], max: CONFIG.ranges.textWeight[1], step: 0.1, value: cur(['point'], 'labelWeight', 0), onInput: v => apply(['point'], 'labelWeight', v, 'labelWeight') })),
-      groupTitle('문자·각도·길이 글자 (x, y, 60°, 5 cm …)'),
-      field('글꼴', segmented(Object.entries(LABEL_FONTS).map(([k, f]) => [k, f.name]), LABEL_FONTS[cur(TEXT_TYPES, 'font', CONFIG.textFont)] ? cur(TEXT_TYPES, 'font', CONFIG.textFont) : CONFIG.textFont,
-        v => { hist.lastKey = null; apply(TEXT_TYPES, 'font', v, 'textFont'); })),
-      field('기울임', segmented(ITALIC_MODES, cur(TEXT_TYPES, 'italicMode', 'auto'), v => { hist.lastKey = null; apply(TEXT_TYPES, 'italicMode', v, 'textItalic'); })),
-      field('글자 굵기 (0 = 보통)', slider({ min: CONFIG.ranges.textWeight[0], max: CONFIG.ranges.textWeight[1], step: 0.1, value: cur(TEXT_TYPES, 'weight', 0),
-        onInput: v => { apply(TEXT_TYPES, 'weight', v, 'textWeight'); for (const o of doc.objects) if (o.type === 'text' && o.bold) o.bold = false; } })),
-      groupTitle('점'),
-      field('점 크기', slider({ min: P.sizeMin, max: P.sizeMax, step: 0.5, value: cur(['point'], 'size', P.size), onInput: v => apply(['point'], 'size', v, 'pointSize') })),
-      groupTitle('선 굵기'),
-      field('도형 선 (선분·직선·원·호·타원·화살표·다각형 테두리)', slider({ min: CONFIG.ranges.lineWidth[0], max: CONFIG.ranges.lineWidth[1], step: 0.25, value: cur(STYLE_GROUPS.figure, 'width', CONFIG.segment.width), onInput: v => apply(STYLE_GROUPS.figure, 'width', v, 'figureWidth') })),
-      field('표시 선 (각·직각·평행·수직 표시)', slider({ min: CONFIG.ranges.lineWidth[0], max: CONFIG.ranges.lineWidth[1], step: 0.25, value: cur(STYLE_GROUPS.marks, 'width', CONFIG.angle.width), onInput: v => apply(STYLE_GROUPS.marks, 'width', v, 'markWidth') })),
-      groupTitle('직각 표시'),
-      field('직각·수직 표시 크기', slider({ min: CONFIG.ranges.markSize[0], max: CONFIG.ranges.markSize[1], value: cur(STYLE_GROUPS.corner, 'size', CONFIG.right.size), onInput: v => apply(STYLE_GROUPS.corner, 'size', v, 'cornerSize') }))),
-    buttons: [{ label: '닫기', kind: 'primary' }],
+      H('p', { class: 'sd-intro' }, '그림 전체에 바로 적용돼요. 앞으로 새로 만드는 점·선도 이 모양으로 만들어져요. (하나만 바꾸려면 그 개체를 클릭해서 오른쪽에서)'),
+      presetBar,
+      section('name', '점 이름', () => `${fontName(validFont('labelFont', P.labelFont))} · ${styleCur('labelSize')}`, [
+        srow('글꼴', null, segmented(fontOpts, validFont('labelFont', P.labelFont),
+          v => { hist.lastKey = null; apply('labelFont', v); hist.lastKey = 'style:labelFont'; apply('labelItalic', LABEL_FONTS[v].italic); italicT.querySelector('input').checked = LABEL_FONTS[v].italic; })),
+        srow('기울임', null, italicT),
+        srow('이름 크기', null, sl('labelSize', R.textSize[0], R.textSize[1])),
+        srow('이름 굵기', '0 = 보통', sl('labelWeight', R.textWeight[0], R.textWeight[1], 0.1))]),
+      section('text', '문자·각도·길이 글자', () => `${fontName(validFont('textFont', CONFIG.textFont))} · ${styleCur('textSize')}`, [
+        srow('글꼴', 'x, y, 60°, 5 cm …', segmented(fontOpts, validFont('textFont', CONFIG.textFont), v => once('textFont', v))),
+        srow('기울임', null, segmented(ITALIC_MODES, styleCur('textItalic'), v => once('textItalic', v))),
+        srow('글자 크기', '문자·각도·길이를 같은 크기로', sl('textSize', R.textSize[0], R.textSize[1])),
+        srow('글자 굵기', '0 = 보통', sl('textWeight', R.textWeight[0], R.textWeight[1], 0.1))]),
+      section('point', '점', () => `크기 ${styleCur('pointSize')}`, [
+        srow('점 크기', null, sl('pointSize', P.sizeMin, P.sizeMax, 0.5))]),
+      section('line', '선 · 원 · 도형', () => `굵기 ${styleCur('figureWidth')}`, [
+        srow('도형 선 굵기', '선분·직선·원·호·타원·화살표·다각형 테두리', sl('figureWidth', R.lineWidth[0], R.lineWidth[1], 0.25))]),
+      section('mark', '기하학적 표시', () => `선 ${styleCur('markWidth')} · 직각 ${styleCur('cornerSize')}`, [
+        srow('표시 선 굵기', '각·직각·평행·수직 표시', sl('markWidth', R.lineWidth[0], R.lineWidth[1], 0.25)),
+        srow('직각·수직 표시 크기', null, sl('cornerSize', R.markSize[0], R.markSize[1])),
+        srow('같은 길이 표시 크기', '| || ||| (선분·화살표)', sl('tickLen', R.markSize[0], R.markSize[1])),
+        srow('평행 표시 크기', '선분 위 화살표 ›', sl('parallelSize', R.headSize[0], R.headSize[1]))]),
+      section('color', '색', () => [H('i', { style: `background:${styleCur('color')}` }), '그림 전체'], [
+        srow('그림 전체 색', '점·선·글자·표시 (색칠한 안쪽은 그대로)', colorPicker(styleCur('color'), c => { hist.lastKey = null; apply('color', c); }))])),
+    buttons: [
+      { label: '처음 설정으로', kind: 'left ghost', onClick: () => {
+        const b = [...modalEl.querySelectorAll('.m-btn')].find(x => x.textContent.startsWith('처음 설정') || x.textContent.startsWith('한 번 더'));
+        if (!resetArmed) { resetArmed = true; b.textContent = '한 번 더 누르면 되돌려요'; b.classList.add('warn-now'); setTimeout(() => { resetArmed = false; if (b.isConnected) { b.textContent = '처음 설정으로'; b.classList.remove('warn-now'); } }, 3500); return false; }
+        hist.lastKey = null; record();
+        for (const F of Object.values(STYLE_FIELDS)) for (const [t, k, def] of F) {
+          for (const o of doc.objects) if (o.type === t) { if (def === undefined) delete o[k]; else o[k] = def; }
+          if (userDefaults[t]) { delete userDefaults[t][k]; if (!Object.keys(userDefaults[t]).length) delete userDefaults[t]; }
+        }
+        for (const o of doc.objects) if (o.type === 'text') o.bold = false;
+        store.set('defaults', userDefaults); renderAll();
+        toast('전체 모양을 처음 설정으로 되돌렸어요. (되돌리기: Ctrl+Z)', 'ok'); styleDialog(); return false;
+      } },
+      { label: '닫기', kind: 'primary' }],
   });
+  nameIn.blur();
 }
 $('#btnStyle').onclick = styleDialog;
 $('#btnFlip').onclick = transformDialog;
