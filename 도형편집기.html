@@ -57,6 +57,8 @@ body{
 }
 button{font:inherit;color:inherit;cursor:pointer}
 button:disabled{cursor:not-allowed}
+button:focus{outline:none}
+button:focus-visible{outline:2px solid var(--accent-line);outline-offset:1px}
 svg.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
 
 /* ---------- 상단 바 ---------- */
@@ -96,7 +98,8 @@ svg.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.75;st
 .default-row .small-btn{font-size:12px}
 
 /* ---------- 3단 레이아웃 ---------- */
-.main{flex:1;display:grid;grid-template-columns:156px 1fr 300px;gap:10px;padding:10px;min-height:0}
+.main{flex:1;display:grid;grid-template-columns:216px 1fr 300px;gap:10px;padding:10px;min-height:0;transition:grid-template-columns .2s var(--ease)}
+.main.left-min{grid-template-columns:58px 1fr 300px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);min-height:0}
 
 /* ---------- 왼쪽: 도구 모음 ---------- */
@@ -111,6 +114,51 @@ svg.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.75;st
 .tool-btn.active .key{color:#E4E0F4}
 .shortcuts{margin-top:auto;padding:10px 4px 2px;border-top:1px dashed var(--line);font-size:11.5px;color:var(--muted);line-height:1.9}
 kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:5px;background:#fff;font:11px/16px inherit;text-align:center;color:var(--text)}
+
+/* ---------- 왼쪽 도구 패널 (카테고리별, 접고 펼치기) ---------- */
+.tools{padding:6px 8px 8px;overflow-y:auto;overflow-x:hidden;gap:0}
+.tp-top{display:flex;align-items:center;justify-content:space-between;padding:4px 4px 6px}
+.tp-top b{font-size:13px;font-weight:700;color:var(--text)}
+.icon-btn{display:grid;place-items:center;width:28px;height:28px;border:none;border-radius:8px;background:transparent;color:var(--muted);flex:none;transition:background .15s var(--ease)}
+.icon-btn:hover{background:var(--soft);color:var(--text)}
+.icon-btn svg.ic{width:17px;height:17px}
+.tp-sec{border-top:1px solid var(--line);padding-top:2px}
+.tp-sec-h{display:flex;align-items:center;gap:4px;width:100%;padding:7px 4px 5px;border:none;background:none;font-size:11.5px;font-weight:700;color:var(--muted);letter-spacing:.01em;text-align:left}
+.tp-sec-h:hover{color:var(--text)}
+.tp-sec-h svg.ic{width:14px;height:14px;margin-left:auto;transition:transform .2s var(--ease)}
+.tp-sec.closed .tp-sec-h svg.ic{transform:rotate(-90deg)}
+.tp-grid{display:grid;grid-template-columns:1fr 1fr;gap:3px;padding:0 0 8px}
+.tp-sec.closed .tp-grid{display:none}
+.tbtn{position:relative;display:flex;align-items:center;gap:6px;height:34px;min-width:0;padding:0 7px;border:1px solid transparent;border-radius:var(--rb);background:transparent;color:var(--text-2);font-size:12.5px;font-weight:600;text-align:left;transition:background .15s var(--ease),color .15s var(--ease),border-color .15s var(--ease)}
+.tbtn svg.ic{width:18px;height:18px}
+.tbtn .tl{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tbtn:hover{background:var(--soft);color:var(--text)}
+.tbtn.active{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent-dark)}
+.tbtn.has-menu::after{content:'';position:absolute;right:4px;bottom:4px;border:2.5px solid transparent;border-right-color:currentColor;border-bottom-color:currentColor;opacity:.4}
+.tbtn.span2{grid-column:span 2}
+.tbtn.ai-main{color:var(--accent-dark)}
+.tbtn .pill{margin-left:auto;flex:none;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:99px;background:var(--soft);color:var(--muted)}
+.tbtn.on .pill{background:var(--accent);color:#fff}
+.tbtn.on{color:var(--accent-dark)}
+.tp-foot{border-top:1px solid var(--line);padding-top:6px;margin-top:auto}
+.tp-foot .tbtn{width:100%;color:var(--muted)}
+/* 접은 상태: 아이콘만 (마우스를 올리면 이름이 나와요) */
+.left-min .tools{padding:6px 5px}
+.left-min .tp-top{justify-content:center;padding:4px 0 6px}
+.left-min .tp-top b,.left-min .tp-sec-h span,.left-min .tbtn .tl,.left-min .tbtn .pill{display:none}
+.left-min .tp-sec-h{justify-content:center;padding:4px 0}
+.left-min .tp-sec-h svg.ic{display:none}
+.left-min .tp-grid{grid-template-columns:1fr;padding-bottom:4px}
+.left-min .tp-sec.closed .tp-grid{display:grid}
+.left-min .tbtn{justify-content:center;padding:0}
+.left-min .tbtn.span2{grid-column:auto}
+.left-min .tbtn.on::before{content:'';position:absolute;right:5px;top:5px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+/* 단축키 도움말 */
+.keys{display:grid;grid-template-columns:1fr 1fr;gap:4px 18px}
+.keys h4{grid-column:1/-1;margin:10px 0 2px;font-size:12px;font-weight:700;color:var(--muted)}
+.keys h4:first-child{margin-top:0}
+.keys div{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px;color:var(--text-2);padding:3px 0;border-bottom:1px dashed var(--line)}
+.keys div span:last-child{flex:none;white-space:nowrap}
 
 /* ---------- 가운데: 작업 영역 ---------- */
 .stage{display:flex;flex-direction:column;overflow:hidden}
@@ -146,15 +194,15 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
 .tool-btn .grp{position:absolute;top:3px;left:7px;font-size:10px;font-weight:800;color:var(--faint)}
 .tool-btn .more{position:absolute;right:5px;bottom:3px;font-size:10px;color:var(--faint)}
 .tool-btn.active .grp,.tool-btn.active .more{color:#E4E0F4}
-.flyout{position:fixed;z-index:30;min-width:270px;padding:8px;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 34px rgba(40,38,70,.2)}
+.flyout{position:fixed;z-index:30;min-width:270px;padding:6px;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-pop);animation:popin .14s var(--ease)}
 .fly-title{padding:2px 8px 6px;font-size:12px;font-weight:800;color:var(--muted)}
 .fly-item{display:flex;align-items:center;gap:11px;width:100%;padding:8px 10px;border:none;border-radius:10px;background:none;text-align:left}
-.fly-item:hover{background:var(--accent-soft)}
-.fly-item.on{background:var(--accent);color:#fff}
-.fly-item svg.ic{width:28px;height:28px}
+.fly-item:hover{background:var(--soft)}
+.fly-item.on{background:var(--accent-soft);color:var(--accent-dark)}
+.fly-item svg.ic{width:24px;height:24px}
 .fly-item b{display:flex;align-items:center;gap:6px;font-size:14px}
 .fly-item small{display:block;margin-top:1px;font-size:12px;color:var(--muted)}
-.fly-item.on small{color:#E4E0F4}
+.fly-item.on small{color:var(--accent)}
 .fly-item kbd{font-size:10px;line-height:14px}
 .tool-btn.wide{grid-column:span 2;flex-direction:row;justify-content:center;gap:5px;padding:9px 4px;white-space:nowrap;font-size:13.5px}
 .tool-btn.wide svg.ic{width:20px;height:20px}
@@ -337,18 +385,7 @@ kbd{display:inline-block;min-width:18px;padding:0 5px;border:1px solid var(--lin
   <!-- ================================================================
        [화면 뼈대] 왼쪽 — 도구 모음 (버튼은 아래 [도구 목록]의 TOOL_GROUPS로 자동 생성)
        ================================================================ -->
-  <aside class="card tools" id="toolbar">
-    <div class="shortcuts">
-      <kbd>Del</kbd> 지우기<br>
-      <kbd>Esc</kbd> 취소<br>
-      <kbd>Ctrl</kbd>+<kbd>Z</kbd> 되돌리기<br>
-      <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>V</kbd> 복사·붙여넣기<br>
-      <kbd>Ctrl</kbd>+<kbd>D</kbd> 복제 · <kbd>Ctrl</kbd>+<kbd>A</kbd> 모두<br>
-      <kbd>←</kbd><kbd>→</kbd> 조금씩 이동<br>
-      휠 확대/축소<br>
-      <kbd>Space</kbd>+끌기 화면 이동
-    </div>
-  </aside>
+  <aside class="card tools" id="toolbar"></aside>
 
   <!-- ================================================================
        [화면 뼈대] 가운데 — 작업 영역
@@ -496,6 +533,19 @@ const CONFIG = {
    [아이콘] 화면에 쓰는 작은 그림들 (24×24 기준 SVG)
    ================================================================ */
 const ICONS = {
+  copy:     '<rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+  selAll:   '<path d="M5 3a2 2 0 0 0-2 2"/><path d="M19 3a2 2 0 0 1 2 2"/><path d="M21 19a2 2 0 0 1-2 2"/><path d="M5 21a2 2 0 0 1-2-2"/><path d="M9 3h1M9 21h1M14 3h1M14 21h1M3 9v1M21 9v1M3 14v1M21 14v1"/>',
+  imgFile:  '<rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>',
+  sparkles: '<path d="M9.94 15.5a2 2 0 0 0-1.44-1.44l-6.13-1.58a.5.5 0 0 1 0-.96l6.13-1.58A2 2 0 0 0 9.94 8.5l1.58-6.13a.5.5 0 0 1 .96 0l1.58 6.13a2 2 0 0 0 1.44 1.44l6.13 1.58a.5.5 0 0 1 0 .96l-6.13 1.58a2 2 0 0 0-1.44 1.44l-1.58 6.13a.5.5 0 0 1-.96 0z"/><path d="M20 3v4M22 5h-4"/>',
+  scan:     '<path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/><path d="m16 16-1.9-1.9"/>',
+  clip:     '<rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>',
+  sliders:  '<path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4"/>',
+  eye:      '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+  bot:      '<path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2M20 14h2M15 13v2M9 13v2"/>',
+  keyboard: '<rect width="20" height="16" x="2" y="4" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"/>',
+  chevDown: '<path d="m6 9 6 6 6-6"/>',
+  panelL:   '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m16 15-3-3 3-3"/>',
+  panelLo:  '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m14 9 3 3-3 3"/>',
   select:   '<path d="M6 3.5l12 7.2-5.3 1.4L9.8 17z" fill="currentColor" fill-opacity=".15"/><path d="M12.7 12.1l3.6 5.4"/>',
   point:    '<circle cx="12" cy="12" r="4" fill="currentColor"/>',
   pointTool:'<circle cx="9" cy="15" r="3.4" fill="currentColor"/><path d="M15 3.5l-3 7M15 3.5l3 7M13 8h4"/>',
@@ -2116,20 +2166,71 @@ function curveD(o) {
 const groupCurrent = {};   // 묶음마다 마지막으로 쓴 도구
 TOOL_GROUPS.forEach(g => { groupCurrent[g.id] = g.tools[0]; });
 const groupOf = t => TOOL_GROUPS.find(g => g.tools.includes(t));
+/* 왼쪽 도구 패널: 선택·편집 / 기하 도구 / 표시·주석 / 그림·AI / 보기 — 칸마다 접고 펼칠 수 있어요 */
+const TOOL_SECTIONS = [
+  { id: 'edit', label: '선택 및 편집' },
+  { id: 'geo', label: '기하 도구', groups: ['point', 'line', 'circle', 'construct', 'poly', 'solid'] },
+  { id: 'mark', label: '표시 및 주석', tools: ['text', 'length', 'equal', 'angle', 'right', 'parallel', 'perp'] },
+  { id: 'ai', label: '그림 · AI 인식' },
+  { id: 'view', label: '보기' },
+];
+const panelUi = Object.assign({ leftMin: false, closed: {} }, store.get('panelUi') || {});
+const savePanelUi = () => store.set('panelUi', panelUi);
+const tbtn = (ic, label, title, onclick, cls = '', more = {}) => H('button', { class: 'tbtn ' + cls, title, onclick, ...more }, icon(ic), H('span', { class: 'tl' }, label));
+const keyTip = (label, key) => label + (key ? ` (${key})` : '');
 function buildToolbar() {
-  const bar = $('#toolbar'), before = bar.querySelector('.shortcuts');
-  bar.insertBefore(H('div', { class: 'section-title' }, '도구 ▸ 눌러서 더 보기'), before);
-  bar.insertBefore(H('div', { class: 'tool-grid', id: 'toolGrid' }), before);
-  // 보기: 좌표평면 켜고 끄기 + 설정 열기
-  bar.insertBefore(H('div', { class: 'section-title' }, '보기'), before);
-  bar.insertBefore(H('div', { class: 'tool-grid' },
-    H('button', { class: 'tool-btn wide', id: 'btnCoord', title: '좌표평면 켜기/설정', onclick: openCoord },
-      icon('coord'), '좌표평면', H('span', { class: 'pill', id: 'coordPill' }, '꺼짐')),
-    H('button', { class: 'tool-btn vis', id: 'btnImgVis', title: '불러온 원본 그림을 보이거나 숨겨요 (숨기면 점·선 등 개체만 보여요)', onclick: toggleImages },
-      H('span', { class: 'tl' }, '원본 그림'), H('span', { class: 'pill', id: 'imgPill' }, '없음')),
-    H('button', { class: 'tool-btn vis', id: 'btnAiVis', title: 'AI가 인식해 만든 개체를 보이거나 숨겨요', onclick: toggleAiObjects },
-      H('span', { class: 'tl' }, 'AI 개체'), H('span', { class: 'pill', id: 'aiPill' }, '없음'))), before);
+  const bar = $('#toolbar'); bar.replaceChildren();
+  bar.append(H('div', { class: 'tp-top' }, H('b', {}, '도구'),
+    H('button', { class: 'icon-btn', id: 'btnLeftMin', title: '도구 패널 접기/펴기', onclick: () => setLeftMin(!panelUi.leftMin) }, icon('panelL'))));
+  for (const sec of TOOL_SECTIONS) {
+    const grid = H('div', { class: 'tp-grid', id: 'tp-' + sec.id });
+    const box = H('div', { class: 'tp-sec' + (panelUi.closed[sec.id] ? ' closed' : ''), 'data-sec': sec.id },
+      H('button', { class: 'tp-sec-h', title: sec.label + ' 접기/펴기', onclick: () => { panelUi.closed[sec.id] = !panelUi.closed[sec.id]; box.classList.toggle('closed', panelUi.closed[sec.id]); savePanelUi(); } },
+        H('span', {}, sec.label), icon('chevDown')), grid);
+    bar.append(box);
+  }
+  $('#tp-ai').append(
+    tbtn('imgFile', '그림 넣기', 'PNG·JPG 그림 불러오기 (캡처 후 Ctrl+V, 끌어다 놓기도 돼요)', () => $('#btnImage').click()),
+    tbtn('sparkles', 'AI 인식', 'AI로 도형 인식하기 — 그림 속 점·선·표시를 고칠 수 있는 개체로 바꿔요 (누를 때만 AI를 불러요)', () => { const o = aiTargetImage(); if (o) { select(o.id); aiStart(o); } }, 'ai-main'),
+    tbtn('scan', '영역 인식', '그림 위를 끌어서 고른 부분만 AI가 인식해요', () => { if (aiBusy) { toast('AI가 아직 분석하고 있어요. 조금만 기다려 주세요.', 'warn'); return; } const o = aiTargetImage(); if (o) { select(o.id); aiRegionStart(o); } }),
+    tbtn('clip', '붙여넣기', 'AI 결과 붙여넣기 — 다른 AI 채팅(Gemini 앱 등)에서 받은 결과를 붙여 넣어요', () => { const o = aiTargetImage(); if (o) { select(o.id); aiPasteDialog(o); } }),
+    tbtn('sliders', 'AI 설정', '접속 비밀번호·좌표 보정·연결 시험', () => aiSettingsDialog(), 'span2'));
+  $('#tp-view').append(
+    H('button', { class: 'tbtn span2', id: 'btnCoord', title: '좌표평면 켜기/설정', onclick: openCoord }, icon('coord'), H('span', { class: 'tl' }, '좌표평면'), H('span', { class: 'pill', id: 'coordPill' }, '꺼짐')),
+    H('button', { class: 'tbtn span2', id: 'btnImgVis', title: '불러온 원본 그림을 보이거나 숨겨요 (숨기면 점·선 등 개체만 보여요)', onclick: toggleImages }, icon('eye'), H('span', { class: 'tl' }, '원본 그림'), H('span', { class: 'pill', id: 'imgPill' }, '없음')),
+    H('button', { class: 'tbtn span2', id: 'btnAiVis', title: 'AI가 인식해 만든 개체를 보이거나 숨겨요', onclick: toggleAiObjects }, icon('bot'), H('span', { class: 'tl' }, 'AI 개체'), H('span', { class: 'pill', id: 'aiPill' }, '없음')));
+  bar.append(H('div', { class: 'tp-foot' }, tbtn('keyboard', '단축키 보기', '단축키 모아 보기 (?)', shortcutsDialog)));
+  setLeftMin(panelUi.leftMin, true);
   renderToolButtons();
+}
+function setLeftMin(on, quiet = false) {
+  panelUi.leftMin = !!on; if (!quiet) savePanelUi();
+  $('.main').classList.toggle('left-min', panelUi.leftMin);
+  const b = $('#btnLeftMin'); if (b) { b.replaceChildren(icon(panelUi.leftMin ? 'panelLo' : 'panelL')); b.title = panelUi.leftMin ? '도구 패널 펼치기' : '도구 패널 접기 (아이콘만)'; }
+}
+/* AI로 인식할 그림: 고른 그림 → 그림이 하나뿐이면 그것 */
+function aiTargetImage() {
+  const sel = getObj(selectedId), imgs = byType('image');
+  if (sel && sel.type === 'image') return sel;
+  if (imgs.length === 1) return imgs[0];
+  toast(imgs.length ? '그림이 여러 개예요. 인식할 그림을 먼저 클릭해서 골라 주세요.' : '먼저 [그림 불러오기]로 문제 그림을 넣어 주세요.', 'warn');
+  return null;
+}
+/* 단축키 모아 보기 */
+function shortcutsDialog() {
+  const row = (k, d) => H('div', {}, H('span', {}, d), H('span', {}, ...k.split(' ').map((x, i) => [i ? ' ' : null, x === '+' || x === '/' ? x : H('kbd', {}, x)]).flat()));
+  const toolKeys = Object.values(TOOLS).filter(T => T.key).map(T => row(T.key.toUpperCase(), T.label));
+  openModal({ title: '⌨ 단축키', width: 660, body: H('div', { class: 'keys' },
+    H('h4', {}, '파일 · 편집'),
+    row('Ctrl + S', '저장'), row('Ctrl + Shift + S', '다른 이름으로 저장'), row('Ctrl + O', '작업 열기'), row('Ctrl + V', '그림·개체 붙여넣기'),
+    row('Ctrl + Z', '실행 취소'), row('Ctrl + Y', '다시 실행'), row('Ctrl + C / X', '복사 · 잘라내기'), row('Ctrl + D', '복제'),
+    row('Ctrl + A', '모두 선택'), row('Del', '지우기'), row('Esc', '취소 · 선택 도구로'), row('← → ↑ ↓', '조금씩 이동 (Shift: 10칸)'),
+    H('h4', {}, '도구'), ...toolKeys, row('Enter', '다각형 완성 · 다음 같은 길이 묶음'),
+    H('h4', {}, '회전 · 뒤집기 · 크기'),
+    row('Shift + R', '오른쪽으로 90° 회전'), row('Shift + H', '좌우 뒤집기'), row('Shift + V', '상하 뒤집기'), row('Shift + + / −', '10% 크게 · 작게'),
+    H('h4', {}, '화면'),
+    row('Ctrl + + / −', '확대 · 축소'), row('Ctrl + 0', '화면에 맞추기'), row('Space', '누른 채 끌면 화면 이동'), row('?', '이 창 열기')),
+    buttons: [{ label: '닫기', kind: 'primary' }] });
 }
 /* 원본 그림 모두 보이기/숨기기 — 인식한 개체만 따로 보고 싶을 때 */
 function toggleImages() {
@@ -2160,21 +2261,28 @@ function updateImageButton() {
   $('#imgPill').textContent = !imgs.length ? '없음' : shown ? '보임' : '숨김';
 }
 function renderToolButtons() {
-  const grid = $('#toolGrid'); grid.replaceChildren();
-  for (const g of TOOL_GROUPS) {
-    const t = groupCurrent[g.id], T = TOOLS[t], multi = g.tools.length > 1;
-    grid.append(H('button', {
-      class: 'tool-btn' + (multi ? ' has-menu' : '') + (g.tools.includes(tool) ? ' active' : ''), 'data-group': g.id,
-      title: multi ? `${g.label} 도구: ${g.tools.map(x => TOOLS[x].label).join(', ')}` : T.label + (T.key ? ` (${T.key.toUpperCase()})` : ''),
+  const edit = $('#tp-edit'), geo = $('#tp-geo'), mark = $('#tp-mark'); if (!edit) return;
+  edit.replaceChildren(
+    tbtn(TOOLS.select.icon, '선택', keyTip('선택 — 클릭해서 고르고, 끌어서 옮겨요', 'V'), () => setTool('select'), tool === 'select' ? 'active' : ''),
+    tbtn('trash', '지우기', '고른 개체 지우기 (Del)', deleteSelected),
+    tbtn('copy', '복제', '고른 개체 복제 (Ctrl+D)', duplicateSelection),
+    tbtn('selAll', '모두 선택', '모두 선택 (Ctrl+A)', () => { if (tool !== 'select') setTool('select'); selectAll(); }));
+  geo.replaceChildren(...TOOL_SECTIONS[1].groups.map(id => {
+    const g = TOOL_GROUPS.find(x => x.id === id), t = groupCurrent[g.id], T = TOOLS[t];
+    return H('button', {
+      class: 'tbtn has-menu' + (g.tools.includes(tool) ? ' active' : ''), 'data-group': g.id,
+      title: `${g.label}: ${g.tools.map(x => TOOLS[x].label).join(', ')} — 눌러서 고르기`,
       onclick: () => {
         const open = flyEl && flyEl.dataset.group === g.id;
-        setTool(t);   // 버튼들을 새로 그리므로, 목록은 새 버튼 옆에 엽니다
-        if (multi && !open) openFlyout(g, $(`#toolGrid [data-group="${g.id}"]`));
+        setTool(groupCurrent[g.id]);   // 버튼들을 새로 그리므로, 목록은 새 버튼 옆에 엽니다
+        if (!open) openFlyout(g, $(`#toolbar [data-group="${g.id}"]`));
       },
-    },
-      multi ? H('span', { class: 'grp' }, g.label) : (T.key ? H('span', { class: 'key' }, T.key.toUpperCase()) : null),
-      icon(T.icon), H('span', { class: 'tl' }, T.short || T.label), multi ? H('span', { class: 'more' }, '▸') : null));
-  }
+    }, icon(T.icon), H('span', { class: 'tl' }, T.short || T.label));
+  }));
+  mark.replaceChildren(...TOOL_SECTIONS[2].tools.map(t => {
+    const T = TOOLS[t];
+    return tbtn(T.icon, T.short || T.label, keyTip(T.label + (T.desc ? ' — ' + T.desc : ''), T.key && T.key.toUpperCase()), () => setTool(t), t === tool ? 'active' : '');
+  }));
 }
 let flyEl = null;
 function openFlyout(g, btn) {
@@ -2193,7 +2301,7 @@ function openFlyout(g, btn) {
 }
 function closeFlyout() { if (flyEl) { flyEl.remove(); flyEl = null; } }
 document.addEventListener('pointerdown', e => {
-  if (flyEl && !flyEl.contains(e.target) && !e.target.closest('.tool-btn.has-menu')) closeFlyout();
+  if (flyEl && !flyEl.contains(e.target) && !e.target.closest('.tbtn.has-menu')) closeFlyout();
 }, true);
 function updateCoordButton() {
   $('#btnCoord').classList.toggle('on', coordOn());
@@ -5445,6 +5553,7 @@ document.addEventListener('keydown', e => {
   if (e.shiftKey && key === 'r') { e.preventDefault(); rotateFigure(-90); return; }
   if (e.shiftKey && !ctrl && (e.key === '+' || e.code === 'Equal' || e.code === 'NumpadAdd')) { e.preventDefault(); scaleFigure(1.1); return; }   // 10% 크게
   if (e.shiftKey && !ctrl && (e.key === '_' || e.code === 'Minus' || e.code === 'NumpadSubtract')) { e.preventDefault(); scaleFigure(1 / 1.1); return; }   // 10% 작게                  // 시계 방향으로 90° 회전
+  if (e.key === '?') { e.preventDefault(); shortcutsDialog(); return; }
   const t = Object.keys(TOOLS).find(n => TOOLS[n].key === key);
   if (t) { setTool(t); return; }
   const arrows = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
